@@ -88,7 +88,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Brand */}
         <div className="flex h-16 items-center justify-between border-b border-default-200 px-4">
           <Link href="/dashboard" className="text-lg font-bold tracking-tight">
-            <span className="text-primary">Bagdja</span> Admin
+            <span className="text-primary">Bagdja</span> Website Admin
           </Link>
           <button
             onClick={onClose}

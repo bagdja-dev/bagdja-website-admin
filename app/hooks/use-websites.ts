@@ -16,31 +16,19 @@ interface UserWebsite {
   is_active: boolean;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5003';
-
-function getToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)bw_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
 export function useWebsites() {
   const [websites, setWebsites] = useState<UserWebsite[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeWebsite, setActiveWebsite] = useState<UserWebsite | null>(null);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    fetch(`${API_BASE}/api/user/websites`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data: UserWebsite[]) => {
+    // Call admin BFF route — reads httpOnly bw_token server-side
+    fetch('/api/user/websites')
+      .then(async (r) => {
+        if (!r.ok) return [];
+        return r.json() as Promise<UserWebsite[]>;
+      })
+      .then((data) => {
         setWebsites(data);
         const savedId =
           typeof localStorage !== 'undefined'

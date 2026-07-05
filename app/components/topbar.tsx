@@ -53,7 +53,13 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
       </div>
 
       {/* Right: profile dropdown with website switcher */}
-      <Dropdown placement="bottom-end">
+      <Dropdown
+        placement="bottom-end"
+        classNames={{
+          content:
+            'min-w-[16rem] rounded-xl border border-default-200 bg-white p-1 shadow-xl shadow-black/10',
+        }}
+      >
         <DropdownTrigger>
           <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-default-100">
             <div className="hidden text-right sm:block">
@@ -75,7 +81,16 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
         <DropdownMenu
           aria-label="Profile menu"
-          className="w-64"
+          className="w-64 bg-white"
+          itemClasses={{
+            base: 'rounded-lg data-[hover=true]:bg-default-100',
+            title: 'text-foreground',
+            description: 'text-default-500',
+          }}
+          classNames={{
+            base: 'bg-white',
+            list: 'bg-white',
+          }}
           onAction={(key) => {
             const keyStr = String(key);
             if (keyStr === 'logout') return;
@@ -83,18 +98,41 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             if (isWebsite) switchWebsite(keyStr);
           }}
         >
-          <DropdownSection title="Akun" showDivider>
-            <DropdownItem key="profile" isReadOnly className="cursor-default opacity-100" textValue={displayName}>
-              <div>
-                <p className="text-sm font-semibold">{displayName}</p>
+          <DropdownSection
+            title="Akun"
+            showDivider
+            classNames={{
+              base: 'bg-white',
+              heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
+              group: 'bg-white',
+              divider: 'bg-default-200',
+            }}
+          >
+            <DropdownItem
+              key="profile"
+              isReadOnly
+              className="cursor-default bg-default-50 opacity-100"
+              textValue={displayName}
+            >
+              <div className="py-0.5">
+                <p className="text-sm font-semibold text-foreground">{displayName}</p>
                 {user?.email && (
-                  <p className="text-xs text-default-400">{user.email}</p>
+                  <p className="text-xs text-default-500">{user.email}</p>
                 )}
               </div>
             </DropdownItem>
           </DropdownSection>
 
-          <DropdownSection title="Website" showDivider>
+          <DropdownSection
+            title="Website"
+            showDivider
+            classNames={{
+              base: 'bg-white',
+              heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
+              group: 'bg-white',
+              divider: 'bg-default-200',
+            }}
+          >
             {websiteItems.map((w) => (
               <DropdownItem
                 key={w.key}
@@ -115,8 +153,19 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             ))}
           </DropdownSection>
 
-          <DropdownSection>
-            <DropdownItem key="logout" color="danger" href="/auth/logout" textValue="Keluar">
+          <DropdownSection
+            classNames={{
+              base: 'bg-white',
+              group: 'bg-white',
+            }}
+          >
+            <DropdownItem
+              key="logout"
+              color="danger"
+              href="/auth/logout"
+              textValue="Keluar"
+              className="text-danger"
+            >
               Keluar
             </DropdownItem>
           </DropdownSection>

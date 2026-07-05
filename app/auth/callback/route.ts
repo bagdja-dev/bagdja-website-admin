@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { setSession } from '../../lib/session';
+import { syncUserToBackend } from '../../lib/backend-api';
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
 const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
@@ -66,6 +67,9 @@ export async function GET(request: NextRequest) {
       email: payload.email,
       username: payload.username,
     });
+
+    // Sync user to Website API DB (upsert users table via JwtStrategy)
+    await syncUserToBackend(accessToken);
 
     jar.delete('oauth_code_verifier');
     jar.delete('oauth_state');

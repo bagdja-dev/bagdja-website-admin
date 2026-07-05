@@ -39,7 +39,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
 const REDIRECT_URI =
   process.env.NEXT_PUBLIC_REDIRECT_URI ?? 'http://localhost:5004/auth/callback';
 
-export function buildAuthorizeUrl(state: string, codeChallenge: string): string {
+export function buildAuthorizeUrl(state: string, codeChallenge: string, forceLogin = false): string {
   const url = new URL('/oauth/authorize', AUTH_URL);
   url.searchParams.set('client_id', CLIENT_ID);
   url.searchParams.set('response_type', 'code');
@@ -47,5 +47,8 @@ export function buildAuthorizeUrl(state: string, codeChallenge: string): string 
   url.searchParams.set('state', state);
   url.searchParams.set('code_challenge', codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
+  if (forceLogin) {
+    url.searchParams.set('prompt', 'login');
+  }
   return url.toString();
 }
