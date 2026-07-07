@@ -15,7 +15,6 @@ export function getAppUrl(): string {
  */
 export function getLoginUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_LOGIN_URL ??
     process.env.NEXT_PUBLIC_AUTH_URL ??
     'http://localhost:3001'
   ).replace(/\/$/, '');

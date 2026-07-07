@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import {
   generateCodeVerifier,
@@ -7,7 +7,12 @@ import {
   buildAuthorizeUrl,
 } from '../../lib/auth';
 
-export async function GET() {
+function safeNextPath(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
+export async function GET(request: NextRequest) {
   const codeVerifier = generateCodeVerifier();
   const state = generateState();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -18,7 +23,7 @@ export async function GET() {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 600, // 10 min
+    maxAge: 600,
   });
   jar.set('oauth_state', state, {
     httpOnly: true,
@@ -27,6 +32,17 @@ export async function GET() {
     path: '/',
     maxAge: 600,
   });
+
+  const next = safeNextPath(request.nextUrl.searchParams.get('next'));
+  if (next) {
+    jar.set('oauth_next', next, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
+    });
+  }
 
   const authorizeUrl = buildAuthorizeUrl(state, codeChallenge);
   return NextResponse.redirect(authorizeUrl);

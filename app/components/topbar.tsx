@@ -10,8 +10,8 @@ import {
   Chip,
 } from '@heroui/react';
 import Link from 'next/link';
+import { useWebsiteContext } from '../context/website-context';
 import { useAuth } from '../hooks/use-auth';
-import { useWebsites } from '../hooks/use-websites';
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -19,7 +19,7 @@ interface TopbarProps {
 
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const { user } = useAuth();
-  const { websites, activeWebsite, switchWebsite } = useWebsites();
+  const { websites, activeWebsite, switchWebsite } = useWebsiteContext();
 
   const displayName = user?.username ?? user?.email ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();

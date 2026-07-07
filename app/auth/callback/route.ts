@@ -71,10 +71,17 @@ export async function GET(request: NextRequest) {
     // Sync user to Website API DB (upsert users table via JwtStrategy)
     await syncUserToBackend(accessToken);
 
+    const nextPath = jar.get('oauth_next')?.value;
     jar.delete('oauth_code_verifier');
     jar.delete('oauth_state');
+    jar.delete('oauth_next');
 
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const redirectTo =
+      nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
+        ? nextPath
+        : '/dashboard';
+
+    return NextResponse.redirect(new URL(redirectTo, request.url));
   } catch (err) {
     console.error('OAuth callback error:', err);
     return NextResponse.redirect(new URL('/?error=server_error', request.url));

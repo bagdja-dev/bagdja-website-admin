@@ -2,16 +2,10 @@
 
 import {
   Button,
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  NavbarMenuToggle,
-  NavbarMenu,
-  NavbarMenuItem,
 } from '@heroui/react';
 import Link from 'next/link';
-import { useState } from 'react';
+
+import { LandingNavbar } from './components/landing-navbar';
 
 const features = [
   {
@@ -90,87 +84,9 @@ const stats = [
 ];
 
 export default function LandingPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-white">
-      {/* ─── Navbar ─────────────────────────────────────── */}
-      <Navbar
-        maxWidth="xl"
-        isMenuOpen={menuOpen}
-        onMenuOpenChange={setMenuOpen}
-        className="glass fixed top-0 z-50 border-b border-white/20"
-        height="4rem"
-      >
-        <NavbarContent>
-          <NavbarMenuToggle className="sm:hidden" />
-          <NavbarBrand>
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500">
-                <span className="text-sm font-bold text-white">B</span>
-              </div>
-              <p className="text-lg font-bold tracking-tight">
-                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Bagdja</span>
-                <span className="text-gray-800"> Website</span>
-              </p>
-            </div>
-          </NavbarBrand>
-        </NavbarContent>
-
-        <NavbarContent className="hidden gap-8 sm:flex" justify="center">
-          <NavbarItem>
-            <Link href="#features" className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">
-              Fitur
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link href="#how-it-works" className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">
-              Cara Kerja
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link href="#stats" className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">
-              Keunggulan
-            </Link>
-          </NavbarItem>
-        </NavbarContent>
-
-        <NavbarContent justify="end">
-          <NavbarItem className="hidden sm:flex">
-            <Link href="/auth/login" className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">
-              Masuk
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Button
-              as={Link}
-              href="/auth/login"
-              size="sm"
-              className="bg-gradient-to-r from-blue-600 to-cyan-500 font-semibold text-white shadow-lg shadow-blue-500/25"
-            >
-              Mulai Gratis
-            </Button>
-          </NavbarItem>
-        </NavbarContent>
-
-        <NavbarMenu className="pt-6">
-          <NavbarMenuItem>
-            <Link href="#features" className="w-full text-lg" onClick={() => setMenuOpen(false)}>
-              Fitur
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link href="#how-it-works" className="w-full text-lg" onClick={() => setMenuOpen(false)}>
-              Cara Kerja
-            </Link>
-          </NavbarMenuItem>
-          <NavbarMenuItem>
-            <Link href="/auth/login" className="w-full text-lg font-semibold text-blue-600">
-              Masuk
-            </Link>
-          </NavbarMenuItem>
-        </NavbarMenu>
-      </Navbar>
+      <LandingNavbar />
 
       {/* ─── Hero ───────────────────────────────────────── */}
       <section className="relative overflow-hidden px-4 pb-20 pt-32 sm:pb-32 sm:pt-40">
@@ -248,7 +164,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:gap-8 lg:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <p className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-3xl font-extrabold text-transparent sm:text-4xl">
+              <p className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-3xl font-extrabold text-transparent sm:text-4xl px-2">
                 {s.value}
               </p>
               <p className="mt-1 text-sm font-medium text-gray-500">{s.label}</p>
