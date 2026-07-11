@@ -17,6 +17,7 @@ import {
   type WebsiteTheme,
 } from '../../lib/website-theme';
 import { hasMinRole } from '../../lib/types';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { useWebsiteContext } from '../../context/website-context';
 
 function getSocialLink(links: Record<string, unknown> | undefined, key: string): string {
@@ -31,6 +32,7 @@ function getOpeningHoursNote(hours: Record<string, unknown> | undefined): string
 
 export default function SettingsPage() {
   const { activeWebsite, websiteId, role, loading: ctxLoading, refresh } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [domain, setDomain] = useState('');
@@ -170,7 +172,13 @@ export default function SettingsPage() {
   };
 
   const handleDelete = async () => {
-    if (!websiteId || !confirm('HAPUS website ini permanen? Tindakan tidak bisa dibatalkan.')) return;
+    if (!websiteId) return;
+    const ok = await confirm({
+      title: 'Hapus Website Permanen?',
+      message: 'Semua halaman, produk, lokasi, FAQ, artikel, dan data staff terkait akan ikut terhapus. Tindakan ini tidak bisa dibatalkan.',
+      confirmLabel: 'Ya, Hapus Permanen',
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await apiClient(`/api/websites/${websiteId}`, { method: 'DELETE' });
@@ -401,6 +409,7 @@ export default function SettingsPage() {
           </CardBody>
         </Card>
       )}
+      {dialog}
     </div>
   );
 }

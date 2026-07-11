@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { GalleryEditor } from '../../components/gallery-editor';
 import { RichTextEditor } from '../../components/rich-text-editor';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
@@ -264,6 +265,7 @@ function ProductCard({ product, canEdit, canDelete, onEdit, onDelete }: ProductC
 
 export default function ProductsManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [products, setProducts] = useState<WebsiteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -413,7 +415,9 @@ export default function ProductsManagement() {
   };
 
   const handleDelete = async (productId: string) => {
-    if (!websiteId || !confirm('Hapus item ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus Item Ini?', message: 'Item yang dihapus tidak bisa dikembalikan.' });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/products/${productId}`, { method: 'DELETE' });
       await load();
@@ -625,6 +629,7 @@ export default function ProductsManagement() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Item Baru" onClick={openCreate} />}
+      {dialog}
     </div>
   );
 }

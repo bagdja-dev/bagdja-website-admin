@@ -22,9 +22,14 @@ export async function backendFetch<T = unknown>(
   };
 
   try {
+    // `cache: 'no-store'` wajib — tanpa ini, Next.js App Router men-cache
+    // GET fetch ke API (Data Cache) meski route handler pemanggilnya
+    // dynamic (mis. karena pakai cookies()). Data di sini per-tenant dan
+    // sering berubah (create/update/delete), jadi tidak boleh di-cache.
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers,
+      cache: 'no-store',
     });
 
     if (!res.ok) {
@@ -57,6 +62,7 @@ export async function syncUserToBackend(accessToken: string): Promise<boolean> {
   try {
     const res = await fetch(`${apiBase}/api/user/websites`, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
     });
 
     if (!res.ok) {

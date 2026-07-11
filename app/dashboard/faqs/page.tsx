@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
@@ -199,6 +200,7 @@ function FaqCard({
 
 export default function FaqsManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [faqs, setFaqs] = useState<WebsiteFaq[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -302,7 +304,9 @@ export default function FaqsManagement() {
   };
 
   const handleDelete = async (faqId: string) => {
-    if (!websiteId || !confirm('Hapus FAQ ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus FAQ Ini?', message: 'FAQ yang dihapus tidak bisa dikembalikan.' });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/faqs/${faqId}`, { method: 'DELETE' });
       await load();
@@ -462,6 +466,7 @@ export default function FaqsManagement() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="FAQ Baru" onClick={openCreate} />}
+      {dialog}
     </div>
   );
 }

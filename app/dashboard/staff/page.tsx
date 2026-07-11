@@ -4,6 +4,7 @@ import { Button, Card, CardBody, Chip } from '@heroui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { FormInput, FormSelect } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
@@ -229,6 +230,7 @@ function InvitationCard({ invitation, onCancel }: InvitationCardProps) {
 
 export default function StaffManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [staff, setStaff] = useState<TenantStaff[]>([]);
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,7 +327,9 @@ export default function StaffManagement() {
   };
 
   const handleRemoveStaff = async (staffId: string) => {
-    if (!websiteId || !confirm('Hapus anggota tim ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus Anggota Tim Ini?', message: 'Akses anggota tim ini ke website akan dicabut.' });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/staff/${staffId}`, { method: 'DELETE' });
       await load();
@@ -335,7 +339,14 @@ export default function StaffManagement() {
   };
 
   const handleCancelInvite = async (invitationId: string) => {
-    if (!websiteId || !confirm('Batalkan undangan?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({
+      title: 'Batalkan Undangan?',
+      message: 'Undangan yang dibatalkan tidak bisa diterima lagi.',
+      tone: 'default',
+      confirmLabel: 'Batalkan Undangan',
+    });
+    if (!ok) return;
     try {
       await apiClient(
         `/api/websites/${websiteId}/staff/invitations/${invitationId}`,
@@ -524,6 +535,7 @@ export default function StaffManagement() {
       </AppModal>
 
       {canManage && <MobileFloatingActionBar label="Undang Staff" onClick={openInvite} />}
+      {dialog}
     </div>
   );
 }

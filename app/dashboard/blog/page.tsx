@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { CoverImageUpload } from '../../components/cover-image-upload';
 import { FormInput, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
@@ -98,6 +99,7 @@ function BlogCard({ post, canEdit, canDelete, onEdit, onDelete }: BlogCardProps)
 
 export default function BlogManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [posts, setPosts] = useState<WebsiteBlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -204,7 +206,9 @@ export default function BlogManagement() {
   };
 
   const handleDelete = async (postId: string) => {
-    if (!websiteId || !confirm('Hapus artikel ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus Artikel Ini?', message: 'Artikel yang dihapus tidak bisa dikembalikan.' });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/blog-posts/${postId}`, { method: 'DELETE' });
       await load();
@@ -355,6 +359,7 @@ export default function BlogManagement() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Artikel Baru" onClick={openCreate} />}
+      {dialog}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { BlogPostPicker } from '../../../components/blog-post-picker';
 import { GalleryEditor } from '../../../components/gallery-editor';
 import { RichTextEditor } from '../../../components/rich-text-editor';
 import { AppModal } from '../../../components/app-modal';
+import { useConfirmDialog } from '../../../components/confirm-dialog';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../../components/form-field';
 import { LoadingSpinner } from '../../../components/loading-spinner';
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../../components/mobile-floating-action';
@@ -254,6 +255,7 @@ export default function PageSectionsEditor() {
   const params = useParams();
   const pageId = params.pageId as string;
   const { activeWebsite, websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
 
   const [page, setPage] = useState<WebsitePage | null>(null);
   const [sections, setSections] = useState<WebsiteSection[]>([]);
@@ -386,7 +388,9 @@ export default function PageSectionsEditor() {
   };
 
   const handleDelete = async (sectionId: string) => {
-    if (!websiteId || !confirm('Hapus section ini dari halaman?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus Section Ini?', message: 'Section ini akan dihapus dari halaman secara permanen.' });
+    if (!ok) return;
     try {
       await apiClient(
         `/api/websites/${websiteId}/pages/${pageId}/sections/${sectionId}`,
@@ -660,6 +664,7 @@ export default function PageSectionsEditor() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Section Baru" onClick={openPicker} />}
+      {dialog}
     </div>
   );
 }

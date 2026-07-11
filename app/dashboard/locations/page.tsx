@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
@@ -232,6 +233,7 @@ function LocationCard({
 
 export default function LocationsManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [locations, setLocations] = useState<WebsiteLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -446,7 +448,9 @@ export default function LocationsManagement() {
   };
 
   const handleDelete = async (locationId: string) => {
-    if (!websiteId || !confirm('Hapus lokasi ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({ title: 'Hapus Lokasi Ini?', message: 'Lokasi yang dihapus tidak bisa dikembalikan.' });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/locations/${locationId}`, { method: 'DELETE' });
       await load();
@@ -677,6 +681,7 @@ export default function LocationsManagement() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Lokasi Baru" onClick={openCreate} />}
+      {dialog}
     </div>
   );
 }

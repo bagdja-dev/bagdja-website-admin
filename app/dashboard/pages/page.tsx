@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { useConfirmDialog } from '../../components/confirm-dialog';
 import { FormInput, FormSelect, FormSwitch } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
@@ -281,6 +282,7 @@ function PageCard({
 
 export default function PagesManagement() {
   const { activeWebsite, websiteId, role, loading: ctxLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
   const [pages, setPages] = useState<WebsitePage[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -368,7 +370,12 @@ export default function PagesManagement() {
   };
 
   const handleDelete = async (pageId: string) => {
-    if (!websiteId || !confirm('Hapus halaman ini?')) return;
+    if (!websiteId) return;
+    const ok = await confirm({
+      title: 'Hapus Halaman Ini?',
+      message: 'Semua section di dalam halaman ini akan ikut terhapus.',
+    });
+    if (!ok) return;
     try {
       await apiClient(`/api/websites/${websiteId}/pages/${pageId}`, { method: 'DELETE' });
       await loadPages();
@@ -522,6 +529,7 @@ export default function PagesManagement() {
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Halaman Baru" onClick={openCreate} />}
+      {dialog}
     </div>
   );
 }
