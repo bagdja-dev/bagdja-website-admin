@@ -4,7 +4,8 @@ export type SectionFieldType =
   | 'switch'
   | 'select'
   | 'richtext'
-  | 'gallery';
+  | 'gallery'
+  | 'blogPostPicker';
 
 export interface GalleryImage {
   url: string;
@@ -12,7 +13,7 @@ export interface GalleryImage {
   caption?: string;
 }
 
-export type SectionFormValue = string | boolean | GalleryImage[];
+export type SectionFormValue = string | boolean | GalleryImage[] | string[];
 
 export interface SectionFieldDef {
   key: string;
@@ -256,6 +257,67 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     defaults: { title: 'Pertanyaan Umum', source: 'faqs' },
     fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
   },
+  {
+    type: 'blog_list',
+    label: 'Blog Page',
+    description: 'Menampilkan semua artikel blog yang sudah terbit, klik untuk baca artikel penuh.',
+    category: 'master',
+    categoryLabel: 'Data Master',
+    gradient: 'from-slate-600 to-zinc-500',
+    icon: '📰',
+    manageHint: 'Kelola artikel di menu Blog.',
+    defaults: { title: 'Artikel Terbaru', source: 'blog_posts', limit: '' },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      {
+        key: 'limit',
+        label: 'Jumlah Ditampilkan',
+        type: 'select',
+        options: [
+          { value: '', label: 'Semua' },
+          { value: '3', label: '3 artikel' },
+          { value: '6', label: '6 artikel' },
+          { value: '9', label: '9 artikel' },
+          { value: '12', label: '12 artikel' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'blog_search',
+    label: 'Blog Search',
+    description: 'Tombol pencarian — klik membuka popup untuk cari artikel blog.',
+    category: 'master',
+    categoryLabel: 'Data Master',
+    gradient: 'from-neutral-600 to-stone-500',
+    icon: '🔍',
+    manageHint: 'Kelola artikel di menu Blog.',
+    defaults: { title: '', placeholder: 'Cari artikel...', source: 'blog_posts' },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text', placeholder: 'Opsional' },
+      { key: 'placeholder', label: 'Placeholder Pencarian', type: 'text', placeholder: 'Cari artikel...' },
+    ],
+  },
+  {
+    type: 'blog_collection',
+    label: 'Blog Collection',
+    description: 'Pilih artikel blog tertentu secara manual untuk ditampilkan di section ini.',
+    category: 'master',
+    categoryLabel: 'Data Master',
+    gradient: 'from-amber-600 to-yellow-500',
+    icon: '🗂️',
+    manageHint: 'Kelola artikel di menu Blog.',
+    defaults: { title: 'Artikel Pilihan', source: 'blog_posts', post_ids: [] as string[] },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      {
+        key: 'post_ids',
+        label: 'Pilih Artikel',
+        type: 'blogPostPicker',
+        description: 'Centang artikel yang ingin ditampilkan di section ini.',
+      },
+    ],
+  },
 ];
 
 const configMap = new Map(SECTION_TYPE_CONFIGS.map((c) => [c.type, c]));
@@ -288,6 +350,11 @@ function parseGalleryImages(raw: unknown): GalleryImage[] {
     .filter((img) => img.url);
 }
 
+function parseStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
 export function getDefaultFormValues(type: string): Record<string, SectionFormValue> {
   const config = getSectionTypeConfig(type);
   const values: Record<string, SectionFormValue> = {};
@@ -299,6 +366,8 @@ export function getDefaultFormValues(type: string): Record<string, SectionFormVa
       values[field.key] = def === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(def);
+    } else if (field.type === 'blogPostPicker') {
+      values[field.key] = parseStringArray(def);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof def === 'string' ? def : '';
     } else if (def != null && typeof def !== 'object') {
@@ -325,6 +394,8 @@ export function contentToFormValues(
       values[field.key] = val === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(val);
+    } else if (field.type === 'blogPostPicker') {
+      values[field.key] = parseStringArray(val);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof val === 'string' ? val : '';
     } else if (val != null && typeof val !== 'object') {
@@ -351,8 +422,13 @@ export function formValuesToContent(
     }
 
     if (field.type === 'gallery') {
-      const images = Array.isArray(val) ? val : [];
+      const images = parseGalleryImages(val);
       content[field.key] = images.filter((img) => img.url);
+      continue;
+    }
+
+    if (field.type === 'blogPostPicker') {
+      content[field.key] = parseStringArray(val);
       continue;
     }
 
@@ -401,6 +477,14 @@ export function getSectionPreview(type: string, content: Record<string, unknown>
     const body = typeof content.body === 'string' ? content.body.trim() : '';
     if (title) return title;
     if (body) return body.slice(0, 60) + (body.length > 60 ? '…' : '');
+  }
+
+  if (type === 'blog_collection') {
+    const title = typeof content.title === 'string' ? content.title.trim() : '';
+    const count = parseStringArray(content.post_ids).length;
+    if (title && count) return `${title} · ${count} artikel dipilih`;
+    if (title) return `${title} · belum ada artikel dipilih`;
+    if (count) return `${count} artikel dipilih`;
   }
 
   const title = content.title ?? content.subtitle;

@@ -6,11 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
-import { FormInput, FormSwitch } from '../../components/form-field';
+import { FormInput, FormSelect, FormSwitch } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient, slugify } from '../../lib/api-client';
-import { hasMinRole, type WebsitePage } from '../../lib/types';
+import { hasMinRole, type PagePlacement, type WebsitePage } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 
 const CARD_THEMES = [
@@ -52,6 +52,18 @@ const HOME_THEME = {
   ring: 'ring-blue-100',
 } as const;
 
+const PLACEMENT_OPTIONS: { value: string; label: string; description: string }[] = [
+  { value: 'regular', label: 'Regular', description: 'Tidak tampil di navigasi header/footer' },
+  { value: 'header', label: 'Header', description: 'Tampil sebagai menu di header website' },
+  { value: 'footer', label: 'Footer', description: 'Tampil sebagai link di footer website' },
+];
+
+const PLACEMENT_LABELS: Record<string, string> = {
+  regular: 'Regular',
+  header: 'Header',
+  footer: 'Footer',
+};
+
 function PageIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -75,140 +87,194 @@ function formatDate(iso: string) {
 interface PageCardProps {
   page: WebsitePage;
   index: number;
+  total: number;
   webBaseUrl: string;
   canEdit: boolean;
   canDelete: boolean;
+  reordering: boolean;
   onEdit: (page: WebsitePage) => void;
   onDelete: (pageId: string) => void;
+  onMove: (index: number, direction: 'up' | 'down') => void;
 }
 
-function PageCard({ page, index, webBaseUrl, canEdit, canDelete, onEdit, onDelete }: PageCardProps) {
+function PageCard({
+  page,
+  index,
+  total,
+  webBaseUrl,
+  canEdit,
+  canDelete,
+  reordering,
+  onEdit,
+  onDelete,
+  onMove,
+}: PageCardProps) {
   const theme = page.is_home ? HOME_THEME : CARD_THEMES[index % CARD_THEMES.length];
   const initial = page.title.trim().charAt(0).toUpperCase() || 'P';
   const previewUrl = `${webBaseUrl}/${page.slug}`;
 
   return (
     <Card className="group overflow-hidden border-0 shadow-md ring-1 ring-default-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-      <div className={`relative bg-gradient-to-br ${theme.gradient} px-4 pb-8 pt-4 sm:px-5 sm:pt-5`}>
-        <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full ${theme.glow} blur-2xl`} />
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold shadow-lg ring-2 ring-white/30 backdrop-blur-sm ${theme.iconBg}`}
+      <div className="flex gap-0">
+        {canEdit && (
+          <div className="flex flex-col items-center justify-center gap-1 border-r border-default-100 bg-default-50/80 px-2 py-3">
+            <button
+              type="button"
+              disabled={index === 0 || reordering}
+              onClick={() => onMove(index, 'up')}
+              className="rounded-lg p-1.5 text-default-400 transition-colors hover:bg-white hover:text-primary disabled:opacity-30"
+              aria-label="Naik"
             >
-              {initial}
-            </div>
-            <div className="min-w-0">
-              {page.is_home && (
-                <Chip
-                  size="sm"
-                  variant="flat"
-                  className="mb-1 border border-white/25 bg-white/15 backdrop-blur-sm"
-                  classNames={{ content: 'font-semibold text-white text-[10px] uppercase tracking-wide' }}
+              ↑
+            </button>
+            <span className="text-xs font-bold text-default-400">{index + 1}</span>
+            <button
+              type="button"
+              disabled={index === total - 1 || reordering}
+              onClick={() => onMove(index, 'down')}
+              className="rounded-lg p-1.5 text-default-400 transition-colors hover:bg-white hover:text-primary disabled:opacity-30"
+              aria-label="Turun"
+            >
+              ↓
+            </button>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className={`relative bg-gradient-to-br ${theme.gradient} px-4 pb-8 pt-4 sm:px-5 sm:pt-5`}>
+            <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full ${theme.glow} blur-2xl`} />
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold shadow-lg ring-2 ring-white/30 backdrop-blur-sm ${theme.iconBg}`}
                 >
-                  ★ Halaman Utama
-                </Chip>
-              )}
-              <h3 className="truncate text-lg font-bold text-white">{page.title}</h3>
+                  {initial}
+                </div>
+                <div className="min-w-0">
+                  {(page.is_home || page.placement !== 'regular') && (
+                    <div className="mb-1 flex flex-wrap gap-1">
+                      {page.is_home && (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          className="border border-white/25 bg-white/15 backdrop-blur-sm"
+                          classNames={{ content: 'font-semibold text-white text-[10px] uppercase tracking-wide' }}
+                        >
+                          ★ Halaman Utama
+                        </Chip>
+                      )}
+                      {page.placement !== 'regular' && (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          className="border border-white/25 bg-white/15 backdrop-blur-sm"
+                          classNames={{ content: 'font-semibold text-white text-[10px] uppercase tracking-wide' }}
+                        >
+                          {PLACEMENT_LABELS[page.placement] ?? page.placement}
+                        </Chip>
+                      )}
+                    </div>
+                  )}
+                  <h3 className="truncate text-lg font-bold text-white">{page.title}</h3>
+                </div>
+              </div>
+              <div className={`hidden rounded-xl bg-white/15 p-2 backdrop-blur-sm sm:block ${theme.iconBg}`}>
+                <PageIcon className="h-5 w-5" />
+              </div>
             </div>
           </div>
-          <div className={`hidden rounded-xl bg-white/15 p-2 backdrop-blur-sm sm:block ${theme.iconBg}`}>
-            <PageIcon className="h-5 w-5" />
-          </div>
+
+          <CardBody className="relative -mt-4 space-y-4 rounded-t-2xl bg-white px-4 pb-4 pt-5 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-lg bg-default-100 px-2.5 py-1 text-xs font-medium text-default-600 ring-1 ${theme.ring}`}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
+                  />
+                </svg>
+                /{page.slug}
+              </span>
+              <span className="text-xs text-default-400">Diperbarui {formatDate(page.updated_at)}</span>
+            </div>
+
+            <div className="flex flex-row gap-2 sm:flex-row justify-end">
+              <Button
+                as={Link}
+                href={`/dashboard/pages/${page.id}`}
+                className="flex-1 font-semibold shadow-sm"
+                startContent={
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"
+                    />
+                  </svg>
+                }
+              >
+              </Button>
+              <Button
+                as={Link}
+                href={previewUrl}
+                target="_blank"
+                variant="flat"
+                className="font-medium"
+                startContent={
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 6H5.25A2.25 2.25 0 0 0 3 6.75v10.5A2.25 2.25 0 0 0 5.25 19.5h13.5A2.25 2.25 0 0 0 21 17.25V8.625M12 12.75l-3-3m0 0 3-3m-3 3h12.75"
+                    />
+                  </svg>
+                }
+              >
+              </Button>
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="light"
+                  className="flex-1"
+                  onPress={() => onEdit(page)}
+                  startContent={
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.862 3.487a2.088 2.088 0 1 1 2.953 2.953L7.636 18.62a2.25 2.25 0 0 1-.956.558l-4.017 1.147 1.147-4.017a2.25 2.25 0 0 1 .558-.956L16.862 3.487z"
+                      />
+                    </svg>
+                  }
+                >
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  size="sm"
+                  color="danger"
+                  variant="light"
+                  className="flex-1"
+                  onPress={() => onDelete(page.id)}
+                  startContent={
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 7.5V19a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 19V7.5M10.5 11.25v4.5m3-4.5v4.5M4.5 7.5h15M9.75 4.5h4.5a.75.75 0 0 1 .75.75V6h-6V5.25a.75.75 0 0 1 .75-.75Z"
+                      />
+                    </svg>
+                  }
+                >
+                </Button>
+              )}
+            </div>
+          </CardBody>
         </div>
       </div>
-
-      <CardBody className="relative -mt-4 space-y-4 rounded-t-2xl bg-white px-4 pb-4 pt-5 sm:px-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-lg bg-default-100 px-2.5 py-1 text-xs font-medium text-default-600 ring-1 ${theme.ring}`}
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
-              />
-            </svg>
-            /{page.slug}
-          </span>
-          <span className="text-xs text-default-400">Diperbarui {formatDate(page.updated_at)}</span>
-        </div>
-
-        <div className="flex flex-row gap-2 sm:flex-row justify-end">
-          <Button
-            as={Link}
-            href={`/dashboard/pages/${page.id}`}
-            className="flex-1 font-semibold shadow-sm"
-            startContent={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"
-                />
-              </svg>
-            }
-          >
-          </Button>
-          <Button
-            as={Link}
-            href={previewUrl}
-            target="_blank"
-            variant="flat"
-            className="font-medium"
-            startContent={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.5 6H5.25A2.25 2.25 0 0 0 3 6.75v10.5A2.25 2.25 0 0 0 5.25 19.5h13.5A2.25 2.25 0 0 0 21 17.25V8.625M12 12.75l-3-3m0 0 3-3m-3 3h12.75"
-                />
-              </svg>
-            }
-          >
-          </Button>
-          {canEdit && (
-            <Button
-              size="sm"
-              variant="light"
-              className="flex-1"
-              onPress={() => onEdit(page)}
-              startContent={
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16.862 3.487a2.088 2.088 0 1 1 2.953 2.953L7.636 18.62a2.25 2.25 0 0 1-.956.558l-4.017 1.147 1.147-4.017a2.25 2.25 0 0 1 .558-.956L16.862 3.487z"
-                  />
-                </svg>
-              }
-            >
-            </Button>
-      
-          )}
-          {canDelete && (
-            <Button
-              size="sm"
-              color="danger"
-              variant="light"
-              className="flex-1"
-              onPress={() => onDelete(page.id)}
-              startContent={
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 7.5V19a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 19V7.5M10.5 11.25v4.5m3-4.5v4.5M4.5 7.5h15M9.75 4.5h4.5a.75.75 0 0 1 .75.75V6h-6V5.25a.75.75 0 0 1 .75-.75Z"
-                  />
-                </svg>
-              }
-            >
-            </Button>
-      
-          )}
-        </div>
-      </CardBody>
     </Card>
   );
 }
@@ -222,7 +288,9 @@ export default function PagesManagement() {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [isHome, setIsHome] = useState(false);
+  const [placement, setPlacement] = useState<PagePlacement>('regular');
   const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [error, setError] = useState('');
 
   const canEdit = role ? hasMinRole(role, 'editor') : false;
@@ -256,6 +324,7 @@ export default function PagesManagement() {
     setTitle('');
     setSlug('');
     setIsHome(false);
+    setPlacement('regular');
     setError('');
     setModalOpen(true);
   };
@@ -265,6 +334,7 @@ export default function PagesManagement() {
     setTitle(page.title);
     setSlug(page.slug);
     setIsHome(page.is_home);
+    setPlacement(page.placement ?? 'regular');
     setError('');
     setModalOpen(true);
   };
@@ -280,12 +350,12 @@ export default function PagesManagement() {
       if (editPage) {
         await apiClient(`/api/websites/${websiteId}/pages/${editPage.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ title: title.trim(), slug: slug.trim(), is_home: isHome }),
+          body: JSON.stringify({ title: title.trim(), slug: slug.trim(), is_home: isHome, placement }),
         });
       } else {
         await apiClient(`/api/websites/${websiteId}/pages`, {
           method: 'POST',
-          body: JSON.stringify({ title: title.trim(), slug: slug.trim(), is_home: isHome }),
+          body: JSON.stringify({ title: title.trim(), slug: slug.trim(), is_home: isHome, placement }),
         });
       }
       setModalOpen(false);
@@ -304,6 +374,29 @@ export default function PagesManagement() {
       await loadPages();
     } catch {
       alert('Gagal menghapus halaman');
+    }
+  };
+
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    if (!websiteId || reordering) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= pages.length) return;
+
+    const reordered = [...pages];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+
+    setReordering(true);
+    setPages(reordered);
+    try {
+      await apiClient(`/api/websites/${websiteId}/pages/reorder`, {
+        method: 'POST',
+        body: JSON.stringify({ page_ids: reordered.map((p) => p.id) }),
+      });
+    } catch {
+      await loadPages();
+      alert('Gagal mengubah urutan');
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -361,20 +454,30 @@ export default function PagesManagement() {
           </CardBody>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {pages.map((page, index) => (
-            <PageCard
-              key={page.id}
-              page={page}
-              index={index}
-              webBaseUrl={webBaseUrl}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        <>
+          {canEdit && pages.length > 1 && (
+            <p className="text-xs font-medium uppercase tracking-wide text-default-400">
+              Urutan tampil di navigasi header/footer website — gunakan ↑↓ di setiap kartu
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {pages.map((page, index) => (
+              <PageCard
+                key={page.id}
+                page={page}
+                index={index}
+                total={pages.length}
+                webBaseUrl={webBaseUrl}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                reordering={reordering}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onMove={handleMove}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       <AppModal
@@ -399,6 +502,12 @@ export default function PagesManagement() {
             required
           />
           <FormInput label="Slug" value={slug} onChange={setSlug} required />
+          <FormSelect
+            label="Penempatan Navigasi"
+            value={placement}
+            onChange={(v) => setPlacement(v as PagePlacement)}
+            options={PLACEMENT_OPTIONS}
+          />
           <FormSwitch
             label="Jadikan halaman utama (home)"
             checked={isHome}

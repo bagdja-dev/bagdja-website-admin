@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
 import { GalleryEditor } from '../../components/gallery-editor';
+import { RichTextEditor } from '../../components/rich-text-editor';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
-import { apiClient } from '../../lib/api-client';
+import { apiClient, slugify } from '../../lib/api-client';
 import {
   hasMinRole,
   PRODUCT_TYPE_LABELS,
@@ -198,7 +199,14 @@ function ProductCard({ product, canEdit, canDelete, onEdit, onDelete }: ProductC
 
       <CardBody className="relative -mt-5 space-y-3 rounded-t-2xl bg-white px-4 pb-4 pt-4 sm:px-5">
         <div>
-          <p className="text-xl font-bold tracking-tight text-foreground">{formatPrice(product.price)}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xl font-bold tracking-tight text-foreground">{formatPrice(product.price)}</p>
+            {product.category && (
+              <Chip size="sm" variant="flat" className="shrink-0 bg-default-100 text-default-600">
+                {product.category}
+              </Chip>
+            )}
+          </div>
           {product.description && (
             <p className="mt-1 line-clamp-2 text-sm text-default-500">{product.description}</p>
           )}
@@ -262,8 +270,11 @@ export default function ProductsManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<WebsiteProduct | null>(null);
   const [type, setType] = useState<ProductType>('product');
+  const [category, setCategory] = useState('');
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+  const [detail, setDetail] = useState('');
   const [price, setPrice] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [sku, setSku] = useState('');
@@ -304,6 +315,16 @@ export default function ProductsManagement() {
     return { total: products.length, active };
   }, [products]);
 
+  const categorySuggestions = useMemo(() => {
+    const set = new Set(
+      products
+        .filter((p) => p.type === type)
+        .map((p) => p.category?.trim())
+        .filter((c): c is string => !!c),
+    );
+    return Array.from(set).sort();
+  }, [products, type]);
+
   const resetMetadata = () => {
     setSku('');
     setStock('');
@@ -317,8 +338,11 @@ export default function ProductsManagement() {
   const openCreate = () => {
     setEditProduct(null);
     setType(typeFilter !== 'all' ? (typeFilter as ProductType) : 'product');
+    setCategory('');
     setName('');
+    setSlug('');
     setDescription('');
+    setDetail('');
     setPrice('0');
     setIsActive(true);
     resetMetadata();
@@ -330,8 +354,11 @@ export default function ProductsManagement() {
     const fields = loadMetadataFields(product);
     setEditProduct(product);
     setType((product.type as ProductType) || 'product');
+    setCategory(product.category ?? '');
     setName(product.name);
+    setSlug(product.slug);
     setDescription(product.description ?? '');
+    setDetail(product.detail ?? '');
     setPrice(String(product.price));
     setIsActive(product.is_active);
     setSku(fields.sku);
@@ -346,8 +373,8 @@ export default function ProductsManagement() {
   };
 
   const handleSave = async () => {
-    if (!websiteId || !name.trim()) {
-      setError('Nama wajib diisi');
+    if (!websiteId || !name.trim() || !slug.trim()) {
+      setError('Nama dan slug wajib diisi');
       return;
     }
     setSaving(true);
@@ -355,8 +382,11 @@ export default function ProductsManagement() {
     try {
       const body = {
         type,
+        category: category.trim() || undefined,
         name: name.trim(),
+        slug: slug.trim(),
         description: description.trim() || undefined,
+        detail: detail.trim() || undefined,
         price: parseFloat(price) || 0,
         images: images.map((img) => img.url).filter(Boolean),
         metadata: buildMetadata(type, sku, stock, durationMinutes, isBookable, downloadUrl, itemsIncluded),
@@ -492,8 +522,49 @@ export default function ProductsManagement() {
       >
         <div className="flex flex-col gap-5">
           <FormSelect label="Tipe" value={type} onChange={(v) => setType(v as ProductType)} options={TYPE_OPTIONS} />
-          <FormInput label="Nama" value={name} onChange={setName} required />
-          <FormTextarea label="Deskripsi" value={description} onChange={setDescription} />
+          <FormInput
+            label="Kategori"
+            value={category}
+            onChange={setCategory}
+            list="product-category-suggestions"
+            placeholder="mis. Pomade & Styling"
+            description="Opsional — pengelompokan tambahan di dalam tipe ini."
+          />
+          <datalist id="product-category-suggestions">
+            {categorySuggestions.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          <FormInput
+            label="Nama"
+            value={name}
+            onChange={(v) => {
+              setName(v);
+              if (!editProduct) setSlug(slugify(v));
+            }}
+            required
+          />
+          <FormInput
+            label="Slug"
+            value={slug}
+            onChange={setSlug}
+            description="Dipakai di URL halaman detail produk."
+            required
+          />
+          <FormTextarea
+            label="Deskripsi Singkat"
+            description="Ringkasan pendek yang tampil di katalog."
+            value={description}
+            onChange={setDescription}
+          />
+          <RichTextEditor
+            label="Detail Produk"
+            description="Konten lengkap yang tampil di halaman detail produk — bisa tabel, gambar, dsb."
+            value={detail}
+            onChange={setDetail}
+            websiteId={websiteId ?? undefined}
+            uploadFolder="products"
+          />
           <FormInput
             label="Harga (IDR)"
             type="number"

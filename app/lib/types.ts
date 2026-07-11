@@ -1,6 +1,5 @@
 export interface Website {
   id: string;
-  org_id: string;
   name: string;
   slug: string;
   domain?: string | null;
@@ -34,6 +33,8 @@ export interface WebsiteTemplate {
   is_active: boolean;
 }
 
+export type PagePlacement = 'regular' | 'header' | 'footer';
+
 export interface WebsitePage {
   id: string;
   website_id: string;
@@ -41,6 +42,7 @@ export interface WebsitePage {
   slug: string;
   content: Record<string, unknown>;
   is_home: boolean;
+  placement: PagePlacement;
   order: number;
   sections?: WebsiteSection[];
   created_at: string;
@@ -63,8 +65,11 @@ export interface WebsiteProduct {
   id: string;
   website_id: string;
   type: ProductType | string;
+  category?: string | null;
   name: string;
+  slug: string;
   description?: string | null;
+  detail?: string | null;
   price: number;
   images: string[];
   metadata: Record<string, unknown>;
@@ -113,6 +118,20 @@ export interface WebsiteFaq {
   is_public: boolean;
   is_active: boolean;
   metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebsiteBlogPost {
+  id: string;
+  website_id: string;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  content?: string | null;
+  cover_image?: string | null;
+  is_published: boolean;
+  published_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { BlogPostPicker } from '../../../components/blog-post-picker';
 import { GalleryEditor } from '../../../components/gallery-editor';
 import { RichTextEditor } from '../../../components/rich-text-editor';
 import { AppModal } from '../../../components/app-modal';
@@ -19,6 +20,7 @@ import {
   getSectionPreview,
   getSectionTypeConfig,
   SECTION_TYPE_CONFIGS,
+  type GalleryImage,
   type SectionFieldDef,
   type SectionFormValue,
   type SectionTypeConfig,
@@ -60,19 +62,38 @@ function SectionFormFields({
           description={field.description}
           value={typeof val === 'string' ? val : ''}
           onChange={(html) => onChange(field.key, html)}
+          websiteId={websiteId}
+          uploadFolder="sections"
         />
       );
     }
 
     if (field.type === 'gallery') {
+      const images = Array.isArray(val)
+        ? val.filter((item): item is GalleryImage => typeof item === 'object' && item !== null)
+        : [];
       return (
         <GalleryEditor
           key={field.key}
           label={field.label}
           description={field.description}
-          value={Array.isArray(val) ? val : []}
+          value={images}
           websiteId={websiteId}
-          onChange={(images) => onChange(field.key, images)}
+          onChange={(next) => onChange(field.key, next)}
+        />
+      );
+    }
+
+    if (field.type === 'blogPostPicker') {
+      const postIds = Array.isArray(val) ? val.filter((item): item is string => typeof item === 'string') : [];
+      return (
+        <BlogPostPicker
+          key={field.key}
+          label={field.label}
+          description={field.description}
+          value={postIds}
+          websiteId={websiteId}
+          onChange={(ids) => onChange(field.key, ids)}
         />
       );
     }
