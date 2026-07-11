@@ -3,6 +3,8 @@ export interface Website {
   name: string;
   slug: string;
   domain?: string | null;
+  domain_verification_token?: string | null;
+  domain_verified_at?: string | null;
   template_id?: string | null;
   tagline?: string | null;
   logo_url?: string | null;

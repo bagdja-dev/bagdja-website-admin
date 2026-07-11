@@ -58,6 +58,13 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [brandError, setBrandError] = useState('');
   const [themeError, setThemeError] = useState('');
+  const [verifyingDomain, setVerifyingDomain] = useState(false);
+  const [checkingDomain, setCheckingDomain] = useState(false);
+  const [domainVerifyInfo, setDomainVerifyInfo] = useState<{ recordName: string; recordValue: string } | null>(
+    null,
+  );
+  const [domainMessage, setDomainMessage] = useState('');
+  const [domainError, setDomainError] = useState('');
 
   const canEdit = role ? hasMinRole(role, 'admin') : false;
   const canDelete = role === 'owner';
@@ -168,6 +175,46 @@ export default function SettingsPage() {
       setThemeError(err instanceof Error ? err.message : 'Gagal menyimpan skema warna');
     } finally {
       setSavingTheme(false);
+    }
+  };
+
+  const savedDomain = activeWebsite?.website?.domain ?? null;
+  const domainVerifiedAt = activeWebsite?.website?.domain_verified_at ?? null;
+  const domainDirty = domain.trim() !== (savedDomain ?? '');
+
+  const handleVerifyDomain = async () => {
+    if (!websiteId) return;
+    setVerifyingDomain(true);
+    setDomainError('');
+    setDomainMessage('');
+    try {
+      const result = await apiClient<{ recordType: string; recordName: string; recordValue: string }>(
+        `/api/websites/${websiteId}/domain/verify`,
+        { method: 'POST' },
+      );
+      setDomainVerifyInfo({ recordName: result.recordName, recordValue: result.recordValue });
+      setDomainMessage('Tambahkan TXT record berikut di DNS domain Anda, lalu klik "Cek Status".');
+    } catch (err) {
+      setDomainError(err instanceof Error ? err.message : 'Gagal memulai verifikasi domain');
+    } finally {
+      setVerifyingDomain(false);
+    }
+  };
+
+  const handleCheckDomain = async () => {
+    if (!websiteId) return;
+    setCheckingDomain(true);
+    setDomainError('');
+    setDomainMessage('');
+    try {
+      await apiClient(`/api/websites/${websiteId}/domain/check`, { method: 'POST' });
+      setDomainMessage('Domain berhasil diverifikasi dan aktif!');
+      setDomainVerifyInfo(null);
+      await refresh();
+    } catch (err) {
+      setDomainError(err instanceof Error ? err.message : 'Verifikasi gagal, coba lagi');
+    } finally {
+      setCheckingDomain(false);
     }
   };
 
@@ -362,9 +409,66 @@ export default function SettingsPage() {
             label="Domain Kustom (opsional)"
             placeholder="www.mybusiness.com"
             value={domain}
-            onChange={setDomain}
+            onChange={(v) => {
+              setDomain(v);
+              setDomainVerifyInfo(null);
+              setDomainMessage('');
+              setDomainError('');
+            }}
             disabled={!canEdit}
+            description="Simpan perubahan dulu, baru verifikasi kepemilikan domain di bawah."
           />
+
+          {savedDomain && (
+            <div className="rounded-lg border border-default-200 bg-default-50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{savedDomain}</p>
+                  <p className="mt-0.5 text-xs text-default-500">
+                    {domainDirty
+                      ? 'Simpan perubahan domain terlebih dahulu untuk memverifikasi.'
+                      : domainVerifiedAt
+                        ? `Terverifikasi ✓ sejak ${new Date(domainVerifiedAt).toLocaleDateString('id-ID')}`
+                        : 'Belum diverifikasi'}
+                  </p>
+                </div>
+                {canEdit && !domainDirty && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="flat" isLoading={verifyingDomain} onPress={handleVerifyDomain}>
+                      {domainVerifiedAt ? 'Verifikasi Ulang' : 'Verifikasi Domain'}
+                    </Button>
+                    {!domainVerifiedAt && (
+                      <Button size="sm" color="primary" isLoading={checkingDomain} onPress={handleCheckDomain}>
+                        Cek Status
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {domainVerifyInfo && (
+                <div className="mt-3 rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
+                  <p className="text-default-600">
+                    Tambahkan DNS TXT record berikut di penyedia domain Anda, lalu klik &quot;Cek Status&quot;:
+                  </p>
+                  <div className="mt-2 space-y-1 font-mono">
+                    <p>
+                      <span className="text-default-400">Name: </span>
+                      {domainVerifyInfo.recordName}
+                    </p>
+                    <p>
+                      <span className="text-default-400">Value: </span>
+                      {domainVerifyInfo.recordValue}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {domainMessage && <p className="mt-2 text-xs text-success">{domainMessage}</p>}
+              {domainError && <p className="mt-2 text-xs text-danger">{domainError}</p>}
+            </div>
+          )}
+
           <FormSwitch
             label="Website aktif (publik)"
             description="Nonaktifkan untuk menyembunyikan website dari publik"
