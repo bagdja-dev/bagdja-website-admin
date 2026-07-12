@@ -9,6 +9,7 @@ import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } 
 import { NoWebsiteState } from '../components/no-website-state';
 import { apiClient } from '../lib/api-client';
 import type { TenantStaff, WebsitePage, WebsiteProduct } from '../lib/types';
+import { buildTenantWebUrl } from '../lib/preview-url';
 import { useWebsiteContext } from '../context/website-context';
 
 const STAT_ITEMS = [
@@ -110,7 +111,7 @@ export default function DashboardPage() {
     return <NoWebsiteState />;
   }
 
-  const webUrl = `${process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005'}/${website.slug}`;
+  const webUrl = buildTenantWebUrl(website.slug);
 
   return (
     <div className={`space-y-6 ${mobileFabPagePadding}`}>

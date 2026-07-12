@@ -12,6 +12,7 @@ import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient, slugify } from '../../lib/api-client';
 import { hasMinRole, type PagePlacement, type WebsitePage } from '../../lib/types';
+import { buildTenantWebUrl } from '../../lib/preview-url';
 import { useWebsiteContext } from '../../context/website-context';
 
 const CARD_THEMES = [
@@ -299,9 +300,8 @@ export default function PagesManagement() {
   const canDelete = role ? hasMinRole(role, 'admin') : false;
 
   const webBaseUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005';
     const siteSlug = activeWebsite?.website.slug;
-    return siteSlug ? `${base}/${siteSlug}` : base;
+    return siteSlug ? buildTenantWebUrl(siteSlug) : (process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005');
   }, [activeWebsite?.website.slug]);
 
   const loadPages = useCallback(async () => {

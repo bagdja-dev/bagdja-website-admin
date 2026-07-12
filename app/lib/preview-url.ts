@@ -44,3 +44,26 @@ export function openTemplatePreview(
   const url = buildTemplatePreviewUrl(template, profile);
   if (url) window.open(url, '_blank', 'noopener,noreferrer');
 }
+
+/**
+ * URL publik tenant di web renderer. Production: subdomain per tenant
+ * (`https://{slug}.sites.bagdja.com[/page]`, lihat middleware.ts web/ — Phase 8a).
+ * Local dev tetap path-based (`http://localhost:5005/{slug}[/page]`) karena
+ * localhost tidak punya DNS wildcard/cert untuk dites sebagai subdomain nyata.
+ */
+export function buildTenantWebUrl(slug: string, pageSlug?: string): string {
+  let base: URL;
+  try {
+    base = new URL(WEB_URL);
+  } catch {
+    return pageSlug ? `${WEB_URL}/${slug}/${pageSlug}` : `${WEB_URL}/${slug}`;
+  }
+
+  if (base.hostname === 'localhost' || base.hostname === '127.0.0.1') {
+    return pageSlug ? `${WEB_URL}/${slug}/${pageSlug}` : `${WEB_URL}/${slug}`;
+  }
+
+  base.hostname = `${slug}.${base.hostname}`;
+  base.pathname = pageSlug ? `/${pageSlug}` : '/';
+  return base.toString();
+}

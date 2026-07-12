@@ -27,6 +27,7 @@ import {
   type SectionTypeConfig,
 } from '../../../lib/section-types';
 import { hasMinRole, type WebsitePage, type WebsiteSection } from '../../../lib/types';
+import { buildTenantWebUrl } from '../../../lib/preview-url';
 import { useWebsiteContext } from '../../../context/website-context';
 
 function SectionFormFields({
@@ -275,12 +276,11 @@ export default function PageSectionsEditor() {
   const typeConfig = getSectionTypeConfig(sectionType);
 
   const webPreviewUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005';
     const siteSlug = activeWebsite?.website.slug;
     const pageSlug = page?.slug;
     if (!siteSlug) return null;
-    if (!pageSlug || pageSlug === 'home' || page?.is_home) return `${base}/${siteSlug}`;
-    return `${base}/${siteSlug}/${pageSlug}`;
+    if (!pageSlug || pageSlug === 'home' || page?.is_home) return buildTenantWebUrl(siteSlug);
+    return buildTenantWebUrl(siteSlug, pageSlug);
   }, [activeWebsite?.website.slug, page?.slug, page?.is_home]);
 
   const load = useCallback(async () => {
