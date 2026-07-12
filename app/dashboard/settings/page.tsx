@@ -20,6 +20,12 @@ import { hasMinRole } from '../../lib/types';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { useWebsiteContext } from '../../context/website-context';
 
+// Dimatikan sementara (2026-07-12) — integrasi CoolifyService/Traefik untuk
+// custom domain masih belum stabil di sisi infra (lihat DEPLOY_NOTES.md).
+// Set balik ke true setelah alur registrasi domain ke Coolify sudah pasti
+// beres, supaya tenant tidak dapat pengalaman setengah-jadi.
+const CUSTOM_DOMAIN_FEATURE_ENABLED = false;
+
 function getSocialLink(links: Record<string, unknown> | undefined, key: string): string {
   const val = links?.[key];
   return typeof val === 'string' ? val : '';
@@ -413,21 +419,28 @@ export default function SettingsPage() {
               required
             />
           </div>
-          <FormInput
-            label="Domain Kustom (opsional)"
-            placeholder="www.mybusiness.com"
-            value={domain}
-            onChange={(v) => {
-              setDomain(v);
-              setDomainVerifyInfo(null);
-              setDomainMessage('');
-              setDomainError('');
-            }}
-            disabled={!canEdit}
-            description="Simpan perubahan dulu, baru verifikasi kepemilikan domain di bawah."
-          />
+          {CUSTOM_DOMAIN_FEATURE_ENABLED ? (
+            <FormInput
+              label="Domain Kustom (opsional)"
+              placeholder="www.mybusiness.com"
+              value={domain}
+              onChange={(v) => {
+                setDomain(v);
+                setDomainVerifyInfo(null);
+                setDomainMessage('');
+                setDomainError('');
+              }}
+              disabled={!canEdit}
+              description="Simpan perubahan dulu, baru verifikasi kepemilikan domain di bawah."
+            />
+          ) : (
+            <div className="rounded-lg border border-default-200 bg-default-50 px-4 py-3 text-sm text-default-500">
+              Fitur domain kustom sedang dalam perbaikan dan sementara tidak tersedia. Website Anda
+              tetap bisa diakses lewat subdomain <strong>{slug || '{slug}'}.sites.bagdja.com</strong>.
+            </div>
+          )}
 
-          {savedDomain && (
+          {CUSTOM_DOMAIN_FEATURE_ENABLED && savedDomain && (
             <div className="rounded-lg border border-default-200 bg-default-50 px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
