@@ -445,11 +445,9 @@ export default function SettingsPage() {
                     <Button size="sm" variant="flat" isLoading={verifyingDomain} onPress={handleVerifyDomain}>
                       {domainVerifiedAt ? 'Verifikasi Ulang' : 'Verifikasi Domain'}
                     </Button>
-                    {!domainVerifiedAt && (
-                      <Button size="sm" color="primary" isLoading={checkingDomain} onPress={handleCheckDomain}>
-                        Cek Status
-                      </Button>
-                    )}
+                    <Button size="sm" color="primary" isLoading={checkingDomain} onPress={handleCheckDomain}>
+                      {domainVerifiedAt ? 'Sinkronkan ke Server' : 'Cek Status'}
+                    </Button>
                   </div>
                 )}
               </div>
