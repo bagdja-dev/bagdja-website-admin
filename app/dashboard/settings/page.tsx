@@ -60,9 +60,11 @@ export default function SettingsPage() {
   const [themeError, setThemeError] = useState('');
   const [verifyingDomain, setVerifyingDomain] = useState(false);
   const [checkingDomain, setCheckingDomain] = useState(false);
-  const [domainVerifyInfo, setDomainVerifyInfo] = useState<{ recordName: string; recordValue: string } | null>(
-    null,
-  );
+  const [domainVerifyInfo, setDomainVerifyInfo] = useState<{
+    recordName: string;
+    recordValue: string;
+    dnsTarget: { recordType: string; recordName: string; recordValue: string } | null;
+  } | null>(null);
   const [domainMessage, setDomainMessage] = useState('');
   const [domainError, setDomainError] = useState('');
 
@@ -188,12 +190,18 @@ export default function SettingsPage() {
     setDomainError('');
     setDomainMessage('');
     try {
-      const result = await apiClient<{ recordType: string; recordName: string; recordValue: string }>(
-        `/api/websites/${websiteId}/domain/verify`,
-        { method: 'POST' },
-      );
-      setDomainVerifyInfo({ recordName: result.recordName, recordValue: result.recordValue });
-      setDomainMessage('Tambahkan TXT record berikut di DNS domain Anda, lalu klik "Cek Status".');
+      const result = await apiClient<{
+        recordType: string;
+        recordName: string;
+        recordValue: string;
+        dnsTarget: { recordType: string; recordName: string; recordValue: string } | null;
+      }>(`/api/websites/${websiteId}/domain/verify`, { method: 'POST' });
+      setDomainVerifyInfo({
+        recordName: result.recordName,
+        recordValue: result.recordValue,
+        dnsTarget: result.dnsTarget,
+      });
+      setDomainMessage('Tambahkan record DNS berikut, lalu klik "Cek Status".');
     } catch (err) {
       setDomainError(err instanceof Error ? err.message : 'Gagal memulai verifikasi domain');
     } finally {
@@ -447,20 +455,53 @@ export default function SettingsPage() {
               </div>
 
               {domainVerifyInfo && (
-                <div className="mt-3 rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
-                  <p className="text-default-600">
-                    Tambahkan DNS TXT record berikut di penyedia domain Anda, lalu klik &quot;Cek Status&quot;:
-                  </p>
-                  <div className="mt-2 space-y-1 font-mono">
-                    <p>
-                      <span className="text-default-400">Name: </span>
-                      {domainVerifyInfo.recordName}
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
+                    <p className="font-medium text-default-700">
+                      1. Bukti kepemilikan — tambahkan TXT record ini di penyedia domain Anda:
                     </p>
-                    <p>
-                      <span className="text-default-400">Value: </span>
-                      {domainVerifyInfo.recordValue}
-                    </p>
+                    <div className="mt-2 space-y-1 font-mono">
+                      <p>
+                        <span className="text-default-400">Type: </span>
+                        TXT
+                      </p>
+                      <p>
+                        <span className="text-default-400">Name: </span>
+                        {domainVerifyInfo.recordName}
+                      </p>
+                      <p>
+                        <span className="text-default-400">Value: </span>
+                        {domainVerifyInfo.recordValue}
+                      </p>
+                    </div>
                   </div>
+
+                  {domainVerifyInfo.dnsTarget && (
+                    <div className="rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
+                      <p className="font-medium text-default-700">
+                        2. Arahkan domain ke server kami — tambahkan record ini juga (kalau belum ada):
+                      </p>
+                      <div className="mt-2 space-y-1 font-mono">
+                        <p>
+                          <span className="text-default-400">Type: </span>
+                          {domainVerifyInfo.dnsTarget.recordType}
+                        </p>
+                        <p>
+                          <span className="text-default-400">Name: </span>
+                          {domainVerifyInfo.dnsTarget.recordName}
+                        </p>
+                        <p>
+                          <span className="text-default-400">Value: </span>
+                          {domainVerifyInfo.dnsTarget.recordValue}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-default-500">
+                    Setelah kedua record di atas ditambahkan dan DNS selesai propagasi (bisa beberapa
+                    menit), klik &quot;Cek Status&quot;.
+                  </p>
                 </div>
               )}
 
