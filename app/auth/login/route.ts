@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import {
-  generateCodeVerifier,
-  generateCodeChallenge,
-  generateState,
-  buildAuthorizeUrl,
-} from '../../lib/auth';
+import { generateCodeVerifier, generateCodeChallenge, buildAuthorizeUrl } from '../../lib/auth';
+import { generateStateId, saveOAuthState } from '../../lib/oauth-state-store';
 
 function safeNextPath(next: string | null): string | null {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
@@ -14,36 +9,20 @@ function safeNextPath(next: string | null): string | null {
 
 export async function GET(request: NextRequest) {
   const codeVerifier = generateCodeVerifier();
-  const state = generateState();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-  const jar = await cookies();
-  jar.set('oauth_code_verifier', codeVerifier, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 600,
-  });
-  jar.set('oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 600,
-  });
-
   const next = safeNextPath(request.nextUrl.searchParams.get('next'));
-  if (next) {
-    jar.set('oauth_next', next, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 600,
-    });
+
+  // code_verifier + next path disimpan di Upstash Redis (bukan cookie) —
+  // supaya tidak bergantung pada cookie yang di-set sebelum redirect
+  // bertahan lintas navigasi ke IdP dan balik lagi. `state` yang dikirim ke
+  // IdP cuma ID pendek acak (lihat oauth-state-store.ts).
+  const stateId = generateStateId();
+  const saved = await saveOAuthState(stateId, { codeVerifier, next });
+  if (!saved) {
+    console.error('Upstash Redis belum dikonfigurasi (KV_REST_API_URL/TOKEN atau UPSTASH_REDIS_REST_URL/TOKEN)');
+    return NextResponse.redirect(new URL('/?error=server_misconfigured', request.url));
   }
 
-  const authorizeUrl = buildAuthorizeUrl(state, codeChallenge);
+  const authorizeUrl = buildAuthorizeUrl(stateId, codeChallenge);
   return NextResponse.redirect(authorizeUrl);
 }

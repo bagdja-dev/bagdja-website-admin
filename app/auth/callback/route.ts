@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { setSession } from '../../lib/session';
 import { syncUserToBackend } from '../../lib/backend-api';
+import { consumeOAuthState } from '../../lib/oauth-state-store';
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
 const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
@@ -23,17 +23,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/?error=missing_params', request.url));
   }
 
-  const jar = await cookies();
-  const savedState = jar.get('oauth_state')?.value;
-  const codeVerifier = jar.get('oauth_code_verifier')?.value;
+  // code_verifier + next path dibaca dari Upstash Redis (sekali pakai, lalu
+  // dihapus) — bukan dari cookie, supaya tidak terpengaruh Safari yang tidak
+  // konsisten menyimpan Set-Cookie yang menempel di response redirect (lihat
+  // login/route.ts).
+  const decoded = await consumeOAuthState(state);
 
-  if (state !== savedState) {
+  if (!decoded) {
     return NextResponse.redirect(new URL('/?error=state_mismatch', request.url));
   }
 
-  if (!codeVerifier) {
-    return NextResponse.redirect(new URL('/?error=missing_verifier', request.url));
-  }
+  const codeVerifier = decoded.codeVerifier;
 
   try {
     const tokenRes = await fetch(`${AUTH_URL}/oauth/token`, {
@@ -71,10 +71,7 @@ export async function GET(request: NextRequest) {
     // Sync user to Website API DB (upsert users table via JwtStrategy)
     await syncUserToBackend(accessToken);
 
-    const nextPath = jar.get('oauth_next')?.value;
-    jar.delete('oauth_code_verifier');
-    jar.delete('oauth_state');
-    jar.delete('oauth_next');
+    const nextPath = decoded.next;
 
     const redirectTo =
       nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')

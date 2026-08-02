@@ -28,12 +28,6 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
   return base64url(digest);
 }
 
-export function generateState(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return base64url(array.buffer);
-}
-
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
 const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
 const REDIRECT_URI =

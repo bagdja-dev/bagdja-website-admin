@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@heroui/react": "^2.7.0",
+    "@upstash/redis": "^1.38.0",
     "@tiptap/extension-image": "^3.27.3",
     "@tiptap/extension-link": "^3.27.3",
     "@tiptap/extension-placeholder": "^3.27.3",
