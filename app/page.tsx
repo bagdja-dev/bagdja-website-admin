@@ -312,14 +312,15 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-4 text-center">
             <span className="mb-4 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Harga
+              Iuran
             </span>
             <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-              Harga Transparan, Tanpa Biaya Tersembunyi
+              Iuran Transparan, Tanpa Biaya Tersembunyi
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
               Nikmati seluruh fitur premium Bagdja Website secara <strong className="text-gray-700">GRATIS</strong>{' '}
-              selama masa pengembangan.
+              selama masa pengembangan. Iuran paket berbayar nantinya adalah dukungan Anda untuk
+              operasional layanan cloud dan pengembangan berkelanjutan, bukan biaya lisensi terpisah.
             </p>
           </div>
 
@@ -386,8 +387,8 @@ export default function LandingPage() {
           </div>
 
           <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-gray-400">
-            *Harga paket berbayar berlaku setelah masa beta berakhir dan payment gateway resmi aktif. Angka di
-            atas adalah rencana harga dan dapat berubah sebelum diluncurkan.
+            *Iuran paket berbayar berlaku setelah masa beta berakhir dan payment gateway resmi aktif. Angka di
+            atas adalah rencana iuran dan dapat berubah sebelum diluncurkan.
           </p>
         </div>
       </section>
