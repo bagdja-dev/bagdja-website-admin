@@ -4,7 +4,7 @@ import { extractTemplateTheme, themeToSearchParams, type WebsiteTheme } from './
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005';
 
 /** Template slugs dengan halaman live preview di web app */
-export const IFRAME_PREVIEW_TEMPLATES = new Set(['barber-classic']);
+export const IFRAME_PREVIEW_TEMPLATES = new Set(['barber-classic', 'store-classic']);
 
 export interface WebsitePreviewProfile {
   name?: string;
