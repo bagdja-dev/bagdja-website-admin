@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlogPostPicker } from '../../../components/blog-post-picker';
+import { ProductPicker } from '../../../components/product-picker';
+import { CoverImageUpload } from '../../../components/cover-image-upload';
 import { GalleryEditor } from '../../../components/gallery-editor';
 import { RichTextEditor } from '../../../components/rich-text-editor';
 import { AppModal } from '../../../components/app-modal';
@@ -70,6 +72,20 @@ function SectionFormFields({
       );
     }
 
+    if (field.type === 'image') {
+      return (
+        <CoverImageUpload
+          key={field.key}
+          label={field.label}
+          description={field.description}
+          value={typeof val === 'string' ? val : ''}
+          onChange={(url) => onChange(field.key, url)}
+          websiteId={websiteId}
+          uploadFolder="sections"
+        />
+      );
+    }
+
     if (field.type === 'gallery') {
       const images = Array.isArray(val)
         ? val.filter((item): item is GalleryImage => typeof item === 'object' && item !== null)
@@ -94,6 +110,20 @@ function SectionFormFields({
           label={field.label}
           description={field.description}
           value={postIds}
+          websiteId={websiteId}
+          onChange={(ids) => onChange(field.key, ids)}
+        />
+      );
+    }
+
+    if (field.type === 'productPicker') {
+      const productIds = Array.isArray(val) ? val.filter((item): item is string => typeof item === 'string') : [];
+      return (
+        <ProductPicker
+          key={field.key}
+          label={field.label}
+          description={field.description}
+          value={productIds}
           websiteId={websiteId}
           onChange={(ids) => onChange(field.key, ids)}
         />

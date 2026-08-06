@@ -63,11 +63,24 @@ export interface WebsiteSection {
 
 export type ProductType = 'product' | 'service' | 'package' | 'digital';
 
+export interface WebsiteCategory {
+  id: string;
+  website_id: string;
+  label: string;
+  images: string[];
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WebsiteProduct {
   id: string;
   website_id: string;
   type: ProductType | string;
-  category?: string | null;
+  category_id?: string | null;
+  /** Kalau diisi, produk ini adalah varian (mis. warna/ukuran) dari produk lain. */
+  parent_product_id?: string | null;
   name: string;
   slug: string;
   description?: string | null;

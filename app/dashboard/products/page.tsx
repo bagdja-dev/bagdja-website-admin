@@ -5,8 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { CategorySelect } from '../../components/category-select';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { GalleryEditor } from '../../components/gallery-editor';
+import { ManageCategoriesModal } from '../../components/manage-categories-modal';
+import { ProductParentSelect, type ProductOption } from '../../components/product-parent-select';
 import { RichTextEditor } from '../../components/rich-text-editor';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
@@ -16,6 +19,7 @@ import {
   hasMinRole,
   PRODUCT_TYPE_LABELS,
   type ProductType,
+  type WebsiteCategory,
   type WebsiteProduct,
 } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
@@ -124,6 +128,17 @@ function formatPrice(n: number) {
   }).format(n);
 }
 
+/** Slug varian = slug induk + value tiap atribut (mis. "kemeja-flanel-kotak" + "-merah" + "-l"). */
+function computeVariantSlug(parentSlug: string, attrs: { key: string; value: string }[]): string {
+  const suffix = attrs
+    .map((a) => a.value.trim())
+    .filter(Boolean)
+    .map((v) => slugify(v))
+    .filter(Boolean)
+    .join('-');
+  return suffix ? `${parentSlug}-${suffix}` : parentSlug;
+}
+
 function getMetaHint(product: WebsiteProduct): string | null {
   const meta = product.metadata ?? {};
   if (product.type === 'service') {
@@ -145,13 +160,16 @@ function getMetaHint(product: WebsiteProduct): string | null {
 
 interface ProductCardProps {
   product: WebsiteProduct;
+  categoryLabel?: string;
+  variantCount?: number;
+  parentLabel?: string;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: (product: WebsiteProduct) => void;
   onDelete: (productId: string) => void;
 }
 
-function ProductCard({ product, canEdit, canDelete, onEdit, onDelete }: ProductCardProps) {
+function ProductCard({ product, categoryLabel, variantCount, parentLabel, canEdit, canDelete, onEdit, onDelete }: ProductCardProps) {
   const theme = getTypeTheme(product.type);
   const initial = product.name.trim().charAt(0).toUpperCase() || '?';
   const metaHint = getMetaHint(product);
@@ -202,15 +220,20 @@ function ProductCard({ product, canEdit, canDelete, onEdit, onDelete }: ProductC
         <div>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xl font-bold tracking-tight text-foreground">{formatPrice(product.price)}</p>
-            {product.category && (
+            {categoryLabel && (
               <Chip size="sm" variant="flat" className="shrink-0 bg-default-100 text-default-600">
-                {product.category}
+                {categoryLabel}
               </Chip>
             )}
           </div>
           {product.description && (
             <p className="mt-1 line-clamp-2 text-sm text-default-500">{product.description}</p>
           )}
+          {parentLabel ? (
+            <p className="mt-1 text-xs font-medium text-secondary">Varian dari: {parentLabel}</p>
+          ) : variantCount ? (
+            <p className="mt-1 text-xs font-medium text-secondary">{variantCount} varian</p>
+          ) : null}
         </div>
 
         {photos.length > 0 ? (
@@ -267,12 +290,20 @@ export default function ProductsManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
   const { confirm, dialog } = useConfirmDialog();
   const [products, setProducts] = useState<WebsiteProduct[]>([]);
+  const [categories, setCategories] = useState<WebsiteCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<WebsiteProduct | null>(null);
   const [type, setType] = useState<ProductType>('product');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [categoryLabel, setCategoryLabel] = useState('');
+  const [isVariant, setIsVariant] = useState(false);
+  const [parentProductId, setParentProductId] = useState('');
+  const [parentProductLabel, setParentProductLabel] = useState('');
+  const [inheritDescription, setInheritDescription] = useState(false);
+  const [variantAttributes, setVariantAttributes] = useState<{ key: string; value: string }[]>([]);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -297,16 +328,48 @@ export default function ProductsManagement() {
     setLoading(true);
     try {
       const query = typeFilter !== 'all' ? `?type=${typeFilter}` : '';
-      const data = await apiClient<WebsiteProduct[]>(
-        `/api/websites/${websiteId}/products${query}`,
-      );
-      setProducts(data);
+      const [productsData, categoriesData] = await Promise.all([
+        apiClient<WebsiteProduct[]>(`/api/websites/${websiteId}/products${query}`),
+        apiClient<WebsiteCategory[]>(`/api/websites/${websiteId}/categories`),
+      ]);
+      setProducts(productsData);
+      setCategories(categoriesData);
     } catch {
       setProducts([]);
     } finally {
       setLoading(false);
     }
   }, [websiteId, typeFilter]);
+
+  const categoryLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => map.set(c.id, c.label));
+    return map;
+  }, [categories]);
+
+  const productNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    products.forEach((p) => map.set(p.id, p.name));
+    return map;
+  }, [products]);
+
+  const variantCountByParentId = useMemo(() => {
+    const map = new Map<string, number>();
+    products.forEach((p) => {
+      if (p.parent_product_id) map.set(p.parent_product_id, (map.get(p.parent_product_id) ?? 0) + 1);
+    });
+    return map;
+  }, [products]);
+
+  /** Kandidat produk induk di picker — cuma produk top-level (Rule A), bukan diri sendiri. */
+  const parentCandidates: ProductOption[] = useMemo(() => {
+    return products
+      .filter((p) => !p.parent_product_id && p.id !== editProduct?.id)
+      .map((p) => ({ id: p.id, label: p.name }));
+  }, [products, editProduct]);
+
+  /** Rule B: produk yang sudah punya varian sendiri tidak boleh dijadikan varian dari produk lain. */
+  const hasOwnVariants = editProduct ? (variantCountByParentId.get(editProduct.id) ?? 0) > 0 : false;
 
   useEffect(() => {
     void load();
@@ -316,16 +379,6 @@ export default function ProductsManagement() {
     const active = products.filter((p) => p.is_active).length;
     return { total: products.length, active };
   }, [products]);
-
-  const categorySuggestions = useMemo(() => {
-    const set = new Set(
-      products
-        .filter((p) => p.type === type)
-        .map((p) => p.category?.trim())
-        .filter((c): c is string => !!c),
-    );
-    return Array.from(set).sort();
-  }, [products, type]);
 
   const resetMetadata = () => {
     setSku('');
@@ -337,10 +390,23 @@ export default function ProductsManagement() {
     setImages([]);
   };
 
+  /** Recompute slug dari slug induk + value atribut terbaru — cuma jalan kalau memang sedang jadi varian dari produk yang sudah dipilih. */
+  const applySlugFromParent = (attrs: { key: string; value: string }[]) => {
+    if (!isVariant || !parentProductId) return;
+    const parent = products.find((p) => p.id === parentProductId);
+    if (parent) setSlug(computeVariantSlug(parent.slug, attrs));
+  };
+
   const openCreate = () => {
     setEditProduct(null);
     setType(typeFilter !== 'all' ? (typeFilter as ProductType) : 'product');
-    setCategory('');
+    setCategoryId('');
+    setCategoryLabel('');
+    setIsVariant(false);
+    setParentProductId('');
+    setParentProductLabel('');
+    setInheritDescription(false);
+    setVariantAttributes([]);
     setName('');
     setSlug('');
     setDescription('');
@@ -356,7 +422,18 @@ export default function ProductsManagement() {
     const fields = loadMetadataFields(product);
     setEditProduct(product);
     setType((product.type as ProductType) || 'product');
-    setCategory(product.category ?? '');
+    setCategoryId(product.category_id ?? '');
+    setCategoryLabel(product.category_id ? categoryLabelById.get(product.category_id) ?? '' : '');
+    setIsVariant(Boolean(product.parent_product_id));
+    setParentProductId(product.parent_product_id ?? '');
+    setParentProductLabel(product.parent_product_id ? productNameById.get(product.parent_product_id) ?? '' : '');
+    setInheritDescription(product.metadata?.inherit_description === true);
+    const rawAttrs = product.metadata?.variant_attributes;
+    setVariantAttributes(
+      rawAttrs && typeof rawAttrs === 'object'
+        ? Object.entries(rawAttrs as Record<string, unknown>).map(([key, value]) => ({ key, value: String(value) }))
+        : [],
+    );
     setName(product.name);
     setSlug(product.slug);
     setDescription(product.description ?? '');
@@ -382,16 +459,34 @@ export default function ProductsManagement() {
     setSaving(true);
     setError('');
     try {
+      const willInherit = isVariant && inheritDescription;
+      const metadata = buildMetadata(type, sku, stock, durationMinutes, isBookable, downloadUrl, itemsIncluded);
+      if (isVariant && parentProductId) {
+        metadata.inherit_description = inheritDescription;
+      }
+      // Atribut varian selalu disimpan kalau diisi — tidak digantung ke status
+      // isVariant/hasOwnVariants (produk bisa diisi atributnya duluan sebelum
+      // punya hubungan varian apa pun).
+      const attrs = Object.fromEntries(
+        variantAttributes.filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value.trim()]),
+      );
+      if (Object.keys(attrs).length > 0) metadata.variant_attributes = attrs;
+
       const body = {
         type,
-        category: category.trim() || undefined,
+        category_id: categoryId || undefined,
+        parent_product_id: isVariant && parentProductId ? parentProductId : undefined,
         name: name.trim(),
         slug: slug.trim(),
-        description: description.trim() || undefined,
-        detail: detail.trim() || undefined,
+        // Kalau "pakai deskripsi induk" dicentang, kosongkan field lokal
+        // secara eksplisit ('' bukan undefined, biar benar-benar ke-PATCH
+        // jadi kosong, bukan cuma diabaikan) — resolusi tampil diambil live
+        // dari induk (lihat PublicService.resolveInheritedText).
+        description: willInherit ? '' : description.trim() || undefined,
+        detail: willInherit ? '' : detail.trim() || undefined,
         price: parseFloat(price) || 0,
         images: images.map((img) => img.url).filter(Boolean),
-        metadata: buildMetadata(type, sku, stock, durationMinutes, isBookable, downloadUrl, itemsIncluded),
+        metadata,
         is_active: isActive,
       };
       if (editProduct) {
@@ -437,9 +532,14 @@ export default function ProductsManagement() {
           <p className="mt-1 text-default-500">Kelola katalog produk, layanan, paket, dan item digital.</p>
         </div>
         {canEdit && (
-          <Button color="primary" onPress={openCreate} className={desktopAddButtonClass}>
-            + Item Baru
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="flat" onPress={() => setManageCategoriesOpen(true)}>
+              Kelola Kategori
+            </Button>
+            <Button color="primary" onPress={openCreate} className={desktopAddButtonClass}>
+              + Item Baru
+            </Button>
+          </div>
         )}
       </div>
 
@@ -503,6 +603,9 @@ export default function ProductsManagement() {
             <ProductCard
               key={product.id}
               product={product}
+              categoryLabel={product.category_id ? categoryLabelById.get(product.category_id) : undefined}
+              variantCount={variantCountByParentId.get(product.id)}
+              parentLabel={product.parent_product_id ? productNameById.get(product.parent_product_id) : undefined}
               canEdit={canEdit}
               canDelete={canDelete}
               onEdit={openEdit}
@@ -526,19 +629,134 @@ export default function ProductsManagement() {
       >
         <div className="flex flex-col gap-5">
           <FormSelect label="Tipe" value={type} onChange={(v) => setType(v as ProductType)} options={TYPE_OPTIONS} />
-          <FormInput
-            label="Kategori"
-            value={category}
-            onChange={setCategory}
-            list="product-category-suggestions"
-            placeholder="mis. Pomade & Styling"
-            description="Opsional — pengelompokan tambahan di dalam tipe ini."
+          {websiteId && (
+            <CategorySelect
+              label="Kategori"
+              websiteId={websiteId}
+              selectedId={categoryId}
+              selectedLabel={categoryLabel}
+              onSelect={(id, lbl) => {
+                setCategoryId(id);
+                setCategoryLabel(lbl);
+              }}
+              placeholder="Opsional — mis. Atasan, Bawahan"
+            />
+          )}
+
+          <FormSwitch
+            label="Ini varian dari produk lain"
+            description={
+              hasOwnVariants
+                ? 'Tidak bisa — produk ini sudah punya varian sendiri.'
+                : 'Aktifkan kalau item ini adalah varian warna/ukuran dari produk lain (akan jadi row produk sendiri, harga/foto/stok independen).'
+            }
+            checked={isVariant}
+            onChange={(checked) => {
+              setIsVariant(checked);
+              if (!checked) {
+                setParentProductId('');
+                setParentProductLabel('');
+                setInheritDescription(false);
+              }
+            }}
+            disabled={hasOwnVariants}
           />
-          <datalist id="product-category-suggestions">
-            {categorySuggestions.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
+
+          {isVariant && (
+            <>
+              <ProductParentSelect
+                label="Varian dari produk"
+                candidates={parentCandidates}
+                selectedId={parentProductId}
+                selectedLabel={parentProductLabel}
+                onSelect={(id, lbl) => {
+                  setParentProductId(id);
+                  setParentProductLabel(lbl);
+                  // Isi nama/harga/slug/deskripsi awal dari produk induk —
+                  // tinggal disesuaikan (mis. tambah atribut warna/ukuran
+                  // yang ikut di-append otomatis ke slug). Tetap terisi
+                  // walau "Pakai deskripsi induk" nanti dicentang (fieldnya
+                  // cuma disembunyikan, bukan dihapus) — jadi kalau checkbox
+                  // itu dimatikan lagi, sudah ada teks awal untuk diedit.
+                  const parent = products.find((p) => p.id === id);
+                  if (parent) {
+                    setName(parent.name);
+                    setPrice(String(parent.price));
+                    setSlug(computeVariantSlug(parent.slug, variantAttributes));
+                    setDescription(parent.description ?? '');
+                    setDetail(parent.detail ?? '');
+                  }
+                }}
+              />
+              <FormSwitch
+                label="Pakai deskripsi & detail dari produk induk"
+                description="Deskripsi singkat & detail produk ini akan ikut produk induk secara otomatis (kalau induk diedit, varian ini ikut berubah)."
+                checked={inheritDescription}
+                onChange={setInheritDescription}
+              />
+            </>
+          )}
+
+          <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-foreground">Atribut Varian</span>
+              <p className="text-xs text-default-500">
+                Mis. Warna: Oil Green, Ukuran: 38 — dipakai untuk tampilkan pilihan warna/ukuran di halaman produk
+                kalau produk ini punya hubungan varian (jadi induk atau jadi varian dari produk lain). Kalau ada foto
+                (di &quot;Foto Produk&quot; di bawah), atribut ini tampil sebagai swatch foto; kalau tidak, tampil
+                sebagai tombol teks.
+              </p>
+              {variantAttributes.map((attr, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    list="variant-attribute-label-suggestions"
+                    placeholder="Label (mis. Warna)"
+                    value={attr.key}
+                    onChange={(e) =>
+                      setVariantAttributes((prev) =>
+                        prev.map((a, i) => (i === index ? { ...a, key: e.target.value } : a)),
+                      )
+                    }
+                    className="w-32 rounded-lg border border-default-300 px-3 py-1.5 text-sm outline-none focus:border-primary"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nilai (mis. Oil Green)"
+                    value={attr.value}
+                    onChange={(e) => {
+                      const next = variantAttributes.map((a, i) => (i === index ? { ...a, value: e.target.value } : a));
+                      setVariantAttributes(next);
+                      applySlugFromParent(next);
+                    }}
+                    className="flex-1 rounded-lg border border-default-300 px-3 py-1.5 text-sm outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = variantAttributes.filter((_, i) => i !== index);
+                      setVariantAttributes(next);
+                      applySlugFromParent(next);
+                    }}
+                    className="rounded-lg px-2 text-xs font-medium text-danger hover:bg-danger-50"
+                  >
+                    Hapus
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setVariantAttributes((prev) => [...prev, { key: '', value: '' }])}
+                className="self-start rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50"
+              >
+                + Tambah atribut
+              </button>
+              <datalist id="variant-attribute-label-suggestions">
+                <option value="Warna" />
+                <option value="Ukuran" />
+                <option value="Bahan" />
+              </datalist>
+          </div>
+
           <FormInput
             label="Nama"
             value={name}
@@ -555,20 +773,29 @@ export default function ProductsManagement() {
             description="Dipakai di URL halaman detail produk."
             required
           />
-          <FormTextarea
-            label="Deskripsi Singkat"
-            description="Ringkasan pendek yang tampil di katalog."
-            value={description}
-            onChange={setDescription}
-          />
-          <RichTextEditor
-            label="Detail Produk"
-            description="Konten lengkap yang tampil di halaman detail produk — bisa tabel, gambar, dsb."
-            value={detail}
-            onChange={setDetail}
-            websiteId={websiteId ?? undefined}
-            uploadFolder="products"
-          />
+          {isVariant && inheritDescription ? (
+            <div className="rounded-xl border border-dashed border-default-300 bg-default-50/50 px-4 py-3 text-sm text-default-500">
+              Deskripsi & detail mengikuti produk induk ({parentProductLabel || 'belum dipilih'}) — matikan
+              &quot;Pakai deskripsi &amp; detail dari produk induk&quot; kalau mau isi sendiri untuk varian ini.
+            </div>
+          ) : (
+            <>
+              <FormTextarea
+                label="Deskripsi Singkat"
+                description="Ringkasan pendek yang tampil di katalog."
+                value={description}
+                onChange={setDescription}
+              />
+              <RichTextEditor
+                label="Detail Produk"
+                description="Konten lengkap yang tampil di halaman detail produk — bisa tabel, gambar, dsb."
+                value={detail}
+                onChange={setDetail}
+                websiteId={websiteId ?? undefined}
+                uploadFolder="products"
+              />
+            </>
+          )}
           <FormInput
             label="Harga (IDR)"
             type="number"
@@ -630,6 +857,15 @@ export default function ProductsManagement() {
 
       {canEdit && <MobileFloatingActionBar label="Item Baru" onClick={openCreate} />}
       {dialog}
+
+      {websiteId && (
+        <ManageCategoriesModal
+          isOpen={manageCategoriesOpen}
+          onClose={() => setManageCategoriesOpen(false)}
+          websiteId={websiteId}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }

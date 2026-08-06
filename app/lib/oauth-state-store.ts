@@ -44,8 +44,33 @@ function getRedisClient(): Redis | null {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  cachedClient = url && token ? new Redis({ url, token }) : null;
+  // Placeholder dari .env.example (mis. "change-me") harus dianggap "belum
+  // dikonfigurasi", bukan value asli — kalau tidak, client Redis dibuat
+  // dengan URL sampah dan langsung throw saat dipakai (bukan fallback).
+  const isConfigured = Boolean(url && token && url.startsWith('https://'));
+
+  cachedClient = isConfigured ? new Redis({ url: url!, token: token! }) : null;
   return cachedClient;
+}
+
+/**
+ * Fallback in-memory — dipakai HANYA kalau Upstash belum dikonfigurasi DAN
+ * bukan production (biar kesalahan config di production tetap kelihatan,
+ * bukan diam-diam "berhasil" pakai memory lalu putus tiap restart/instance
+ * berbeda). Untuk dev lokal ini cukup: satu proses Next.js, state cuma
+ * hidup ~10 menit dan sekali pakai — tidak butuh Redis sungguhan.
+ */
+const memoryStore = new Map<string, { payload: AdminOAuthStatePayload; expiresAt: number }>();
+
+function useMemoryFallback(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function purgeExpiredMemoryEntries(): void {
+  const now = Date.now();
+  for (const [key, entry] of memoryStore) {
+    if (entry.expiresAt <= now) memoryStore.delete(key);
+  }
 }
 
 /** ID pendek acak (~24 karakter base64url) — dikirim sebagai `state` ke IdP. */
@@ -59,7 +84,12 @@ export async function saveOAuthState(
   ttlSeconds = DEFAULT_TTL_SECONDS,
 ): Promise<boolean> {
   const redis = getRedisClient();
-  if (!redis) return false;
+  if (!redis) {
+    if (!useMemoryFallback()) return false;
+    purgeExpiredMemoryEntries();
+    memoryStore.set(`${STATE_KEY_PREFIX}${id}`, { payload, expiresAt: Date.now() + ttlSeconds * 1000 });
+    return true;
+  }
   // Kirim object langsung (bukan JSON.stringify manual) — SDK @upstash/redis
   // otomatis JSON-encode saat SET dan JSON-decode saat GET/GETDEL.
   await redis.set(`${STATE_KEY_PREFIX}${id}`, payload, { ex: ttlSeconds });
@@ -69,7 +99,14 @@ export async function saveOAuthState(
 /** Sekali pakai — baca lalu langsung hapus (`GETDEL`, atomik) supaya `state` tidak bisa dipakai ulang (replay). */
 export async function consumeOAuthState(id: string): Promise<AdminOAuthStatePayload | null> {
   const redis = getRedisClient();
-  if (!redis) return null;
+  if (!redis) {
+    if (!useMemoryFallback()) return null;
+    const key = `${STATE_KEY_PREFIX}${id}`;
+    const entry = memoryStore.get(key);
+    memoryStore.delete(key);
+    if (!entry || entry.expiresAt <= Date.now()) return null;
+    return entry.payload;
+  }
 
   const raw = await redis.getdel<AdminOAuthStatePayload | string>(`${STATE_KEY_PREFIX}${id}`);
   if (!raw) return null;

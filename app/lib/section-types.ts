@@ -5,7 +5,9 @@ export type SectionFieldType =
   | 'select'
   | 'richtext'
   | 'gallery'
-  | 'blogPostPicker';
+  | 'blogPostPicker'
+  | 'productPicker'
+  | 'image';
 
 export interface GalleryImage {
   url: string;
@@ -46,9 +48,15 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     categoryLabel: 'Konten',
     gradient: 'from-blue-600 to-cyan-500',
     icon: '🎯',
-    defaults: { subtitle: '', show_whatsapp_cta: true },
+    defaults: { subtitle: '', show_whatsapp_cta: true, image_url: '' },
     fields: [
       { key: 'subtitle', label: 'Subjudul', type: 'text', placeholder: 'Premium Barbershop' },
+      {
+        key: 'image_url',
+        label: 'Gambar Hero',
+        type: 'image',
+        description: 'Opsional — dipakai template yang mendukung hero dengan gambar (mis. Store Classic).',
+      },
       {
         key: 'show_whatsapp_cta',
         label: 'Tampilkan tombol WhatsApp',
@@ -124,9 +132,8 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
       },
       {
         key: 'image_url',
-        label: 'URL Foto Profil',
-        type: 'text',
-        placeholder: 'https://...',
+        label: 'Foto Profil',
+        type: 'image',
         description: 'Foto tim atau interior — opsional.',
       },
     ],
@@ -157,6 +164,62 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
         type: 'gallery',
         description: 'PNG, JPG, WebP, GIF — maks. 5 MB per file.',
       },
+    ],
+  },
+  {
+    type: 'features_grid',
+    label: 'Blok Fitur/USP',
+    description: 'Keunggulan bisnis dalam 2-4 kolom (mis. Gratis Ongkir, Garansi, Layanan 24/7).',
+    category: 'narrative',
+    categoryLabel: 'Konten',
+    gradient: 'from-sky-600 to-blue-500',
+    icon: '⭐',
+    defaults: {
+      title: 'Kenapa Pilih Kami',
+      feature_1_icon: '🚚',
+      feature_1_title: '',
+      feature_1_desc: '',
+      feature_2_icon: '🛡️',
+      feature_2_title: '',
+      feature_2_desc: '',
+      feature_3_icon: '💬',
+      feature_3_title: '',
+      feature_3_desc: '',
+    },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'feature_1_icon', label: 'Ikon Fitur 1 (emoji)', type: 'text', placeholder: '🚚' },
+      { key: 'feature_1_title', label: 'Judul Fitur 1', type: 'text' },
+      { key: 'feature_1_desc', label: 'Deskripsi Fitur 1', type: 'textarea' },
+      { key: 'feature_2_icon', label: 'Ikon Fitur 2 (emoji)', type: 'text', placeholder: '🛡️' },
+      { key: 'feature_2_title', label: 'Judul Fitur 2', type: 'text' },
+      { key: 'feature_2_desc', label: 'Deskripsi Fitur 2', type: 'textarea' },
+      { key: 'feature_3_icon', label: 'Ikon Fitur 3 (emoji)', type: 'text', placeholder: '💬' },
+      { key: 'feature_3_title', label: 'Judul Fitur 3', type: 'text' },
+      { key: 'feature_3_desc', label: 'Deskripsi Fitur 3', type: 'textarea' },
+    ],
+  },
+  {
+    type: 'logo_wall',
+    label: 'Deretan Logo',
+    description: 'Logo brand/partner/media untuk membangun kredibilitas.',
+    category: 'narrative',
+    categoryLabel: 'Konten',
+    gradient: 'from-neutral-600 to-gray-500',
+    icon: '🏷️',
+    defaults: { title: 'Dipercaya Oleh', layout: 'grid', logos: [] as GalleryImage[] },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text', placeholder: 'Dipercaya Oleh' },
+      {
+        key: 'layout',
+        label: 'Layout',
+        type: 'select',
+        options: [
+          { value: 'grid', label: 'Grid' },
+          { value: 'carousel', label: 'Carousel' },
+        ],
+      },
+      { key: 'logos', label: 'Logo', type: 'gallery', description: 'PNG/WebP transparan disarankan.' },
     ],
   },
   {
@@ -231,6 +294,40 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
           { value: 'digital', label: 'Digital' },
         ],
       },
+    ],
+  },
+  {
+    type: 'category_grid',
+    label: 'Grid Kategori',
+    description: 'Kartu navigasi kategori produk/layanan (dikelompokkan otomatis dari field Kategori).',
+    category: 'master',
+    categoryLabel: 'Data Master',
+    gradient: 'from-purple-600 to-indigo-500',
+    icon: '🗃️',
+    manageHint: 'Kategori diambil dari field "Kategori" di menu Produk & Layanan.',
+    defaults: { title: 'Kategori Pilihan', source: 'products' },
+    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+  },
+  {
+    type: 'featured_product',
+    label: 'Spotlight Produk',
+    description: 'Banner promosi untuk 1 produk/layanan unggulan dari katalog.',
+    category: 'master',
+    categoryLabel: 'Data Master',
+    gradient: 'from-yellow-600 to-amber-500',
+    icon: '🌟',
+    manageHint: 'Kelola produk di menu Produk & Layanan.',
+    defaults: { title: '', subtitle: '', product_ids: [] as string[], button_text: 'Lihat Detail' },
+    fields: [
+      { key: 'title', label: 'Judul', type: 'text', placeholder: 'Opsional' },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', placeholder: 'Opsional' },
+      {
+        key: 'product_ids',
+        label: 'Pilih Produk',
+        type: 'productPicker',
+        description: 'Pilih 1 produk/layanan yang ingin ditonjolkan.',
+      },
+      { key: 'button_text', label: 'Teks Tombol', type: 'text', placeholder: 'Lihat Detail' },
     ],
   },
   {
@@ -366,7 +463,7 @@ export function getDefaultFormValues(type: string): Record<string, SectionFormVa
       values[field.key] = def === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(def);
-    } else if (field.type === 'blogPostPicker') {
+    } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(def);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof def === 'string' ? def : '';
@@ -394,7 +491,7 @@ export function contentToFormValues(
       values[field.key] = val === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(val);
-    } else if (field.type === 'blogPostPicker') {
+    } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(val);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof val === 'string' ? val : '';
@@ -427,7 +524,7 @@ export function formValuesToContent(
       continue;
     }
 
-    if (field.type === 'blogPostPicker') {
+    if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       content[field.key] = parseStringArray(val);
       continue;
     }
