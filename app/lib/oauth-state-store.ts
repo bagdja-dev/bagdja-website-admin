@@ -62,7 +62,7 @@ function getRedisClient(): Redis | null {
  */
 const memoryStore = new Map<string, { payload: AdminOAuthStatePayload; expiresAt: number }>();
 
-function useMemoryFallback(): boolean {
+function isMemoryFallbackAllowed(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
 
@@ -85,7 +85,7 @@ export async function saveOAuthState(
 ): Promise<boolean> {
   const redis = getRedisClient();
   if (!redis) {
-    if (!useMemoryFallback()) return false;
+    if (!isMemoryFallbackAllowed()) return false;
     purgeExpiredMemoryEntries();
     memoryStore.set(`${STATE_KEY_PREFIX}${id}`, { payload, expiresAt: Date.now() + ttlSeconds * 1000 });
     return true;
@@ -100,7 +100,7 @@ export async function saveOAuthState(
 export async function consumeOAuthState(id: string): Promise<AdminOAuthStatePayload | null> {
   const redis = getRedisClient();
   if (!redis) {
-    if (!useMemoryFallback()) return null;
+    if (!isMemoryFallbackAllowed()) return null;
     const key = `${STATE_KEY_PREFIX}${id}`;
     const entry = memoryStore.get(key);
     memoryStore.delete(key);
