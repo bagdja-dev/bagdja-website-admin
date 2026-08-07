@@ -12,6 +12,7 @@ export async function backendFetch<T = unknown>(
   const { token } = await getSession();
 
   if (!token) {
+    console.error(`[backendFetch] ${path} -> no bw_token cookie on request`);
     return { data: null, status: 401, error: 'Not authenticated' };
   }
 
@@ -34,6 +35,7 @@ export async function backendFetch<T = unknown>(
 
     if (!res.ok) {
       const body = await res.text();
+      console.error(`[backendFetch] ${options.method ?? 'GET'} ${path} -> ${res.status}: ${body || res.statusText}`);
       return { data: null, status: res.status, error: body || res.statusText };
     }
 
