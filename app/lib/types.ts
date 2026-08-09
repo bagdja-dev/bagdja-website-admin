@@ -74,6 +74,14 @@ export interface WebsiteCategory {
   updated_at: string;
 }
 
+/** Satu cara/link pembayaran checkout — polymorphic per `payment_mode`. Mode baru cukup nambah union di sini + config di payment-mode-types.ts. */
+export interface LynkPaymentMeta {
+  payment_mode: 'LYNK';
+  payment_link: string;
+}
+
+export type PaymentMetaEntry = LynkPaymentMeta;
+
 export interface WebsiteProduct {
   id: string;
   website_id: string;
@@ -88,6 +96,7 @@ export interface WebsiteProduct {
   price: number;
   images: string[];
   metadata: Record<string, unknown>;
+  payment_meta: PaymentMetaEntry[];
   sort_order: number;
   is_active: boolean;
   created_at: string;

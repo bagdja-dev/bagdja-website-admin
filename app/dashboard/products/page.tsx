@@ -9,6 +9,7 @@ import { CategorySelect } from '../../components/category-select';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { GalleryEditor } from '../../components/gallery-editor';
 import { ManageCategoriesModal } from '../../components/manage-categories-modal';
+import { PaymentMetaEditor } from '../../components/payment-meta-editor';
 import { ProductParentSelect, type ProductOption } from '../../components/product-parent-select';
 import { RichTextEditor } from '../../components/rich-text-editor';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
@@ -18,6 +19,7 @@ import { apiClient, slugify } from '../../lib/api-client';
 import {
   hasMinRole,
   PRODUCT_TYPE_LABELS,
+  type PaymentMetaEntry,
   type ProductType,
   type WebsiteCategory,
   type WebsiteProduct,
@@ -317,6 +319,7 @@ export default function ProductsManagement() {
   const [downloadUrl, setDownloadUrl] = useState('');
   const [itemsIncluded, setItemsIncluded] = useState('');
   const [images, setImages] = useState<GalleryImage[]>([]);
+  const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -413,6 +416,7 @@ export default function ProductsManagement() {
     setDetail('');
     setPrice('0');
     setIsActive(true);
+    setPaymentMeta([]);
     resetMetadata();
     setError('');
     setModalOpen(true);
@@ -447,6 +451,7 @@ export default function ProductsManagement() {
     setDownloadUrl(fields.downloadUrl);
     setItemsIncluded(fields.itemsIncluded);
     setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
+    setPaymentMeta(product.payment_meta ?? []);
     setError('');
     setModalOpen(true);
   };
@@ -487,6 +492,7 @@ export default function ProductsManagement() {
         price: parseFloat(price) || 0,
         images: images.map((img) => img.url).filter(Boolean),
         metadata,
+        payment_meta: paymentMeta,
         is_active: isActive,
       };
       if (editProduct) {
@@ -845,6 +851,8 @@ export default function ProductsManagement() {
               rows={3}
             />
           )}
+
+          <PaymentMetaEditor value={paymentMeta} onChange={setPaymentMeta} />
 
           <FormSwitch label="Aktif" checked={isActive} onChange={setIsActive} />
           {error && (
