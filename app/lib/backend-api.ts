@@ -78,3 +78,60 @@ export async function syncUserToBackend(accessToken: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Auto-subscribe user ke plan free jika belum punya subscription.
+ * Non-blocking pada login flow — jika gagal, user tetap bisa login.
+ *
+ * Pola diadaptasi persis dari POS
+ * (`app/pos/bagdja-pos-admin/app/auth/callback/route.ts`), karena
+ * Website Builder mengikuti blueprint POS untuk subscription/wallet
+ * (lihat `app/website/bagdja-website-api/subscription-implementasi-plan.md`
+ * §2 Blueprint Pola yang Diadopsi dari POS).
+ *
+ * Endpoint tujuan: `POST {apiBase}/api/subscriptions/auto-subscribe-free`
+ * (website-api `SubscriptionsController.autoSubscribeFree`, JwtAuthGuard +
+ * @CurrentUser() — idempotent, feature-flag AUTO_SUBSCRIBE_FREE_ENABLED).
+ */
+export async function attemptAutoSubscribeFree(accessToken: string): Promise<void> {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5003';
+
+  try {
+    const res = await fetch(`${apiBase}/api/subscriptions/auto-subscribe-free`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.warn(
+        '[Auto-Subscribe] Non-blocking attempt failed (status: ' +
+          res.status +
+          '). Login continues anyway.',
+      );
+      console.warn('[Auto-Subscribe] Error:', errorBody);
+      return;
+    }
+
+    const result = (await res.json()) as {
+      autoSubscribed: boolean;
+      reason?: string;
+      subscription?: unknown;
+    };
+
+    if (result.autoSubscribed) {
+      console.log('[Auto-Subscribe] Success: User auto-subscribed to free plan');
+    } else {
+      console.log('[Auto-Subscribe] Skipped:', result.reason || 'unknown reason');
+    }
+  } catch (err) {
+    console.error(
+      '[Auto-Subscribe] Network/parse error (non-blocking):',
+      err instanceof Error ? err.message : String(err),
+    );
+    // Continue login anyway — auto-subscribe is non-blocking
+  }
+}

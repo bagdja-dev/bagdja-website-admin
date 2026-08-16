@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setSession } from '../../lib/session';
-import { syncUserToBackend } from '../../lib/backend-api';
+import {
+  attemptAutoSubscribeFree,
+  syncUserToBackend,
+} from '../../lib/backend-api';
 import { consumeOAuthState } from '../../lib/oauth-state-store';
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
@@ -8,6 +11,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
 const CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET ?? '';
 const REDIRECT_URI =
   process.env.NEXT_PUBLIC_REDIRECT_URI ?? 'http://localhost:5004/auth/callback';
+const AUTO_SUBSCRIBE_ENABLED = process.env.AUTO_SUBSCRIBE_FREE_ENABLED !== 'false';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -70,6 +74,14 @@ export async function GET(request: NextRequest) {
 
     // Sync user to Website API DB (upsert users table via JwtStrategy)
     await syncUserToBackend(accessToken);
+
+    // Auto-subscribe ke free plan jika feature enabled (non-blocking —
+    // login tetap lanjut walau gagal). Fase 4.3 subscription-implementasi-plan.md.
+    if (AUTO_SUBSCRIBE_ENABLED) {
+      await attemptAutoSubscribeFree(accessToken);
+    } else {
+      console.log('[Auto-Subscribe] Feature is disabled (AUTO_SUBSCRIBE_FREE_ENABLED=false)');
+    }
 
     const nextPath = decoded.next;
 
