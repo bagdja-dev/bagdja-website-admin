@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Button,
@@ -134,7 +134,7 @@ function IconRefresh({ className, spin }: { className?: string; spin?: boolean }
   );
 }
 
-export default function BillingPage() {
+function BillingPageContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status');
   const invoice = searchParams.get('invoice');
@@ -1033,5 +1033,26 @@ export default function BillingPage() {
         </div>
       </AppModal>
     </div>
+  );
+}
+
+
+/**
+ * Wrapper + Suspense boundary untuk `useSearchParams` — wajib di Next.js
+ * App Router (error "useSearchParams() should be wrapped in a suspense
+ * boundary" saat prerender/deploy Vercel, karena hook ini butuh CSR bailout).
+ * Fallback pakai LoadingSpinner yang sudah ada.
+ */
+export default function BillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <LoadingSpinner className="h-10" />
+        </div>
+      }
+    >
+      <BillingPageContent />
+    </Suspense>
   );
 }
