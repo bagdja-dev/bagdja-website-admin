@@ -29,7 +29,7 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
 }
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
+const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'bagdja-website';
 const REDIRECT_URI =
   process.env.NEXT_PUBLIC_REDIRECT_URI ?? 'http://localhost:5004/auth/callback';
 

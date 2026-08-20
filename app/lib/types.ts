@@ -80,7 +80,18 @@ export interface LynkPaymentMeta {
   payment_link: string;
 }
 
-export type PaymentMetaEntry = LynkPaymentMeta;
+export interface AddToCartPaymentMeta {
+  payment_mode: 'ADD_TO_CART';
+}
+
+export interface EscrowPaymentMeta {
+  payment_mode: 'ESCROW';
+}
+
+export type PaymentMetaEntry =
+  | LynkPaymentMeta
+  | AddToCartPaymentMeta
+  | EscrowPaymentMeta;
 
 export interface WebsiteProduct {
   id: string;

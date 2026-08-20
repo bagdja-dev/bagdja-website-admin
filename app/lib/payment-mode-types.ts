@@ -33,6 +33,16 @@ export const PAYMENT_MODE_CONFIGS: PaymentModeConfig[] = [
       },
     ],
   },
+  {
+    mode: 'ADD_TO_CART',
+    label: 'Bagdja Checkout',
+    fields: [],
+  },
+  {
+    mode: 'ESCROW',
+    label: 'Bagdja Escrow',
+    fields: [],
+  },
 ];
 
 export function getPaymentModeConfig(mode: string): PaymentModeConfig {

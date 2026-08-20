@@ -17,6 +17,14 @@ export function PaymentMetaEditor({ value, onChange }: PaymentMetaEditorProps) {
     onChange(value.map((entry, i) => (i === index ? ({ ...entry, ...patch } as PaymentMetaEntry) : entry)));
   };
 
+  const changeMode = (index: number, mode: string) => {
+    // Mode internal tidak boleh membawa field external lama (mis. payment_link).
+    const next = value.map((entry, i) =>
+      i === index ? ({ payment_mode: mode } as PaymentMetaEntry) : entry,
+    );
+    onChange(next);
+  };
+
   const removeEntry = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
   };
@@ -44,7 +52,7 @@ export function PaymentMetaEditor({ value, onChange }: PaymentMetaEditorProps) {
                 <FormSelect
                   label="Tipe Pembayaran"
                   value={entry.payment_mode}
-                  onChange={(mode) => updateEntry(index, { payment_mode: mode })}
+                  onChange={(mode) => changeMode(index, mode)}
                   options={MODE_OPTIONS}
                 />
               </div>
@@ -57,17 +65,27 @@ export function PaymentMetaEditor({ value, onChange }: PaymentMetaEditorProps) {
               </button>
             </div>
 
-            {config.fields.map((field) => (
-              <FormInput
-                key={field.key}
-                label={field.label}
-                description={field.description}
-                placeholder={field.placeholder}
-                type={field.type === 'url' ? 'url' : 'text'}
-                value={typeof record[field.key] === 'string' ? (record[field.key] as string) : ''}
-                onChange={(v) => updateEntry(index, { [field.key]: v })}
-              />
-            ))}
+            {config.fields.length > 0 ? (
+              config.fields.map((field) => (
+                <FormInput
+                  key={field.key}
+                  label={field.label}
+                  description={field.description}
+                  placeholder={field.placeholder}
+                  type={field.type === 'url' ? 'url' : 'text'}
+                  value={typeof record[field.key] === 'string' ? (record[field.key] as string) : ''}
+                  onChange={(v) => updateEntry(index, { [field.key]: v })}
+                />
+              ))
+            ) : entry.payment_mode === 'ADD_TO_CART' ? (
+              <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-700">
+                Checkout melalui Bagdja. Produk akan masuk ke cart pembeli dan dibayar melalui flow Bagdja.
+              </p>
+            ) : entry.payment_mode === 'ESCROW' ? (
+              <p className="rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700">
+                Bagdja Escrow. Pembeli membayar penuh di awal dan dana dicairkan setelah konfirmasi terima barang.
+              </p>
+            ) : null}
           </div>
         );
       })}

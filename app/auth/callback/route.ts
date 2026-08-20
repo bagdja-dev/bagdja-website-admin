@@ -7,7 +7,7 @@ import {
 import { consumeOAuthState } from '../../lib/oauth-state-store';
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL ?? 'http://localhost:4001';
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'website-builder-admin';
+const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? 'bagdja-website';
 const CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET ?? '';
 const REDIRECT_URI =
   process.env.NEXT_PUBLIC_REDIRECT_URI ?? 'http://localhost:5004/auth/callback';
