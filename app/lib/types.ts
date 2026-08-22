@@ -212,6 +212,76 @@ export const PRODUCT_TYPE_LABELS: Record<string, string> = {
   digital: 'Digital',
 };
 
+/**
+ * Order Handling Phase 1 (plan/website-builder/order-hanlde-plan.md) —
+ * daftar pesanan masuk ke website (tenant-scoped), dibaca lewat
+ * `GET /api/websites/:websiteId/transactions`.
+ */
+export interface TransactionProduct {
+  name?: string;
+  images?: string[];
+}
+
+export interface TransactionItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+  order?: { product?: TransactionProduct | null } | null;
+}
+
+export interface EscrowMilestoneSummary {
+  id: string;
+  sequence: number;
+  status: string;
+}
+
+export interface EscrowSummary {
+  id: string;
+  status: string;
+  amount_held: number;
+  amount_released: number;
+  remaining_hold: number;
+  milestones: EscrowMilestoneSummary[];
+}
+
+export interface WebsiteTransaction {
+  id: string;
+  website_id: string;
+  buyer_user_id: string;
+  buyer_identifier: string | null;
+  recipient_name: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  postal_code: string | null;
+  courier: string | null;
+  total_amount: number;
+  currency: string;
+  payment_mode: 'ADD_TO_CART' | 'ESCROW';
+  status: string;
+  checkout_url: string | null;
+  created_at: string;
+  items?: TransactionItem[];
+  /** Hanya ada di response detail (`GET .../transactions/:id`), bukan list. */
+  escrow?: EscrowSummary | null;
+}
+
+/** Status pembayaran/escrow — vocabulary sama dengan `EscrowStatus` payment-service + `CANCELLED`/`PENDING_PAYMENT` lokal. */
+export const TRANSACTION_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Menunggu pembayaran',
+  PENDING_PAYMENT: 'Menunggu pembayaran',
+  HELD: 'Dibayar — dana ditahan',
+  COMPLETED: 'Selesai',
+  REFUNDED: 'Direfund',
+  CLOSED: 'Ditutup',
+  DISPUTED: 'Dalam sengketa',
+  CANCELLED: 'Dibatalkan',
+};
+
 export const LOCATION_TYPE_LABELS: Record<string, string> = {
   branch: 'Cabang',
   warehouse: 'Gudang',
