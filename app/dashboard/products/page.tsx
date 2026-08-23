@@ -19,6 +19,7 @@ import { apiClient, slugify } from '../../lib/api-client';
 import {
   hasMinRole,
   PRODUCT_TYPE_LABELS,
+  type FulfillmentFlow,
   type PaymentMetaEntry,
   type ProductType,
   type WebsiteCategory,
@@ -293,6 +294,7 @@ export default function ProductsManagement() {
   const { confirm, dialog } = useConfirmDialog();
   const [products, setProducts] = useState<WebsiteProduct[]>([]);
   const [categories, setCategories] = useState<WebsiteCategory[]>([]);
+  const [fulfillmentFlows, setFulfillmentFlows] = useState<FulfillmentFlow[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -320,6 +322,8 @@ export default function ProductsManagement() {
   const [itemsIncluded, setItemsIncluded] = useState('');
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
+  const [fulfillmentFlowId, setFulfillmentFlowId] = useState('');
+  const [finalReleaseGuarantyDays, setFinalReleaseGuarantyDays] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -331,18 +335,29 @@ export default function ProductsManagement() {
     setLoading(true);
     try {
       const query = typeFilter !== 'all' ? `?type=${typeFilter}` : '';
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, flowsData] = await Promise.all([
         apiClient<WebsiteProduct[]>(`/api/websites/${websiteId}/products${query}`),
         apiClient<WebsiteCategory[]>(`/api/websites/${websiteId}/categories`),
+        apiClient<FulfillmentFlow[]>(`/api/websites/${websiteId}/fulfillment-flows`),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
+      setFulfillmentFlows(flowsData);
     } catch {
       setProducts([]);
     } finally {
       setLoading(false);
     }
   }, [websiteId, typeFilter]);
+
+  const fulfillmentFlowOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Tanpa tracking' },
+      ...fulfillmentFlows
+        .filter((f) => f.is_active || f.id === fulfillmentFlowId)
+        .map((f) => ({ value: f.id, label: f.name })),
+    ];
+  }, [fulfillmentFlows, fulfillmentFlowId]);
 
   const categoryLabelById = useMemo(() => {
     const map = new Map<string, string>();
@@ -417,6 +432,10 @@ export default function ProductsManagement() {
     setPrice('0');
     setIsActive(true);
     setPaymentMeta([]);
+    setFulfillmentFlowId('');
+    // Standar masa garansi konfirmasi penerimaan = 3 hari (opt-out — kosongkan
+    // manual kalau seller tidak mau mengaktifkan force-complete produk ini).
+    setFinalReleaseGuarantyDays('3');
     resetMetadata();
     setError('');
     setModalOpen(true);
@@ -452,6 +471,10 @@ export default function ProductsManagement() {
     setItemsIncluded(fields.itemsIncluded);
     setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
     setPaymentMeta(product.payment_meta ?? []);
+    setFulfillmentFlowId(product.fulfillment_flow_id ?? '');
+    setFinalReleaseGuarantyDays(
+      product.final_release_guaranty_days != null ? String(product.final_release_guaranty_days) : '',
+    );
     setError('');
     setModalOpen(true);
   };
@@ -493,6 +516,8 @@ export default function ProductsManagement() {
         images: images.map((img) => img.url).filter(Boolean),
         metadata,
         payment_meta: paymentMeta,
+        fulfillment_flow_id: fulfillmentFlowId || null,
+        final_release_guaranty_days: finalReleaseGuarantyDays ? parseInt(finalReleaseGuarantyDays, 10) : null,
         is_active: isActive,
       };
       if (editProduct) {
@@ -851,6 +876,25 @@ export default function ProductsManagement() {
               rows={3}
             />
           )}
+
+          <FormSelect
+            label="Flow Pengiriman"
+            value={fulfillmentFlowId}
+            onChange={setFulfillmentFlowId}
+            options={fulfillmentFlowOptions}
+            placeholder="Tanpa tracking (mis. produk digital)"
+            description="SOP pengiriman/pemenuhan bertahap yang harus dilewati penjual sampai barang dianggap terkirim. Kelola di menu Master Flow."
+          />
+
+          <FormInput
+            label="Masa Garansi Konfirmasi Penerimaan (hari)"
+            type="number"
+            min={1}
+            value={finalReleaseGuarantyDays}
+            onChange={setFinalReleaseGuarantyDays}
+            placeholder="Kosongkan untuk menonaktifkan"
+            description="Kalau buyer tidak klik 'Selesai — Terima Barang' setelah sekian hari sejak pesanan siap dikonfirmasi, Anda bisa force-complete transaksi lewat halaman Pesanan. Kosongkan kalau tidak mau mengaktifkan opsi ini untuk produk ini — transaksi yang mengandung produk tanpa pengaturan ini tidak bisa di-force-complete sama sekali."
+          />
 
           <PaymentMetaEditor value={paymentMeta} onChange={setPaymentMeta} />
 

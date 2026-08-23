@@ -47,6 +47,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Master Flow',
+    href: '/dashboard/fulfillment-flows',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3.75H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-5.379a1.5 1.5 0 0 0-1.06.44l-2.122 2.12a.75.75 0 0 1-1.198-.556V19.5h-.879a2.25 2.25 0 0 1-2.25-2.25V9m0 0V6a2.25 2.25 0 0 1 2.25-2.25H8.25M6.75 9h9M6.75 12h5.25" />
+      </svg>
+    ),
+  },
+  {
     label: 'Lokasi',
     href: '/dashboard/locations',
     icon: (

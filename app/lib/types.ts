@@ -110,6 +110,10 @@ export interface WebsiteProduct {
   payment_meta: PaymentMetaEntry[];
   sort_order: number;
   is_active: boolean;
+  /** Order Handling Phase 3 — SOP pengiriman kustom (null = tidak butuh tracking). */
+  fulfillment_flow_id?: string | null;
+  /** Order Handling Phase 3 §3.0.2 — masa garansi (hari) sebelum seller boleh force-complete transaksi kalau buyer tidak konfirm terima barang. Null = force-complete dinonaktifkan untuk produk ini. */
+  final_release_guaranty_days?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -263,11 +267,69 @@ export interface WebsiteTransaction {
   currency: string;
   payment_mode: 'ADD_TO_CART' | 'ESCROW';
   status: string;
+  /** Order Handling Phase 3 — status BARANG, independen dari `status` (uang) di atas. */
+  fulfillment_status: string;
   checkout_url: string | null;
   created_at: string;
   items?: TransactionItem[];
   /** Hanya ada di response detail (`GET .../transactions/:id`), bukan list. */
   escrow?: EscrowSummary | null;
+  /** `{ order_id: progress }` — hanya ada di response detail. */
+  fulfillment?: Record<string, OrderFulfillmentProgress>;
+}
+
+/**
+ * Order Handling Phase 3 (plan/website-builder/order-hanlde-plan.md §3.0.1)
+ * — Master Flow: SOP pengiriman kustom, reusable lintas produk 1 website.
+ */
+export interface FulfillmentStepFormField {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'textarea' | 'select';
+  required?: boolean;
+  options?: string[];
+}
+
+export interface FulfillmentFlowStep {
+  id?: string;
+  sequence: number;
+  status_name: string;
+  description?: string | null;
+  process_day?: number | null;
+  form_schema?: FulfillmentStepFormField[] | null;
+  release_percentage?: number | null;
+  guaranty_days?: number | null;
+}
+
+export interface FulfillmentFlow {
+  id: string;
+  website_id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  steps: FulfillmentFlowStep[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderFulfillmentStepProgress {
+  stepName: string;
+  description: string | null;
+  processDay: number | null;
+  releasePercentage: number | null;
+  guarantyDays: number | null;
+  formSchema: FulfillmentStepFormField[] | null;
+  completed: boolean;
+  formData: Record<string, unknown> | null;
+  releaseApproved: boolean;
+  releaseAmount: number | null;
+  releaseApprovedBy: 'buyer' | 'seller_guaranty' | null;
+  disputed: boolean;
+}
+
+export interface OrderFulfillmentProgress {
+  flowName: string;
+  steps: OrderFulfillmentStepProgress[];
 }
 
 /** Status pembayaran/escrow — vocabulary sama dengan `EscrowStatus` payment-service + `CANCELLED`/`PENDING_PAYMENT` lokal. */
