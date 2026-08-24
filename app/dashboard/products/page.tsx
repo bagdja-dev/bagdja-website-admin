@@ -9,6 +9,7 @@ import { CategorySelect } from '../../components/category-select';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { GalleryEditor } from '../../components/gallery-editor';
 import { ManageCategoriesModal } from '../../components/manage-categories-modal';
+import { ManageProductTypeFlowsModal } from '../../components/manage-product-type-flows-modal';
 import { PaymentMetaEditor } from '../../components/payment-meta-editor';
 import { ProductParentSelect, type ProductOption } from '../../components/product-parent-select';
 import { RichTextEditor } from '../../components/rich-text-editor';
@@ -299,6 +300,7 @@ export default function ProductsManagement() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [manageFlowsOpen, setManageFlowsOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<WebsiteProduct | null>(null);
   const [type, setType] = useState<ProductType>('product');
   const [categoryId, setCategoryId] = useState('');
@@ -566,6 +568,9 @@ export default function ProductsManagement() {
           <div className="flex items-center gap-2">
             <Button variant="flat" onPress={() => setManageCategoriesOpen(true)}>
               Kelola Kategori
+            </Button>
+            <Button variant="flat" onPress={() => setManageFlowsOpen(true)}>
+              Kelola Flow
             </Button>
             <Button color="primary" onPress={openCreate} className={desktopAddButtonClass}>
               + Item Baru
@@ -914,6 +919,15 @@ export default function ProductsManagement() {
         <ManageCategoriesModal
           isOpen={manageCategoriesOpen}
           onClose={() => setManageCategoriesOpen(false)}
+          websiteId={websiteId}
+          onChanged={load}
+        />
+      )}
+
+      {websiteId && (
+        <ManageProductTypeFlowsModal
+          isOpen={manageFlowsOpen}
+          onClose={() => setManageFlowsOpen(false)}
           websiteId={websiteId}
           onChanged={load}
         />

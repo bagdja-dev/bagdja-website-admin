@@ -36,7 +36,19 @@ export async function backendFetch<T = unknown>(
     if (!res.ok) {
       const body = await res.text();
       console.error(`[backendFetch] ${options.method ?? 'GET'} ${path} -> ${res.status}: ${body || res.statusText}`);
-      return { data: null, status: res.status, error: body || res.statusText };
+      // Body error dari NestJS berbentuk JSON `{ statusCode, message, error }`
+      // — ambil `message`-nya saja (bisa array kalau dari class-validator)
+      // supaya yang tampil di UI kalimat manusia, bukan JSON mentah.
+      let message = body || res.statusText;
+      try {
+        const parsed = JSON.parse(body) as { message?: string | string[] };
+        if (parsed.message) {
+          message = Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message;
+        }
+      } catch {
+        // Bukan JSON (mis. error dari proxy/HTML) — pakai teks aslinya.
+      }
+      return { data: null, status: res.status, error: message };
     }
 
     if (res.status === 204) {

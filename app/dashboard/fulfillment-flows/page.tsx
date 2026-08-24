@@ -267,7 +267,7 @@ export default function FulfillmentFlowsManagement() {
         </div>
         {canEdit && (
           <Button color="primary" onPress={openCreate} className={desktopAddButtonClass}>
-            + Flow Baru
+            Tambah
           </Button>
         )}
       </div>
