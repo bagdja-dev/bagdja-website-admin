@@ -21,7 +21,10 @@ import { AppModal } from '../../components/app-modal';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { apiClient, ApiError } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
-import { formatWalletTransactionType } from '../../lib/wallet-transaction-labels';
+import {
+  formatWalletTransactionFeeNote,
+  formatWalletTransactionType,
+} from '../../lib/wallet-transaction-labels';
 
 interface WalletBalance {
   currency_code: string;
@@ -77,6 +80,7 @@ interface WalletTransactionRow {
   description: string | null;
   currency: string | null;
   created_at: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface WalletTransactionsResult {
@@ -840,11 +844,12 @@ function BillingPageContent() {
                       <TableBody>
                         {transactions.map((row) => {
                           const isCredit = Number(row.amount) >= 0;
+                          const feeNote = formatWalletTransactionFeeNote(row.type, row.metadata);
                           return (
                             <TableRow key={row.id}>
                               <TableCell>{formatDate(row.created_at)}</TableCell>
                               <TableCell>{formatWalletTransactionType(row.type)}</TableCell>
-                              <TableCell>{row.description || '—'}</TableCell>
+                              <TableCell>{feeNote || row.description || '—'}</TableCell>
                               <TableCell>
                                 <span
                                   className={
@@ -870,6 +875,7 @@ function BillingPageContent() {
                   <div className="space-y-2 sm:hidden">
                     {transactions.map((row) => {
                       const isCredit = Number(row.amount) >= 0;
+                      const feeNote = formatWalletTransactionFeeNote(row.type, row.metadata);
                       return (
                         <div
                           key={row.id}
@@ -880,10 +886,14 @@ function BillingPageContent() {
                               <p className="text-sm font-medium text-foreground">
                                 {formatWalletTransactionType(row.type)}
                               </p>
-                              {row.description && (
-                                <p className="mt-0.5 truncate text-xs text-default-500">
-                                  {row.description}
-                                </p>
+                              {feeNote ? (
+                                <p className="mt-0.5 text-xs text-default-500">{feeNote}</p>
+                              ) : (
+                                row.description && (
+                                  <p className="mt-0.5 truncate text-xs text-default-500">
+                                    {row.description}
+                                  </p>
+                                )
                               )}
                             </div>
                             <span

@@ -137,42 +137,79 @@ export default function OrdersPage() {
           </CardBody>
         </Card>
       ) : (
-        <Card className="border-0 shadow-md ring-1 ring-default-100">
-          <CardBody className="p-0">
-            <Table aria-label="Daftar pesanan" removeWrapper>
-              <TableHeader>
-                <TableColumn>WAKTU</TableColumn>
-                <TableColumn>PEMBELI</TableColumn>
-                <TableColumn>ITEM</TableColumn>
-                <TableColumn>TOTAL</TableColumn>
-                <TableColumn>STATUS</TableColumn>
-                <TableColumn> </TableColumn>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell>{formatDate(tx.created_at)}</TableCell>
-                    <TableCell>{tx.buyer_identifier ?? '—'}</TableCell>
-                    <TableCell>{tx.items?.length ?? 0} item</TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(tx.total_amount, tx.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="sm" variant="flat" color={STATUS_TONE[tx.status] ?? 'default'}>
-                        {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
-                      </Chip>
-                    </TableCell>
-                    <TableCell>
-                      <Button as={Link} href={`/dashboard/orders/${tx.id}`} size="sm" variant="flat" color="primary">
-                        Detail
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardBody>
-        </Card>
+        <>
+          <Card className="hidden border-0 shadow-md ring-1 ring-default-100 sm:block">
+            <CardBody className="p-0">
+              <Table aria-label="Daftar pesanan" removeWrapper>
+                <TableHeader>
+                  <TableColumn>WAKTU</TableColumn>
+                  <TableColumn>PEMBELI</TableColumn>
+                  <TableColumn>ITEM</TableColumn>
+                  <TableColumn>TOTAL</TableColumn>
+                  <TableColumn>STATUS</TableColumn>
+                  <TableColumn> </TableColumn>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell>{formatDate(tx.created_at)}</TableCell>
+                      <TableCell>{tx.buyer_identifier ?? '—'}</TableCell>
+                      <TableCell>{tx.items?.length ?? 0} item</TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(tx.total_amount, tx.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="sm" variant="flat" color={STATUS_TONE[tx.status] ?? 'default'}>
+                          {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
+                        </Chip>
+                      </TableCell>
+                      <TableCell>
+                        <Button as={Link} href={`/dashboard/orders/${tx.id}`} size="sm" variant="flat" color="primary">
+                          Detail
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardBody>
+          </Card>
+
+          <div className="flex flex-col gap-3 sm:hidden">
+            {transactions.map((tx) => (
+              <Link
+                key={tx.id}
+                href={`/dashboard/orders/${tx.id}`}
+                className="block rounded-xl border-0 bg-white p-4 shadow-md ring-1 ring-default-100"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {tx.buyer_identifier ?? '—'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-default-500">
+                      {formatDate(tx.created_at)} · {tx.items?.length ?? 0} item
+                    </p>
+                  </div>
+                  <Chip
+                    size="sm"
+                    variant="flat"
+                    color={STATUS_TONE[tx.status] ?? 'default'}
+                    className="shrink-0"
+                  >
+                    {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
+                  </Chip>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatCurrency(tx.total_amount, tx.currency)}
+                  </span>
+                  <span className="text-xs font-medium text-primary">Lihat detail →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
 
       {!loading && transactions.length > 0 && totalPages > 1 && (
