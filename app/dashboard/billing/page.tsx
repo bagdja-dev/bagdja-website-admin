@@ -21,6 +21,7 @@ import { AppModal } from '../../components/app-modal';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { apiClient, ApiError } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
+import { formatWalletTransactionType } from '../../lib/wallet-transaction-labels';
 
 interface WalletBalance {
   currency_code: string;
@@ -67,6 +68,26 @@ interface BillingAttempt {
   currency: string;
   failureReason: string | null;
   attemptedAt: string;
+}
+
+interface WalletTransactionRow {
+  id: string;
+  amount: number;
+  type: string;
+  description: string | null;
+  currency: string | null;
+  created_at: string;
+}
+
+interface WalletTransactionsResult {
+  data: WalletTransactionRow[];
+  meta: {
+    totalItems: number;
+    itemCount: number;
+    itemsPerPage: number;
+    totalPages: number;
+    currentPage: number;
+  };
 }
 
 const MIN_TOPUP = 10000;
@@ -143,6 +164,16 @@ function BillingPageContent() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [history, setHistory] = useState<BillingAttempt[]>([]);
+
+  const [historyTab, setHistoryTab] = useState<'subscription' | 'transactions'>(
+    'subscription',
+  );
+
+  const [transactions, setTransactions] = useState<WalletTransactionRow[]>([]);
+  const [txPage, setTxPage] = useState(1);
+  const [txTotalPages, setTxTotalPages] = useState(1);
+  const [txLoading, setTxLoading] = useState(true);
+  const [txError, setTxError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -278,6 +309,30 @@ function BillingPageContent() {
       setHistoryError(null);
     }
   }, [currentSubscription?.id, loadHistory]);
+
+  const loadTransactions = useCallback(async (page: number) => {
+    setTxLoading(true);
+    setTxError(null);
+    try {
+      const result = await apiClient<WalletTransactionsResult>(
+        `/api/wallet/transactions?page=${page}&size=10`,
+      );
+      setTransactions(Array.isArray(result?.data) ? result.data : []);
+      setTxTotalPages(result?.meta?.totalPages || 1);
+      setTxPage(result?.meta?.currentPage || page);
+    } catch (err) {
+      setTransactions([]);
+      setTxError(
+        err instanceof ApiError ? err.message : 'Gagal memuat riwayat transaksi.',
+      );
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTransactions(1);
+  }, [loadTransactions]);
 
   async function handleTopup() {
     const numeric = Number(amount);
@@ -489,6 +544,17 @@ function BillingPageContent() {
                     )}
                   </p>
                 </div>
+                <div>
+                  <p className="text-xs text-default-500">
+                    Dana ditahan (escrow, belum bisa ditarik)
+                  </p>
+                  <p className="text-lg font-semibold text-warning-600">
+                    {formatCurrency(
+                      wallet?.held_balance ?? 0,
+                      wallet?.currency_code ?? 'IDR',
+                    )}
+                  </p>
+                </div>
                 <Button color="primary" onPress={() => setTopupOpen(true)}>
                   Topup
                 </Button>
@@ -630,59 +696,241 @@ function BillingPageContent() {
       </div>
 
       <Card>
-        <CardHeader>
-          <span className="font-semibold text-foreground">
-            Riwayat Pembayaran
-          </span>
+        <CardHeader className="flex flex-col items-start gap-3">
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">
+            {(
+              [
+                { key: 'subscription' as const, label: 'Riwayat Subscription' },
+                { key: 'transactions' as const, label: 'Riwayat Transaksi' },
+              ]
+            ).map((tab) => {
+              const active = historyTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setHistoryTab(tab.key)}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    active
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-md shadow-violet-500/25'
+                      : 'bg-white text-default-600 ring-1 ring-default-200 hover:bg-default-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </CardHeader>
         <CardBody>
-          {!currentSubscription ? (
-            <p className="text-sm text-default-500">
-              Riwayat akan muncul setelah Anda berlangganan.
-            </p>
-          ) : historyError ? (
-            <p className="text-sm text-danger">{historyError}</p>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-default-500">Belum ada percobaan tagihan.</p>
+          {historyTab === 'subscription' ? (
+            !currentSubscription ? (
+              <p className="text-sm text-default-500">
+                Riwayat akan muncul setelah Anda berlangganan.
+              </p>
+            ) : historyError ? (
+              <p className="text-sm text-danger">{historyError}</p>
+            ) : history.length === 0 ? (
+              <p className="text-sm text-default-500">Belum ada percobaan tagihan.</p>
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <Table
+                    aria-label="Riwayat pembayaran subscription"
+                    removeWrapper
+                  >
+                    <TableHeader>
+                      <TableColumn>WAKTU</TableColumn>
+                      <TableColumn>JENIS</TableColumn>
+                      <TableColumn>JUMLAH</TableColumn>
+                      <TableColumn>STATUS</TableColumn>
+                    </TableHeader>
+                    <TableBody>
+                      {history.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{formatDate(row.attemptedAt)}</TableCell>
+                          <TableCell>{row.kind}</TableCell>
+                          <TableCell>
+                            {formatCurrency(row.amount, row.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="sm"
+                              variant="flat"
+                              color={
+                                row.status === 'SUCCEEDED'
+                                  ? 'success'
+                                  : row.status === 'FAILED'
+                                    ? 'danger'
+                                    : 'default'
+                              }
+                            >
+                              {row.status}
+                              {row.failureReason ? ` · ${row.failureReason}` : ''}
+                            </Chip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="space-y-2 sm:hidden">
+                  {history.map((row) => (
+                    <div
+                      key={row.id}
+                      className="rounded-lg border border-default-200 px-3 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          {row.kind}
+                        </span>
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color={
+                            row.status === 'SUCCEEDED'
+                              ? 'success'
+                              : row.status === 'FAILED'
+                                ? 'danger'
+                                : 'default'
+                          }
+                        >
+                          {row.status}
+                        </Chip>
+                      </div>
+                      {row.failureReason && (
+                        <p className="mt-1 text-xs text-danger-600">
+                          {row.failureReason}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-xs text-default-500">
+                          {formatDate(row.attemptedAt)}
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {formatCurrency(row.amount, row.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
           ) : (
-            <Table
-              aria-label="Riwayat pembayaran subscription"
-              removeWrapper
-            >
-              <TableHeader>
-                <TableColumn>WAKTU</TableColumn>
-                <TableColumn>JENIS</TableColumn>
-                <TableColumn>JUMLAH</TableColumn>
-                <TableColumn>STATUS</TableColumn>
-              </TableHeader>
-              <TableBody>
-                {history.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{formatDate(row.attemptedAt)}</TableCell>
-                    <TableCell>{row.kind}</TableCell>
-                    <TableCell>
-                      {formatCurrency(row.amount, row.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
+            <div className="space-y-3">
+              {txLoading ? (
+                <LoadingSpinner className="h-20" />
+              ) : txError ? (
+                <p className="text-sm text-danger">{txError}</p>
+              ) : transactions.length === 0 ? (
+                <p className="text-sm text-default-500">
+                  Belum ada mutasi saldo.
+                </p>
+              ) : (
+                <>
+                  <div className="hidden sm:block">
+                    <Table aria-label="Riwayat mutasi saldo" removeWrapper>
+                      <TableHeader>
+                        <TableColumn>WAKTU</TableColumn>
+                        <TableColumn>JENIS</TableColumn>
+                        <TableColumn>KETERANGAN</TableColumn>
+                        <TableColumn>JUMLAH</TableColumn>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map((row) => {
+                          const isCredit = Number(row.amount) >= 0;
+                          return (
+                            <TableRow key={row.id}>
+                              <TableCell>{formatDate(row.created_at)}</TableCell>
+                              <TableCell>{formatWalletTransactionType(row.type)}</TableCell>
+                              <TableCell>{row.description || '—'}</TableCell>
+                              <TableCell>
+                                <span
+                                  className={
+                                    isCredit
+                                      ? 'font-medium text-success-600'
+                                      : 'font-medium text-danger-600'
+                                  }
+                                >
+                                  {isCredit ? '+' : '-'}
+                                  {formatCurrency(
+                                    Math.abs(Number(row.amount)),
+                                    row.currency || 'IDR',
+                                  )}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="space-y-2 sm:hidden">
+                    {transactions.map((row) => {
+                      const isCredit = Number(row.amount) >= 0;
+                      return (
+                        <div
+                          key={row.id}
+                          className="rounded-lg border border-default-200 px-3 py-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground">
+                                {formatWalletTransactionType(row.type)}
+                              </p>
+                              {row.description && (
+                                <p className="mt-0.5 truncate text-xs text-default-500">
+                                  {row.description}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              className={`shrink-0 text-sm font-semibold ${
+                                isCredit ? 'text-success-600' : 'text-danger-600'
+                              }`}
+                            >
+                              {isCredit ? '+' : '-'}
+                              {formatCurrency(
+                                Math.abs(Number(row.amount)),
+                                row.currency || 'IDR',
+                              )}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs text-default-500">
+                            {formatDate(row.created_at)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {txTotalPages > 1 && (
+                    <div className="flex items-center justify-between pt-2">
+                      <Button
                         size="sm"
                         variant="flat"
-                        color={
-                          row.status === 'SUCCEEDED'
-                            ? 'success'
-                            : row.status === 'FAILED'
-                              ? 'danger'
-                              : 'default'
-                        }
+                        isDisabled={txPage <= 1}
+                        onPress={() => void loadTransactions(txPage - 1)}
                       >
-                        {row.status}
-                        {row.failureReason ? ` · ${row.failureReason}` : ''}
-                      </Chip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        Sebelumnya
+                      </Button>
+                      <span className="text-xs text-default-500">
+                        Halaman {txPage} dari {txTotalPages}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        isDisabled={txPage >= txTotalPages}
+                        onPress={() => void loadTransactions(txPage + 1)}
+                      >
+                        Berikutnya
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </CardBody>
       </Card>
