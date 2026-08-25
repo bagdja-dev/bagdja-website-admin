@@ -326,6 +326,10 @@ export default function ProductsManagement() {
   const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
   const [fulfillmentFlowId, setFulfillmentFlowId] = useState('');
   const [finalReleaseGuarantyDays, setFinalReleaseGuarantyDays] = useState('');
+  const [weightGrams, setWeightGrams] = useState('');
+  const [lengthCm, setLengthCm] = useState('');
+  const [widthCm, setWidthCm] = useState('');
+  const [heightCm, setHeightCm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -438,6 +442,10 @@ export default function ProductsManagement() {
     // Standar masa garansi konfirmasi penerimaan = 3 hari (opt-out — kosongkan
     // manual kalau seller tidak mau mengaktifkan force-complete produk ini).
     setFinalReleaseGuarantyDays('3');
+    setWeightGrams('');
+    setLengthCm('');
+    setWidthCm('');
+    setHeightCm('');
     resetMetadata();
     setError('');
     setModalOpen(true);
@@ -477,6 +485,10 @@ export default function ProductsManagement() {
     setFinalReleaseGuarantyDays(
       product.final_release_guaranty_days != null ? String(product.final_release_guaranty_days) : '',
     );
+    setWeightGrams(product.weight_grams != null ? String(product.weight_grams) : '');
+    setLengthCm(product.length_cm != null ? String(product.length_cm) : '');
+    setWidthCm(product.width_cm != null ? String(product.width_cm) : '');
+    setHeightCm(product.height_cm != null ? String(product.height_cm) : '');
     setError('');
     setModalOpen(true);
   };
@@ -520,6 +532,10 @@ export default function ProductsManagement() {
         payment_meta: paymentMeta,
         fulfillment_flow_id: fulfillmentFlowId || null,
         final_release_guaranty_days: finalReleaseGuarantyDays ? parseInt(finalReleaseGuarantyDays, 10) : null,
+        weight_grams: weightGrams ? parseInt(weightGrams, 10) : null,
+        length_cm: lengthCm ? parseInt(lengthCm, 10) : null,
+        width_cm: widthCm ? parseInt(widthCm, 10) : null,
+        height_cm: heightCm ? parseInt(heightCm, 10) : null,
         is_active: isActive,
       };
       if (editProduct) {
@@ -880,6 +896,49 @@ export default function ProductsManagement() {
               onChange={setItemsIncluded}
               rows={3}
             />
+          )}
+
+          {(type === 'product' || type === 'package') && (
+            <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/50 p-4">
+              <p className="text-sm font-medium text-foreground">Berat &amp; Dimensi Kemasan</p>
+              <p className="text-xs text-default-500">
+                Untuk hitung ongkir. Kosongkan untuk pakai default (250 gram, 30×30×5 cm).
+              </p>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <FormInput
+                  label="Berat (gram)"
+                  type="number"
+                  min={1}
+                  value={weightGrams}
+                  onChange={setWeightGrams}
+                  placeholder="250"
+                />
+                <FormInput
+                  label="Panjang (cm)"
+                  type="number"
+                  min={1}
+                  value={lengthCm}
+                  onChange={setLengthCm}
+                  placeholder="30"
+                />
+                <FormInput
+                  label="Lebar (cm)"
+                  type="number"
+                  min={1}
+                  value={widthCm}
+                  onChange={setWidthCm}
+                  placeholder="30"
+                />
+                <FormInput
+                  label="Tinggi (cm)"
+                  type="number"
+                  min={1}
+                  value={heightCm}
+                  onChange={setHeightCm}
+                  placeholder="5"
+                />
+              </div>
+            </div>
           )}
 
           <FormSelect

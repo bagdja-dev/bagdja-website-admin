@@ -355,6 +355,83 @@ export function FormSelect({
   );
 }
 
+export interface FormCheckboxOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+interface FormCheckboxGroupProps extends FormFieldBase {
+  values: string[];
+  onChange: (values: string[]) => void;
+  options: FormCheckboxOption[];
+  disabled?: boolean;
+}
+
+/**
+ * Grid checkbox untuk pilih beberapa opsi dari daftar fixed (mis. daftar
+ * kurir aktif) — reuse styling `FormSwitch` (raw `<input type="checkbox">`),
+ * bukan HeroUI CheckboxGroup, supaya konsisten dengan pola field lain di
+ * halaman ini yang semuanya komponen custom, bukan HeroUI form primitives.
+ */
+export function FormCheckboxGroup({
+  label,
+  description,
+  required,
+  error,
+  values,
+  onChange,
+  options,
+  disabled,
+}: FormCheckboxGroupProps) {
+  const toggle = (value: string) => {
+    if (disabled) return;
+    onChange(
+      values.includes(value) ? values.filter((v) => v !== value) : [...values, value],
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-danger">*</span>}
+      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {options.map((opt) => {
+          const checked = values.includes(opt.value);
+          return (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 rounded-xl border border-default-200 bg-default-50/50 px-4 py-3 transition-colors ${
+                disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-default-50'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={() => toggle(opt.value)}
+                className="mt-0.5 h-4 w-4 rounded border-default-300 text-primary focus:ring-primary/20 disabled:cursor-not-allowed"
+              />
+              <div>
+                <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                {opt.description && (
+                  <p className="mt-0.5 text-xs text-default-500">{opt.description}</p>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+      {description && !error && (
+        <p className="text-xs leading-relaxed text-default-500">{description}</p>
+      )}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
 interface FormSwitchProps {
   label: string;
   description?: string;

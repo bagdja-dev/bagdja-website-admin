@@ -15,6 +15,8 @@ export interface Website {
   opening_hours?: Record<string, unknown>;
   theme?: Record<string, unknown>;
   is_active: boolean;
+  /** Kode kurir aktif untuk website ini (mis. ['jne','sicepat']) — kosong = shipping-service pakai daftar default sendiri. */
+  active_couriers?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +116,14 @@ export interface WebsiteProduct {
   fulfillment_flow_id?: string | null;
   /** Order Handling Phase 3 §3.0.2 — masa garansi (hari) sebelum seller boleh force-complete transaksi kalau buyer tidak konfirm terima barang. Null = force-complete dinonaktifkan untuk produk ini. */
   final_release_guaranty_days?: number | null;
+  /** Berat produk (gram), untuk hitung ongkir. Null = default 250g dipakai saat hitung ongkir. */
+  weight_grams?: number | null;
+  /** Panjang kemasan (cm). Null = default 30cm. */
+  length_cm?: number | null;
+  /** Lebar kemasan (cm). Null = default 30cm. */
+  width_cm?: number | null;
+  /** Tinggi kemasan (cm). Null = default 5cm. */
+  height_cm?: number | null;
   created_at: string;
   updated_at: string;
 }
