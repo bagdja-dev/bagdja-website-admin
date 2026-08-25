@@ -3,13 +3,7 @@
 import { Button, Card, CardBody, CardHeader } from '@heroui/react';
 import { useEffect, useState } from 'react';
 
-import {
-  FormCheckboxGroup,
-  FormInput,
-  FormSwitch,
-  FormTextarea,
-  type FormCheckboxOption,
-} from '../../components/form-field';
+import { FormInput, FormSwitch, FormTextarea } from '../../components/form-field';
 import { ThemeCustomizer } from '../../components/theme-customizer';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { LogoUpload } from '../../components/logo-upload';
@@ -31,24 +25,6 @@ import { useWebsiteContext } from '../../context/website-context';
 // Set balik ke true setelah alur registrasi domain ke Coolify sudah pasti
 // beres, supaya tenant tidak dapat pengalaman setengah-jadi.
 const CUSTOM_DOMAIN_FEATURE_ENABLED = false;
-
-// Daftar kurir domestik yang umum didukung RajaOngkir (bagdja-shipping-service).
-// Kosongkan pilihan (tidak ada yang dicentang) = shipping-service pakai daftar
-// default sendiri. Kode belum diverifikasi terhadap API RajaOngkir asli (Fase 0
-// plan/shipping-service/overview.md belum ditutup) — sesuaikan kalau ada
-// perbedaan setelah verifikasi.
-const COURIER_OPTIONS: FormCheckboxOption[] = [
-  { value: 'jne', label: 'JNE' },
-  { value: 'jnt', label: 'J&T Express' },
-  { value: 'sicepat', label: 'SiCepat' },
-  { value: 'pos', label: 'Pos Indonesia' },
-  { value: 'tiki', label: 'TIKI' },
-  { value: 'anteraja', label: 'AnterAja' },
-  { value: 'wahana', label: 'Wahana' },
-  { value: 'ninja', label: 'Ninja Xpress' },
-  { value: 'lion', label: 'Lion Parcel' },
-  { value: 'sap', label: 'SAP Express' },
-];
 
 function getSocialLink(links: Record<string, unknown> | undefined, key: string): string {
   const val = links?.[key];
@@ -78,20 +54,16 @@ export default function SettingsPage() {
   const [openingHoursNote, setOpeningHoursNote] = useState('');
   const [theme, setTheme] = useState<WebsiteTheme>({});
   const [templateDefaultTheme, setTemplateDefaultTheme] = useState<WebsiteTheme>({});
-  const [activeCouriers, setActiveCouriers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
-  const [savingShipping, setSavingShipping] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
   const [brandMessage, setBrandMessage] = useState('');
   const [themeMessage, setThemeMessage] = useState('');
-  const [shippingMessage, setShippingMessage] = useState('');
   const [error, setError] = useState('');
   const [brandError, setBrandError] = useState('');
   const [themeError, setThemeError] = useState('');
-  const [shippingError, setShippingError] = useState('');
   const [verifyingDomain, setVerifyingDomain] = useState(false);
   const [checkingDomain, setCheckingDomain] = useState(false);
   const [domainVerifyInfo, setDomainVerifyInfo] = useState<{
@@ -122,7 +94,6 @@ export default function SettingsPage() {
       setTiktok(getSocialLink(w.social_links, 'tiktok'));
       setOpeningHoursNote(getOpeningHoursNote(w.opening_hours));
       setTheme(sanitizeWebsiteTheme(w.theme));
-      setActiveCouriers(Array.isArray(w.active_couriers) ? w.active_couriers : []);
     }
   }, [activeWebsite]);
 
@@ -212,25 +183,6 @@ export default function SettingsPage() {
       setThemeError(err instanceof Error ? err.message : 'Gagal menyimpan skema warna');
     } finally {
       setSavingTheme(false);
-    }
-  };
-
-  const handleSaveShipping = async () => {
-    if (!websiteId) return;
-    setSavingShipping(true);
-    setShippingError('');
-    setShippingMessage('');
-    try {
-      await apiClient<Website>(`/api/websites/${websiteId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ active_couriers: activeCouriers }),
-      });
-      setShippingMessage('Pengaturan kurir berhasil disimpan');
-      await refresh();
-    } catch (err) {
-      setShippingError(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan kurir');
-    } finally {
-      setSavingShipping(false);
     }
   };
 
@@ -439,44 +391,6 @@ export default function SettingsPage() {
             <div className="pt-1">
               <Button color="primary" isLoading={savingTheme} onPress={handleSaveTheme}>
                 Simpan Skema Warna
-              </Button>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card className="border border-default-200 shadow-sm">
-        <CardHeader className="flex flex-col items-start gap-1 border-b border-default-100 px-6 py-4">
-          <h2 className="text-lg font-semibold">Kurir Pengiriman</h2>
-          <p className="text-sm font-normal text-default-500">
-            Kurir yang ditawarkan ke buyer saat cek ongkir. Tidak ada yang dicentang = semua
-            kurir default dipakai.
-          </p>
-        </CardHeader>
-        <CardBody className="flex flex-col gap-5 px-6 py-5">
-          <FormCheckboxGroup
-            label="Kurir Aktif"
-            values={activeCouriers}
-            onChange={setActiveCouriers}
-            options={COURIER_OPTIONS}
-            disabled={!canEdit}
-          />
-
-          {shippingMessage && (
-            <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success">
-              {shippingMessage}
-            </div>
-          )}
-          {shippingError && (
-            <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
-              {shippingError}
-            </div>
-          )}
-
-          {canEdit && (
-            <div className="pt-1">
-              <Button color="primary" isLoading={savingShipping} onPress={handleSaveShipping}>
-                Simpan Kurir
               </Button>
             </div>
           )}

@@ -18,6 +18,7 @@ import {
   type OrderFulfillmentStepProgress,
   type WebsiteTransaction,
 } from '../../../lib/types';
+import { formatCourierCode } from '../../../lib/courier-labels';
 import { useWebsiteContext } from '../../../context/website-context';
 
 function stepKey(orderId: string, stepName: string): string {
@@ -367,6 +368,17 @@ export default function OrderDetailPage() {
     [transaction.address, transaction.district, transaction.city].filter(Boolean).join(', '),
     transaction.postal_code,
   ].filter((line): line is string => Boolean(line));
+
+  // `metadata.shipping` cuma ada kalau checkout lewat flow baru (cek ongkir
+  // real) — flow lama (tombol label statis) tidak punya ini sama sekali,
+  // walau `shipping_cost` kolomnya selalu berisi angka (default 0, BUKAN
+  // penanda "belum ditentukan") — lihat catatan di lib/types.ts.
+  const shippingDetail = transaction.metadata?.shipping ?? null;
+  const itemsSubtotal = (transaction.items ?? []).reduce(
+    (sum, i) => sum + Number(i.total_amount),
+    0,
+  );
+  const shippingCost = transaction.shipping_cost ?? 0;
 
   return (
     <div className="space-y-6">
@@ -721,7 +733,27 @@ export default function OrderDetailPage() {
                   </p>
                 )}
                 {transaction.postal_code && <p><span className="text-default-500">Kode Pos:</span> {transaction.postal_code}</p>}
-                {transaction.courier && <p><span className="text-default-500">Kurir:</span> {transaction.courier}</p>}
+
+                {shippingDetail ? (
+                  <>
+                    <Divider className="my-2" />
+                    <p>
+                      <span className="text-default-500">Kurir:</span>{' '}
+                      <span className="font-medium">{formatCourierCode(shippingDetail.courier_code)}</span>
+                      {(shippingDetail.courier_service_name || shippingDetail.resolved_service) &&
+                        ` — ${shippingDetail.courier_service_name ?? shippingDetail.resolved_service}`}
+                    </p>
+                    <p>
+                      <span className="text-default-500">Biaya Ongkir:</span>{' '}
+                      <span className="font-medium">{formatCurrency(shippingCost, transaction.currency)}</span>
+                    </p>
+                    {shippingDetail.destination_area_name && (
+                      <p><span className="text-default-500">Area Tujuan:</span> {shippingDetail.destination_area_name}</p>
+                    )}
+                  </>
+                ) : (
+                  transaction.courier && <p><span className="text-default-500">Kurir:</span> {transaction.courier}</p>
+                )}
               </CardBody>
             </Card>
           )}
@@ -738,6 +770,19 @@ export default function OrderDetailPage() {
               <div className="flex justify-between">
                 <span className="text-default-500">Mode</span>
                 <span className="font-medium">{transaction.payment_mode === 'ESCROW' ? 'Escrow' : 'Checkout Bagdja'}</span>
+              </div>
+              <Divider className="my-2" />
+              <div className="flex justify-between">
+                <span className="text-default-500">Subtotal Produk</span>
+                <span className="font-medium">{formatCurrency(itemsSubtotal, transaction.currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-default-500">Ongkir</span>
+                <span className="font-medium">
+                  {shippingDetail
+                    ? formatCurrency(shippingCost, transaction.currency)
+                    : 'Ditentukan penjual'}
+                </span>
               </div>
               <Divider className="my-2" />
               <div className="flex justify-between text-base">

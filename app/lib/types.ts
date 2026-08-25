@@ -15,8 +15,6 @@ export interface Website {
   opening_hours?: Record<string, unknown>;
   theme?: Record<string, unknown>;
   is_active: boolean;
-  /** Kode kurir aktif untuk website ini (mis. ['jne','sicepat']) — kosong = shipping-service pakai daftar default sendiri. */
-  active_couriers?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -151,6 +149,10 @@ export interface WebsiteLocation {
   metadata: Record<string, unknown>;
   sort_order: number;
   is_active: boolean;
+  /** Nama area di bagdja-shipping-service (hasil search) — dipakai sebagai asal pengiriman saat hitung ongkir. Kosong = lokasi ini tidak bisa dipilih buyer sebagai asal kirim. */
+  shipping_area_name?: string | null;
+  /** Kode kurir aktif untuk lokasi ini (mis. ['jne','sicepat']) — kosong = shipping-service pakai daftar default sendiri. */
+  active_couriers?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -261,6 +263,17 @@ export interface EscrowSummary {
   milestones: EscrowMilestoneSummary[];
 }
 
+/** Tersimpan di `transaction.metadata.shipping` — hanya ada kalau checkout lewat flow baru (search-select + cek ongkir real, bukan tombol label statis). */
+export interface TransactionShippingMetadata {
+  location_id: string;
+  destination_area_id: string;
+  destination_area_name?: string;
+  courier_code: string;
+  courier_service_name?: string;
+  /** Nama layanan hasil resolve server-side saat submit (lihat transactions.service.ts createCheckout()) — sumber kebenaran tampilan kalau `courier_service_name` client kosong. */
+  resolved_service?: string;
+}
+
 export interface WebsiteTransaction {
   id: string;
   website_id: string;
@@ -273,6 +286,8 @@ export interface WebsiteTransaction {
   district: string | null;
   postal_code: string | null;
   courier: string | null;
+  /** Biaya ongkir — kolom terpisah dari total_amount (breakdown). Selalu berisi angka (default 0), BUKAN indikator "ongkir belum ditentukan" — pakai `metadata.shipping` untuk itu. */
+  shipping_cost?: number | null;
   total_amount: number;
   currency: string;
   payment_mode: 'ADD_TO_CART' | 'ESCROW';
@@ -286,6 +301,7 @@ export interface WebsiteTransaction {
   escrow?: EscrowSummary | null;
   /** `{ order_id: progress }` — hanya ada di response detail. */
   fulfillment?: Record<string, OrderFulfillmentProgress>;
+  metadata?: { shipping?: TransactionShippingMetadata } | null;
 }
 
 /**

@@ -5,8 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../components/mobile-floating-action';
 import { AppModal } from '../../components/app-modal';
+import { AreaSearchSelect } from '../../components/area-search-select';
 import { useConfirmDialog } from '../../components/confirm-dialog';
-import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
+import {
+  FormCheckboxGroup,
+  FormInput,
+  FormSelect,
+  FormSwitch,
+  FormTextarea,
+  type FormCheckboxOption,
+} from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient } from '../../lib/api-client';
@@ -70,6 +78,23 @@ const TYPE_THEME: Record<
     chipColor: 'secondary',
   },
 };
+
+// Daftar kurir domestik yang umum didukung RajaOngkir (bagdja-shipping-service).
+// Kode belum diverifikasi terhadap API RajaOngkir asli (Fase 0
+// plan/shipping-service/overview.md belum ditutup) — sesuaikan kalau ada
+// perbedaan setelah verifikasi.
+const COURIER_OPTIONS: FormCheckboxOption[] = [
+  { value: 'jne', label: 'JNE' },
+  { value: 'jnt', label: 'J&T Express' },
+  { value: 'sicepat', label: 'SiCepat' },
+  { value: 'pos', label: 'Pos Indonesia' },
+  { value: 'tiki', label: 'TIKI' },
+  { value: 'anteraja', label: 'AnterAja' },
+  { value: 'wahana', label: 'Wahana' },
+  { value: 'ninja', label: 'Ninja Xpress' },
+  { value: 'lion', label: 'Lion Parcel' },
+  { value: 'sap', label: 'SAP Express' },
+];
 
 function getTypeTheme(type: string) {
   return TYPE_THEME[type] ?? TYPE_THEME.branch;
@@ -256,6 +281,8 @@ export default function LocationsManagement() {
   const [coordsSuccess, setCoordsSuccess] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [isActive, setIsActive] = useState(true);
+  const [shippingAreaName, setShippingAreaName] = useState('');
+  const [activeCouriers, setActiveCouriers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -304,6 +331,8 @@ export default function LocationsManagement() {
     setLongitude('');
     setIsPublic(true);
     setIsActive(true);
+    setShippingAreaName('');
+    setActiveCouriers([]);
     setError('');
   };
 
@@ -329,6 +358,8 @@ export default function LocationsManagement() {
     setLongitude(loc.longitude != null ? String(loc.longitude) : '');
     setIsPublic(loc.is_public);
     setIsActive(loc.is_active);
+    setShippingAreaName(loc.shipping_area_name ?? '');
+    setActiveCouriers(Array.isArray(loc.active_couriers) ? loc.active_couriers : []);
     setError('');
     setModalOpen(true);
   };
@@ -414,6 +445,8 @@ export default function LocationsManagement() {
         longitude: lng,
         is_public: isPublic,
         is_active: isActive,
+        shipping_area_name: shippingAreaName.trim() || undefined,
+        active_couriers: activeCouriers,
       };
       if (editLocation) {
         await apiClient(`/api/websites/${websiteId}/locations/${editLocation.id}`, {
@@ -623,6 +656,26 @@ export default function LocationsManagement() {
 
           <FormSwitch label="Tampilkan di website (publik)" checked={isPublic} onChange={setIsPublic} />
           <FormSwitch label="Aktif" checked={isActive} onChange={setIsActive} />
+
+          <div className="flex flex-col gap-4 rounded-xl border border-default-200 bg-default-50/50 p-4">
+            <p className="text-sm font-medium text-foreground">Pengiriman (Ongkir)</p>
+            <AreaSearchSelect
+              label="Area Asal Pengiriman"
+              value={shippingAreaName}
+              onChange={setShippingAreaName}
+              disabled={!canEdit}
+              description=""
+            />
+            <FormCheckboxGroup
+              label="Kurir Aktif"
+              values={activeCouriers}
+              onChange={setActiveCouriers}
+              options={COURIER_OPTIONS}
+              disabled={!canEdit}
+              description="Tidak ada yang dicentang = semua kurir default shipping-service dipakai."
+            />
+          </div>
+
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
               {error}
