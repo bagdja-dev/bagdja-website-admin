@@ -13,6 +13,8 @@ import { ManageProductTypeFlowsModal } from '../../components/manage-product-typ
 import { PaymentMetaEditor } from '../../components/payment-meta-editor';
 import { ProductParentSelect, type ProductOption } from '../../components/product-parent-select';
 import { RichTextEditor } from '../../components/rich-text-editor';
+import { VideoUpload } from '../../components/video-upload';
+import { Model3DUpload } from '../../components/model3d-upload';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../components/form-field';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
@@ -323,6 +325,8 @@ export default function ProductsManagement() {
   const [downloadUrl, setDownloadUrl] = useState('');
   const [itemsIncluded, setItemsIncluded] = useState('');
   const [images, setImages] = useState<GalleryImage[]>([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [model3dUrl, setModel3dUrl] = useState('');
   const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
   const [fulfillmentFlowId, setFulfillmentFlowId] = useState('');
   const [finalReleaseGuarantyDays, setFinalReleaseGuarantyDays] = useState('');
@@ -412,6 +416,8 @@ export default function ProductsManagement() {
     setDownloadUrl('');
     setItemsIncluded('');
     setImages([]);
+    setVideoUrl('');
+    setModel3dUrl('');
   };
 
   /** Recompute slug dari slug induk + value atribut terbaru — cuma jalan kalau memang sedang jadi varian dari produk yang sudah dipilih. */
@@ -480,6 +486,8 @@ export default function ProductsManagement() {
     setDownloadUrl(fields.downloadUrl);
     setItemsIncluded(fields.itemsIncluded);
     setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
+    setVideoUrl(product.video_url ?? '');
+    setModel3dUrl(product.model3d_url ?? '');
     setPaymentMeta(product.payment_meta ?? []);
     setFulfillmentFlowId(product.fulfillment_flow_id ?? '');
     setFinalReleaseGuarantyDays(
@@ -528,6 +536,8 @@ export default function ProductsManagement() {
         detail: willInherit ? '' : detail.trim() || undefined,
         price: parseFloat(price) || 0,
         images: images.map((img) => img.url).filter(Boolean),
+        video_url: videoUrl.trim() || null,
+        model3d_url: model3dUrl.trim() || null,
         metadata,
         payment_meta: paymentMeta,
         fulfillment_flow_id: fulfillmentFlowId || null,
@@ -861,6 +871,22 @@ export default function ProductsManagement() {
             description="PNG, JPG, WebP, GIF — maks. 5 MB. Foto pertama menjadi cover di katalog."
             value={images}
             onChange={setImages}
+            websiteId={websiteId ?? undefined}
+            uploadFolder="products"
+          />
+
+          <VideoUpload
+            label="Video Produk"
+            description="MP4, WebM, MOV — maks. 100 MB. Opsional, cocok untuk produk hidup/bergerak (mis. ikan hias)."
+            value={videoUrl}
+            onChange={setVideoUrl}
+            websiteId={websiteId ?? undefined}
+            uploadFolder="products"
+          />
+
+          <Model3DUpload
+            value={model3dUrl}
+            onChange={setModel3dUrl}
             websiteId={websiteId ?? undefined}
             uploadFolder="products"
           />

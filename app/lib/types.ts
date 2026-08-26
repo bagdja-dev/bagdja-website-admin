@@ -106,6 +106,10 @@ export interface WebsiteProduct {
   detail?: string | null;
   price: number;
   images: string[];
+  /** Video produk (opsional), diupload lewat bagdja-storage-service. */
+  video_url?: string | null;
+  /** Model 3D produk (opsional, glTF/GLB), diupload lewat bagdja-storage-service. */
+  model3d_url?: string | null;
   metadata: Record<string, unknown>;
   payment_meta: PaymentMetaEntry[];
   sort_order: number;
