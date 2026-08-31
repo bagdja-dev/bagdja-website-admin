@@ -24,8 +24,6 @@ interface TemplatePreviewProps {
   className?: string;
 }
 
-const IFRAME_SANDBOX = 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox';
-
 function PreviewToolbar({
   viewport,
   onViewportChange,
@@ -99,7 +97,6 @@ function InteractiveIframePreview({
             src={src}
             title="Mobile preview"
             className={`block h-[667px] w-[375px] border-0 bg-white ${interactive ? '' : 'pointer-events-none'}`}
-            sandbox={IFRAME_SANDBOX}
           />
         </div>
       </div>
@@ -113,7 +110,6 @@ function InteractiveIframePreview({
         src={src}
         title="Desktop preview"
         className={`block h-[min(680px,70vh)] w-full min-h-[480px] rounded-lg border border-default-200 bg-white ${interactive ? '' : 'pointer-events-none'}`}
-        sandbox={IFRAME_SANDBOX}
       />
     </div>
   );
