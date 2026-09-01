@@ -1,10 +1,10 @@
 import type { WebsiteTemplate } from './types';
 import { extractTemplateTheme, themeToSearchParams, type WebsiteTheme } from './website-theme';
 
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005';
+const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005').replace(/\/+$/, '');
 
 /** Template slugs dengan halaman live preview di web app */
-export const IFRAME_PREVIEW_TEMPLATES = new Set(['barber-classic', 'store-classic']);
+export const IFRAME_PREVIEW_TEMPLATES = new Set(['barber-classic', 'store-classic', 'workshop']);
 
 export interface WebsitePreviewProfile {
   name?: string;

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlogPostPicker } from '../../../components/blog-post-picker';
 import { ProductPicker } from '../../../components/product-picker';
+import { FlowPicker } from '../../../components/flow-picker';
 import { CoverImageUpload } from '../../../components/cover-image-upload';
 import { GalleryEditor } from '../../../components/gallery-editor';
 import { RichTextEditor } from '../../../components/rich-text-editor';
@@ -130,6 +131,17 @@ function SectionFormFields({
       );
     }
 
+    if (field.type === 'flowPicker') {
+      return (
+        <FlowPicker
+          key={field.key}
+          websiteId={websiteId}
+          value={typeof val === 'string' ? val : ''}
+          onChange={(next) => onChange(field.key, next)}
+        />
+      );
+    }
+
     if (field.type === 'textarea') {
       return (
         <FormTextarea
@@ -140,6 +152,20 @@ function SectionFormFields({
           value={typeof val === 'string' ? val : ''}
           onChange={(v) => onChange(field.key, v)}
           rows={4}
+        />
+      );
+    }
+
+    if (field.type === 'json') {
+      return (
+        <FormTextarea
+          key={field.key}
+          label={field.label}
+          description={field.description}
+          placeholder={field.placeholder}
+          value={typeof val === 'string' ? val : ''}
+          onChange={(v) => onChange(field.key, v)}
+          rows={7}
         />
       );
     }

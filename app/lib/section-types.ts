@@ -7,7 +7,9 @@ export type SectionFieldType =
   | 'gallery'
   | 'blogPostPicker'
   | 'productPicker'
-  | 'image';
+  | 'image'
+  | 'json'
+  | 'flowPicker';
 
 export interface GalleryImage {
   url: string;
@@ -39,6 +41,19 @@ export interface SectionTypeConfig {
   manageHint?: string;
 }
 
+function formatJsonField(value: unknown): string {
+  return value == null ? '' : JSON.stringify(value, null, 2);
+}
+
+function parseJsonField(value: unknown): unknown {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
   {
     type: 'hero',
@@ -63,6 +78,9 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
         type: 'switch',
         description: 'Tombol hubungi via nomor WhatsApp profil brand.',
       },
+      { key: 'headline', label: 'Headline', type: 'text', placeholder: 'Dibangun untuk bertahan.' },
+      { key: 'lede', label: 'Deskripsi Hero', type: 'textarea' },
+      { key: 'stats', label: 'Statistik (JSON)', type: 'json', description: 'Format: [{ "value": "10+", "label": "Tahun pengalaman" }]' },
     ],
   },
   {
@@ -197,6 +215,9 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
       { key: 'feature_3_icon', label: 'Ikon Fitur 3 (emoji)', type: 'text', placeholder: '💬' },
       { key: 'feature_3_title', label: 'Judul Fitur 3', type: 'text' },
       { key: 'feature_3_desc', label: 'Deskripsi Fitur 3', type: 'textarea' },
+      { key: 'feature_4_icon', label: 'Ikon Fitur 4', type: 'text', placeholder: '04' },
+      { key: 'feature_4_title', label: 'Judul Fitur 4', type: 'text' },
+      { key: 'feature_4_desc', label: 'Deskripsi Fitur 4', type: 'textarea' },
     ],
   },
   {
@@ -239,6 +260,21 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     ],
   },
   {
+    type: 'service_process_section',
+    label: 'Alur Layanan',
+    description: 'Menampilkan langkah dari Master Flow yang dipilih.',
+    category: 'narrative',
+    categoryLabel: 'Konten',
+    gradient: 'from-orange-700 to-amber-500',
+    icon: '⚙️',
+    defaults: { title: 'Alur Pengerjaan', subtitle: '', flow_id: '' },
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'subtitle', label: 'Subjudul', type: 'text' },
+      { key: 'flow_id', label: 'Master Flow', type: 'flowPicker' },
+    ],
+  },
+  {
     type: 'testimonial',
     label: 'Testimonial',
     description: 'Ulasan dan testimoni pelanggan.',
@@ -247,7 +283,10 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     gradient: 'from-emerald-600 to-teal-500',
     icon: '💬',
     defaults: { title: 'Apa Kata Mereka' },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'items', label: 'Testimonial (JSON)', type: 'json', description: 'Format: [{ "quote": "...", "context": "...", "location": "..." }]' },
+    ],
   },
   {
     type: 'contact',
@@ -258,7 +297,12 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     gradient: 'from-slate-600 to-zinc-500',
     icon: '📞',
     defaults: { title: 'Hubungi Kami' },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [
+      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'subtitle', label: 'Subjudul', type: 'text' },
+      { key: 'show_form', label: 'Tampilkan formulir', type: 'switch' },
+      { key: 'service_options', label: 'Pilihan layanan (JSON)', type: 'json', description: 'Array string, contoh: ["Kanopi", "Pagar"]' },
+    ],
   },
   {
     type: 'services_grid',
@@ -467,6 +511,8 @@ export function getDefaultFormValues(type: string): Record<string, SectionFormVa
       values[field.key] = parseStringArray(def);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof def === 'string' ? def : '';
+    } else if (field.type === 'json') {
+      values[field.key] = formatJsonField(def);
     } else if (def != null && typeof def !== 'object') {
       values[field.key] = String(def);
     } else {
@@ -495,6 +541,8 @@ export function contentToFormValues(
       values[field.key] = parseStringArray(val);
     } else if (field.type === 'richtext') {
       values[field.key] = typeof val === 'string' ? val : '';
+    } else if (field.type === 'json') {
+      values[field.key] = formatJsonField(val);
     } else if (val != null && typeof val !== 'object') {
       values[field.key] = String(val);
     }
@@ -532,6 +580,13 @@ export function formValuesToContent(
     if (field.type === 'richtext') {
       content[field.key] = typeof val === 'string' ? val : '';
       if (type === 'rich_text') content.standalone = true;
+      continue;
+    }
+
+    if (field.type === 'json') {
+      const parsed = parseJsonField(val);
+      if (parsed !== undefined) content[field.key] = parsed;
+      else delete content[field.key];
       continue;
     }
 
