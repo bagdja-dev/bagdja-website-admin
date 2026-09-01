@@ -23,7 +23,9 @@ export function buildTemplatePreviewUrl(
   if (!IFRAME_PREVIEW_TEMPLATES.has(template.slug)) return null;
 
   const templateTheme = extractTemplateTheme(template.structure);
-  const params = new URLSearchParams({ preview: '1' });
+  // Bump this when the renderer preview contract changes so an already-open
+  // admin session cannot reuse a cached iframe document from an older deploy.
+  const params = new URLSearchParams({ preview: '1', preview_version: '2' });
   if (profile.name?.trim()) params.set('name', profile.name.trim());
   if (profile.tagline?.trim()) params.set('tagline', profile.tagline.trim());
   if (profile.logo_url?.trim()) params.set('logo', profile.logo_url.trim());
