@@ -32,6 +32,17 @@ export async function apiClient<T = unknown>(
     } catch {
       message = await res.text().catch(() => message);
     }
+
+    // 401 = sesi tidak valid (token expired/rusak) — sebelumnya cuma throw
+    // ApiError, jadi setiap halaman/hook harus handle sendiri (banyak yang
+    // lupa, akibatnya tampil layar "Gagal memuat" alih-alih diarahkan login
+    // ulang). Redirect ke sini, satu tempat, konsisten dengan pola yang
+    // sudah dipakai bagdja-novelo-app/lib/api-client.ts.
+    if (res.status === 401 && typeof window !== 'undefined') {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/auth/login?next=${next}`;
+    }
+
     throw new ApiError(message, res.status);
   }
 

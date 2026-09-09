@@ -32,9 +32,27 @@ export function WebsiteProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/user/websites');
+
+      // 401 = sesi tidak valid (token expired/rusak) — sebelumnya diperlakukan
+      // sama seperti "belum punya website" (state kosong), jadi user yang
+      // sesinya expired melihat NoWebsiteState yang menyesatkan alih-alih
+      // diarahkan login ulang. Redirect di sini, JANGAN lanjut set state
+      // apa pun, biar tidak ada flash UI keliru sebelum navigasi selesai.
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') {
+          const next = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = `/auth/login?next=${next}`;
+        }
+        // Sengaja TIDAK setLoading(false) — biar UI tetap tampil loading
+        // (bukan flash NoWebsiteState) sampai navigasi browser ke /auth/login
+        // benar-benar selesai.
+        return;
+      }
+
       if (!res.ok) {
         setWebsites([]);
         setActiveWebsite(null);
+        setLoading(false);
         return;
       }
       const data = (await res.json()) as UserWebsite[];
@@ -46,10 +64,10 @@ export function WebsiteProvider({ children }: { children: ReactNode }) {
           : null;
       const found = data.find((w) => w.website.id === savedId);
       setActiveWebsite(found ?? data[0] ?? null);
+      setLoading(false);
     } catch {
       setWebsites([]);
       setActiveWebsite(null);
-    } finally {
       setLoading(false);
     }
   }, []);
