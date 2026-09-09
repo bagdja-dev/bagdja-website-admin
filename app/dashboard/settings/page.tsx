@@ -20,11 +20,14 @@ import { hasMinRole } from '../../lib/types';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { useWebsiteContext } from '../../context/website-context';
 
-// Dimatikan sementara (2026-07-12) — integrasi CoolifyService/Traefik untuk
-// custom domain masih belum stabil di sisi infra (lihat DEPLOY_NOTES.md).
-// Set balik ke true setelah alur registrasi domain ke Coolify sudah pasti
-// beres, supaya tenant tidak dapat pengalaman setengah-jadi.
-const CUSTOM_DOMAIN_FEATURE_ENABLED = false;
+// Diaktifkan 9 September 2026 — bug session cookie lintas-domain sudah
+// diperbaiki (session handoff SSO, port dari bagdja-auction-web yang sudah
+// production) + UX Admin disamakan dengan Auction Market (auto-fetch,
+// tombol Hapus domain, dst). Lihat plan/website-builder/custom-domain-adjustment-plan.md.
+// Test matrix manual (login+logout via domain custom sungguhan, retry
+// callback, dll — §3.4 dokumen itu) dilakukan Nandang langsung di
+// lingkungan live setelah deploy, bukan dari sesi coding ini.
+const CUSTOM_DOMAIN_FEATURE_ENABLED = true;
 
 function getSocialLink(links: Record<string, unknown> | undefined, key: string): string {
   const val = links?.[key];
