@@ -36,6 +36,57 @@ function getOpeningHoursNote(hours: Record<string, unknown> | undefined): string
   return typeof note === 'string' ? note : '';
 }
 
+/**
+ * Satu baris record DNS (Tipe/Nama/Nilai) + tombol salin — port dari
+ * `bagdja-auction-admin` `DomainRecordRow` (`dashboard/market-settings/page.tsx`).
+ * Tombol salin pakai TEKS (bukan ikon) karena app ini (HeroUI) belum punya
+ * dependency ikon (`lucide-react` dkk) — sengaja tidak ditambah dependency
+ * baru cuma untuk ini.
+ */
+function DomainRecordRow({
+  type,
+  name,
+  value,
+  placeholder,
+  fieldKey,
+  copiedField,
+  onCopy,
+  last = false,
+}: {
+  type: string;
+  name: string;
+  value: string;
+  placeholder?: string;
+  fieldKey: string;
+  copiedField: string | null;
+  onCopy: (field: string, value: string) => void;
+  last?: boolean;
+}) {
+  const isEmpty = !value;
+  const copied = copiedField === fieldKey;
+
+  return (
+    <tr className={last ? '' : 'border-b border-default-100'}>
+      <td className="px-3 py-2 align-top font-mono text-xs">{type}</td>
+      <td className="px-3 py-2 align-top font-mono text-xs break-all">{name}</td>
+      <td className={`px-3 py-2 align-top font-mono text-xs break-all ${isEmpty ? 'text-default-400' : ''}`}>
+        {isEmpty ? (placeholder ?? '—') : value}
+      </td>
+      <td className="px-3 py-2 align-top">
+        {!isEmpty && (
+          <button
+            type="button"
+            onClick={() => onCopy(fieldKey, value)}
+            className="text-xs text-default-500 underline hover:text-default-700"
+          >
+            {copied ? 'Tersalin!' : 'Salin'}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export default function SettingsPage() {
   const { activeWebsite, websiteId, role, loading: ctxLoading, refresh } = useWebsiteContext();
   const { confirm, dialog } = useConfirmDialog();
@@ -66,13 +117,15 @@ export default function SettingsPage() {
   const [themeError, setThemeError] = useState('');
   const [verifyingDomain, setVerifyingDomain] = useState(false);
   const [checkingDomain, setCheckingDomain] = useState(false);
+  const [removingDomain, setRemovingDomain] = useState(false);
   const [domainVerifyInfo, setDomainVerifyInfo] = useState<{
     recordName: string;
     recordValue: string;
-    dnsTarget: { recordType: string; recordName: string; recordValue: string } | null;
+    dnsTarget: { recordType: string; recordName: string; recordValue: string };
   } | null>(null);
   const [domainMessage, setDomainMessage] = useState('');
   const [domainError, setDomainError] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const canEdit = role ? hasMinRole(role, 'admin') : false;
   const canDelete = role === 'owner';
@@ -200,7 +253,7 @@ export default function SettingsPage() {
         recordType: string;
         recordName: string;
         recordValue: string;
-        dnsTarget: { recordType: string; recordName: string; recordValue: string } | null;
+        dnsTarget: { recordType: string; recordName: string; recordValue: string };
       }>(`/api/websites/${websiteId}/domain/verify`, { method: 'POST' });
       setDomainVerifyInfo({
         recordName: result.recordName,
@@ -231,6 +284,58 @@ export default function SettingsPage() {
       setCheckingDomain(false);
     }
   };
+
+  // Gap sebelumnya (ditemukan 9 Sep 2026): TIDAK ADA tombol hapus domain
+  // terpisah — satu-satunya cara sebelumnya adalah kosongkan field domain +
+  // "Simpan Perubahan", yang cuma PATCH domain:null dan TIDAK PERNAH panggil
+  // DELETE /domain (jadi coolifyService.removeDomain() juga tidak pernah
+  // terpanggil — domain bisa nyangkut terdaftar di Coolify selamanya). Port
+  // handleRemoveDomain dari bagdja-auction-admin.
+  const handleDeleteDomain = async () => {
+    if (!websiteId) return;
+    const ok = await confirm({
+      title: 'Hapus Domain Kustom?',
+      message: 'Domain ini akan dilepas dari Website Anda dan verifikasi yang sudah ada akan direset. Website tetap bisa diakses lewat subdomain bawaan.',
+      confirmLabel: 'Ya, Hapus Domain',
+    });
+    if (!ok) return;
+    setRemovingDomain(true);
+    setDomainError('');
+    setDomainMessage('');
+    try {
+      await apiClient(`/api/websites/${websiteId}/domain`, { method: 'DELETE' });
+      setDomainVerifyInfo(null);
+      setDomain('');
+      await refresh();
+      setDomainMessage('Domain kustom berhasil dihapus.');
+    } catch (err) {
+      setDomainError(err instanceof Error ? err.message : 'Gagal menghapus domain');
+    } finally {
+      setRemovingDomain(false);
+    }
+  };
+
+  async function handleCopy(field: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField((prev) => (prev === field ? null : prev)), 1500);
+    } catch {
+      // Clipboard API bisa gagal (context tidak secure/permission ditolak) —
+      // non-kritikal, user masih bisa select-and-copy manual dari tabel.
+    }
+  }
+
+  // Auto-tampilkan record DNS begitu domain tersimpan & belum terverifikasi
+  // — port dari bagdja-auction-admin (pola sama Vercel: langsung tampil
+  // record begitu domain ditambahkan, bukan nunggu user klik tombol dulu).
+  // Idempotent di sisi backend (reuse token lama), aman dipanggil ulang.
+  useEffect(() => {
+    if (domainDirty || !savedDomain || domainVerifiedAt) return;
+    if (domainVerifyInfo || verifyingDomain) return;
+    void handleVerifyDomain();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domainDirty, savedDomain, domainVerifiedAt, domainVerifyInfo, verifyingDomain]);
 
   const handleDelete = async () => {
     if (!websiteId) return;
@@ -442,77 +547,86 @@ export default function SettingsPage() {
 
           {CUSTOM_DOMAIN_FEATURE_ENABLED && savedDomain && (
             <div className="rounded-lg border border-default-200 bg-default-50 px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{savedDomain}</p>
-                  <p className="mt-0.5 text-xs text-default-500">
-                    {domainDirty
-                      ? 'Simpan perubahan domain terlebih dahulu untuk memverifikasi.'
-                      : domainVerifiedAt
-                        ? `Terverifikasi ✓ sejak ${new Date(domainVerifiedAt).toLocaleDateString('id-ID')}`
-                        : 'Belum diverifikasi'}
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">{savedDomain}</p>
+                {domainVerifiedAt ? (
+                  <span className="rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700">
+                    Terverifikasi
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-danger-100 px-2 py-0.5 text-xs font-medium text-danger-700">
+                    Verifikasi Diperlukan
+                  </span>
+                )}
                 {canEdit && !domainDirty && (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="flat" isLoading={verifyingDomain} onPress={handleVerifyDomain}>
-                      {domainVerifiedAt ? 'Verifikasi Ulang' : 'Verifikasi Domain'}
+                  <div className="ml-auto flex gap-2">
+                    <Button size="sm" variant="flat" isLoading={checkingDomain} onPress={handleCheckDomain}>
+                      Refresh
                     </Button>
-                    <Button size="sm" color="primary" isLoading={checkingDomain} onPress={handleCheckDomain}>
-                      {domainVerifiedAt ? 'Sinkronkan ke Server' : 'Cek Status'}
+                    <Button size="sm" color="danger" variant="flat" isLoading={removingDomain} onPress={handleDeleteDomain}>
+                      Hapus
                     </Button>
                   </div>
                 )}
               </div>
+              <p className="mt-1 text-xs text-default-500">
+                {domainDirty
+                  ? 'Simpan perubahan domain terlebih dahulu untuk memverifikasi.'
+                  : domainVerifiedAt
+                    ? `Terverifikasi sejak ${new Date(domainVerifiedAt).toLocaleString('id-ID')}. TLS/HTTPS domain ini tetap tanggung jawab Anda lewat akun Cloudflare sendiri.`
+                    : 'Perbarui DNS record di penyedia domain Anda agar sesuai dengan yang tercantum di bawah. Ini memverifikasi kepemilikan domain sekaligus mengarahkannya ke platform kami.'}
+              </p>
+
+              {verifyingDomain && !domainVerifyInfo && (
+                <p className="mt-3 text-xs text-default-500">Memuat record DNS…</p>
+              )}
 
               {domainVerifyInfo && (
                 <div className="mt-3 space-y-3">
-                  <div className="rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
-                    <p className="font-medium text-default-700">
-                      1. Bukti kepemilikan — tambahkan TXT record ini di penyedia domain Anda:
-                    </p>
-                    <div className="mt-2 space-y-1 font-mono">
-                      <p>
-                        <span className="text-default-400">Type: </span>
-                        TXT
-                      </p>
-                      <p>
-                        <span className="text-default-400">Name: </span>
-                        {domainVerifyInfo.recordName}
-                      </p>
-                      <p>
-                        <span className="text-default-400">Value: </span>
-                        {domainVerifyInfo.recordValue}
-                      </p>
-                    </div>
+                  <div className="overflow-x-auto rounded-md border border-default-200 bg-white">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-default-100 bg-default-50 text-left text-xs text-default-500">
+                          <th className="px-3 py-2 font-medium">Tipe</th>
+                          <th className="px-3 py-2 font-medium">Nama</th>
+                          <th className="px-3 py-2 font-medium">Nilai</th>
+                          <th className="px-3 py-2 font-medium" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <DomainRecordRow
+                          type="TXT"
+                          name={domainVerifyInfo.recordName}
+                          value={domainVerifyInfo.recordValue}
+                          fieldKey="txt"
+                          copiedField={copiedField}
+                          onCopy={handleCopy}
+                        />
+                        <DomainRecordRow
+                          type={domainVerifyInfo.dnsTarget.recordType}
+                          name={domainVerifyInfo.dnsTarget.recordName}
+                          value={domainVerifyInfo.dnsTarget.recordValue}
+                          placeholder="(isi CUSTOM_DOMAIN_TARGET_IP di server dulu)"
+                          fieldKey="a"
+                          copiedField={copiedField}
+                          onCopy={handleCopy}
+                          last
+                        />
+                      </tbody>
+                    </table>
                   </div>
-
-                  {domainVerifyInfo.dnsTarget && (
-                    <div className="rounded-md border border-default-200 bg-white px-3 py-2 text-xs">
-                      <p className="font-medium text-default-700">
-                        2. Arahkan domain ke server kami — tambahkan record ini juga (kalau belum ada):
-                      </p>
-                      <div className="mt-2 space-y-1 font-mono">
-                        <p>
-                          <span className="text-default-400">Type: </span>
-                          {domainVerifyInfo.dnsTarget.recordType}
-                        </p>
-                        <p>
-                          <span className="text-default-400">Name: </span>
-                          {domainVerifyInfo.dnsTarget.recordName}
-                        </p>
-                        <p>
-                          <span className="text-default-400">Value: </span>
-                          {domainVerifyInfo.dnsTarget.recordValue}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                   <p className="text-xs text-default-500">
-                    Setelah kedua record di atas ditambahkan dan DNS selesai propagasi (bisa beberapa
-                    menit), klik &quot;Cek Status&quot;.
+                    Perubahan DNS bisa perlu beberapa menit untuk propagasi. Klik &quot;Refresh&quot; di atas
+                    untuk cek ulang setelah menambahkan record.
                   </p>
+                  <div className="rounded-md border border-default-200 bg-default-50 p-3 text-sm">
+                    <p className="font-medium">Aktifkan HTTPS lewat Cloudflare Anda sendiri</p>
+                    <p className="mt-1 text-default-500">
+                      Daftarkan domain ini di akun Cloudflare Anda, aktifkan proxy (awan oranye), lalu set
+                      mode SSL/TLS ke &quot;Full&quot;. Cloudflare akan otomatis mengurus sertifikat HTTPS
+                      untuk pengunjung Anda — bukan tanggung jawab kami.
+                    </p>
+                  </div>
                 </div>
               )}
 
