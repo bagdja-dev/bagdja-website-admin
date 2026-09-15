@@ -54,9 +54,8 @@ export function LandingNavbar() {
             </button>
 
             <Link href="/" className="flex min-w-0 items-center gap-2" onClick={close}>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500">
-                <span className="text-sm font-bold text-white">B</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/bagdja-cart-logo.svg" alt="Bagdja Website" className="h-8 w-8 shrink-0 rounded-lg" />
               <p className="truncate text-base font-bold tracking-tight sm:text-lg">
                 <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                   Bagdja

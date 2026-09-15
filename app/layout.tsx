@@ -7,6 +7,10 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Bagdja Website Admin',
   description: 'CMS panel untuk mengelola website UMKM di platform Bagdja.',
+  icons: {
+    icon: '/bagdja-cart-logo.svg',
+    apple: '/bagdja-cart-logo.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
