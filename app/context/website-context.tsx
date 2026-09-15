@@ -41,7 +41,7 @@ export function WebsiteProvider({ children }: { children: ReactNode }) {
       if (res.status === 401) {
         if (typeof window !== 'undefined') {
           const next = encodeURIComponent(window.location.pathname + window.location.search);
-          window.location.href = `/auth/login?next=${next}`;
+          window.location.href = `/auth/login?next=${next}&force_login=1`;
         }
         // Sengaja TIDAK setLoading(false) — biar UI tetap tampil loading
         // (bukan flash NoWebsiteState) sampai navigasi browser ke /auth/login

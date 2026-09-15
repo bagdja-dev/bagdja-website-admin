@@ -42,6 +42,39 @@ const features = [
     ),
   },
   {
+    title: 'Cart & Checkout Terintegrasi',
+    desc: 'Pelanggan dapat menambahkan produk ke keranjang, mengatur jumlah, lalu menyelesaikan checkout dalam satu alur.',
+    gradient: 'from-fuchsia-500 to-pink-400',
+    bg: 'bg-fuchsia-50',
+    icon: (
+      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437m0 0L6.75 15h9.878a2.25 2.25 0 0 0 2.166-1.641l1.488-5.21A1.125 1.125 0 0 0 19.2 6.75H5.106Zm2.25 11.25h9.272M8.25 19.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm8.25 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Chat & Direct Message',
+    desc: 'Layani pertanyaan pelanggan secara langsung melalui chat dan DM agar konsultasi, pemesanan, dan tindak lanjut terasa lebih personal.',
+    gradient: 'from-sky-500 to-blue-400',
+    bg: 'bg-sky-50',
+    icon: (
+      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75h6.75m-6.75 3h4.5m-9.75 4.5a9.75 9.75 0 1 0 17.728-5.62L21 21l-5.37-1.147A9.75 9.75 0 0 1 3.375 17.25Z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Rating & Review Pelanggan',
+    desc: 'Kumpulkan penilaian dan ulasan dari pelanggan untuk membangun kepercayaan serta membantu calon pembeli memilih dengan lebih yakin.',
+    gradient: 'from-yellow-500 to-amber-400',
+    bg: 'bg-yellow-50',
+    icon: (
+      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m11.48 3.499-2.23 4.522-4.99.725a1.125 1.125 0 0 0-.624 1.919l3.61 3.52-.852 4.971a1.125 1.125 0 0 0 1.633 1.186L12.5 18l4.463 2.342a1.125 1.125 0 0 0 1.633-1.186l-.852-4.971 3.61-3.52a1.125 1.125 0 0 0-.624-1.919l-4.99-.725-2.23-4.522a1.125 1.125 0 0 0-2.02 0Z" />
+      </svg>
+    ),
+  },
+  {
     title: 'Desain Responsif',
     desc: 'Semua template dioptimalkan untuk mobile, tablet, dan desktop. Akses dari mana saja.',
     gradient: 'from-emerald-500 to-teal-400',
@@ -109,7 +142,7 @@ const pricingPlans = [
       'Semua template & fitur page builder',
       'Produk, blog, dan halaman tanpa batas',
     ],
-    cta: 'Daftar Gratis Dulu',
+    cta: 'Mulai Sekarang',
   },
   {
     name: 'BUSINESS',
@@ -123,7 +156,7 @@ const pricingPlans = [
       'Staff/tim tanpa batas per website',
       '+Rp 10.000/bln per website tambahan (tahunan: +Rp 100.000)',
     ],
-    cta: 'Daftar Gratis Dulu',
+    cta: 'Mulai Sekarang',
   },
 ];
 
@@ -277,7 +310,7 @@ export default function LandingPage() {
               {
                 step: '02',
                 title: 'Isi Konten',
-                desc: 'Tambahkan nama bisnis, produk, galeri foto, dan informasi kontak Anda.',
+                desc: 'Tambahkan nama bisnis, produk, galeri foto, informasi kontak, dan atur cara pelanggan berbelanja.',
                 color: 'from-violet-600 to-purple-500',
                 bg: 'bg-violet-50',
               },

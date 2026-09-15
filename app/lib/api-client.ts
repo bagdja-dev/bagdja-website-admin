@@ -40,7 +40,7 @@ export async function apiClient<T = unknown>(
     // sudah dipakai bagdja-novelo-app/lib/api-client.ts.
     if (res.status === 401 && typeof window !== 'undefined') {
       const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/auth/login?next=${next}`;
+      window.location.href = `/auth/login?next=${next}&force_login=1`;
     }
 
     throw new ApiError(message, res.status);

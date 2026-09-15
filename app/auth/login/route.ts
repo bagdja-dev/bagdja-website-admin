@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const next = safeNextPath(request.nextUrl.searchParams.get('next'));
+  const forceLogin = request.nextUrl.searchParams.get('force_login') === '1';
 
   // code_verifier + next path disimpan di Upstash Redis (bukan cookie) —
   // supaya tidak bergantung pada cookie yang di-set sebelum redirect
@@ -23,6 +24,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/?error=server_misconfigured', request.url));
   }
 
-  const authorizeUrl = buildAuthorizeUrl(stateId, codeChallenge);
+  const authorizeUrl = buildAuthorizeUrl(stateId, codeChallenge, forceLogin);
   return NextResponse.redirect(authorizeUrl);
 }
