@@ -193,18 +193,18 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-gray-900 sm:text-6xl lg:text-7xl">
-            Buat Website
+            Buat Toko Online
             <br />
             <span className="animate-gradient bg-gradient-to-r from-blue-600 via-cyan-500 to-violet-600 bg-clip-text text-transparent">
               Profesional
             </span>
             <br />
-            dalam Hitungan Menit
+            untuk Bisnis Indonesia
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-500 sm:text-xl">
-            Tanpa coding, tanpa ribet. Pilih template, isi konten, website Anda langsung online.
-            Fokus pada bisnis — biar kami urus teknologinya.
+            Buat e-commerce Indonesia tanpa coding. Pilih template, tampilkan katalog produk,
+            gunakan custom domain toko online, dan terima pesanan melalui checkout yang terintegrasi.
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
