@@ -25,6 +25,18 @@ function stepKey(orderId: string, stepName: string): string {
   return `${orderId}::${stepName}`;
 }
 
+/**
+ * Step ber-`filledBy:'buyer'` (level Step, fulfillment-praorder-plan.md §2.1)
+ * cuma bisa diselesaikan buyer lewat endpoint mereka sendiri (backend
+ * menolak admin di endpoint ini, lihat transactions.service.ts
+ * assertStepFilledBy) — sisi admin tidak boleh menampilkan tombol "Tandai
+ * Selesai" untuk step seperti ini, supaya admin tidak mengira sudah
+ * menyelesaikannya padahal request akan ditolak.
+ */
+function isStepBuyerOwned(step: Pick<OrderFulfillmentStepProgress, 'filledBy'>): boolean {
+  return step.filledBy === 'buyer';
+}
+
 function groupStepKey(flowName: string, stepName: string): string {
   return `group:${flowName}::${stepName}`;
 }
@@ -39,6 +51,7 @@ interface GroupStepItemView {
 interface GroupStepView {
   index: number;
   stepName: string;
+  filledBy: OrderFulfillmentStepProgress['filledBy'];
   description: string | null;
   processDay: number | null;
   releasePercentage: number | null;
@@ -49,6 +62,12 @@ interface GroupStepView {
   totalCount: number;
   /** Produk yang step-nya belum selesai TAPI sudah waktunya (step sebelumnya sudah selesai) — target aksi bulk "Tandai Selesai". */
   eligibleItems: GroupStepItemView[];
+}
+
+interface VendorCandidate {
+  id: string;
+  name: string;
+  contact_whatsapp?: string | null;
 }
 
 /**
@@ -72,6 +91,7 @@ function buildGroupSteps(
     return {
       index,
       stepName: template.stepName,
+      filledBy: template.filledBy,
       description: template.description,
       processDay: template.processDay,
       releasePercentage: template.releasePercentage,
@@ -124,10 +144,21 @@ export default function OrderDetailPage() {
   const [completeFormData, setCompleteFormData] = useState<Record<string, string>>({});
   const [stepBusy, setStepBusy] = useState<string | null>(null);
   const [stepError, setStepError] = useState<Record<string, string>>({});
+  /** fulfillment-praorder-plan.md §2.4 — "Terbitkan" Termin & Tagihan Tambahan ad-hoc. */
+  const [terminBusy, setTerminBusy] = useState<string | null>(null);
+  const [terminError, setTerminError] = useState<Record<string, string>>({});
+  const [adhocFormOpen, setAdhocFormOpen] = useState<Record<string, boolean>>({});
+  const [adhocForm, setAdhocForm] = useState<Record<string, { label: string; amount: string; anchor_step_name: string }>>({});
+  const [adhocBusy, setAdhocBusy] = useState<string | null>(null);
+  const [adhocError, setAdhocError] = useState<Record<string, string>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [groupFormData, setGroupFormData] = useState<Record<string, Record<string, string>>>({});
   const [groupBusy, setGroupBusy] = useState<string | null>(null);
   const [groupError, setGroupError] = useState<Record<string, string>>({});
+  const [vendorCandidates, setVendorCandidates] = useState<Record<string, VendorCandidate[]>>({});
+  const [selectedVendors, setSelectedVendors] = useState<Record<string, string>>({});
+  const [vendorBusy, setVendorBusy] = useState<string | null>(null);
+  const [vendorError, setVendorError] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!websiteId || !params.id) return;
@@ -148,6 +179,64 @@ export default function OrderDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!websiteId || !transaction) return;
+    const itemsWithLocation = (transaction.items ?? []).filter((item) => item.order?.location_id);
+    void Promise.all(
+      itemsWithLocation.map(async (item) => {
+        const locationId = item.order?.location_id;
+        if (!locationId) return null;
+        try {
+          const candidates = await apiClient<VendorCandidate[]>(
+            `/api/websites/${websiteId}/orders/vendor-candidates?locationId=${encodeURIComponent(locationId)}`,
+          );
+          return { orderId: item.order_id, candidates };
+        } catch {
+          return { orderId: item.order_id, candidates: [] };
+        }
+      }),
+    ).then((results) => {
+      const nextCandidates: Record<string, VendorCandidate[]> = {};
+      results.forEach((result) => {
+        if (!result) return;
+        nextCandidates[result.orderId] = result.candidates;
+      });
+      setVendorCandidates(nextCandidates);
+      // Merge, jangan timpa total — effect ini re-run tiap `transaction`
+      // berubah (mis. reload gara-gara selesaikan step item LAIN di transaksi
+      // yang sama), dan kalau ditimpa total, pilihan dropdown vendor yang
+      // belum di-"Tugaskan" untuk item lain hilang diam-diam. `vendor_id`
+      // dari server (assignment yang sudah terkonfirmasi) tetap jadi sumber
+      // kebenaran; pilihan lokal yang belum disubmit dibiarkan apa adanya.
+      setSelectedVendors((prev) => {
+        const merged = { ...prev };
+        results.forEach((result) => {
+          if (!result) return;
+          const current = transaction.items?.find((item) => item.order_id === result.orderId)?.order?.vendor_id;
+          if (current) merged[result.orderId] = current;
+        });
+        return merged;
+      });
+    });
+  }, [websiteId, transaction]);
+
+  const assignVendor = async (orderId: string) => {
+    if (!websiteId || !selectedVendors[orderId]) return;
+    setVendorBusy(orderId);
+    setVendorError((prev) => ({ ...prev, [orderId]: '' }));
+    try {
+      await apiClient(`/api/websites/${websiteId}/orders/${orderId}/assign-vendor`, {
+        method: 'PATCH',
+        body: JSON.stringify({ vendor_id: selectedVendors[orderId] }),
+      });
+      await load();
+    } catch (err) {
+      setVendorError((prev) => ({ ...prev, [orderId]: err instanceof Error ? err.message : 'Gagal menugaskan vendor' }));
+    } finally {
+      setVendorBusy(null);
+    }
+  };
 
   const canRefund = role ? hasMinRole(role, 'admin') : false;
   const canManageFulfillment = role ? hasMinRole(role, 'editor') : false;
@@ -175,6 +264,9 @@ export default function OrderDetailPage() {
     const key = stepKey(orderId, step.stepName);
     setCompletingKey(key);
     const initial: Record<string, string> = {};
+    // Kepemilikan sekarang di level Step (isStepBuyerOwned menggate render
+    // form ini) — semua field di step admin ini milik admin, tidak perlu
+    // disaring per-field lagi.
     (step.formSchema ?? []).forEach((f) => {
       initial[f.key] = '';
     });
@@ -185,7 +277,8 @@ export default function OrderDetailPage() {
   const submitCompleteStep = async (orderId: string, step: OrderFulfillmentStepProgress) => {
     if (!websiteId || !params.id) return;
     const key = stepKey(orderId, step.stepName);
-    for (const field of step.formSchema ?? []) {
+    const sellerFields = step.formSchema ?? [];
+    for (const field of sellerFields) {
       if (field.required && !completeFormData[field.key]?.trim()) {
         setStepError((prev) => ({ ...prev, [key]: `Field "${field.label}" wajib diisi` }));
         return;
@@ -195,7 +288,7 @@ export default function OrderDetailPage() {
     setStepError((prev) => ({ ...prev, [key]: '' }));
     try {
       const formData: Record<string, unknown> = {};
-      for (const field of step.formSchema ?? []) {
+      for (const field of sellerFields) {
         if (completeFormData[field.key]?.trim()) formData[field.key] = completeFormData[field.key].trim();
       }
       await apiClient(
@@ -238,6 +331,68 @@ export default function OrderDetailPage() {
       setStepError((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : 'Gagal merilis dana' }));
     } finally {
       setStepBusy(null);
+    }
+  };
+
+  const issueTermin = async (orderId: string, terminId: string) => {
+    if (!websiteId || !params.id) return;
+    setTerminBusy(terminId);
+    setTerminError((prev) => ({ ...prev, [terminId]: '' }));
+    try {
+      await apiClient(
+        `/api/websites/${websiteId}/transactions/${params.id}/orders/${orderId}/termins/${terminId}/issue`,
+        { method: 'POST' },
+      );
+      await load();
+    } catch (err) {
+      setTerminError((prev) => ({
+        ...prev,
+        [terminId]: err instanceof Error ? err.message : 'Gagal menerbitkan Termin',
+      }));
+    } finally {
+      setTerminBusy(null);
+    }
+  };
+
+  const updateAdhocForm = (orderId: string, patch: Partial<{ label: string; amount: string; anchor_step_name: string }>) => {
+    setAdhocForm((prev) => {
+      const base = prev[orderId] ?? { label: '', amount: '', anchor_step_name: '' };
+      return { ...prev, [orderId]: { ...base, ...patch } };
+    });
+  };
+
+  const submitAdhocTermin = async (orderId: string) => {
+    if (!websiteId || !params.id) return;
+    const form = adhocForm[orderId] ?? { label: '', amount: '', anchor_step_name: '' };
+    const amount = Number(form.amount);
+    if (!form.label.trim() || !Number.isFinite(amount) || amount <= 0) {
+      setAdhocError((prev) => ({ ...prev, [orderId]: 'Isi label & jumlah Tagihan dengan benar (jumlah > 0)' }));
+      return;
+    }
+    setAdhocBusy(orderId);
+    setAdhocError((prev) => ({ ...prev, [orderId]: '' }));
+    try {
+      await apiClient(
+        `/api/websites/${websiteId}/transactions/${params.id}/orders/${orderId}/termins/adhoc`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            label: form.label.trim(),
+            amount,
+            anchor_step_name: form.anchor_step_name.trim() || undefined,
+          }),
+        },
+      );
+      setAdhocFormOpen((prev) => ({ ...prev, [orderId]: false }));
+      setAdhocForm((prev) => ({ ...prev, [orderId]: { label: '', amount: '', anchor_step_name: '' } }));
+      await load();
+    } catch (err) {
+      setAdhocError((prev) => ({
+        ...prev,
+        [orderId]: err instanceof Error ? err.message : 'Gagal membuat Tagihan Tambahan',
+      }));
+    } finally {
+      setAdhocBusy(null);
     }
   };
 
@@ -420,6 +575,36 @@ export default function OrderDetailPage() {
                         <span>{item.quantity} × {formatCurrency(item.unit_price)}</span>
                         <span className="font-semibold text-foreground">{formatCurrency(item.total_amount)}</span>
                       </div>
+                      <div className="mt-3 rounded-lg border border-default-200 bg-white p-2.5">
+                        <p className="text-xs text-default-500">
+                          Vendor:{' '}
+                          <span className="font-medium text-foreground">
+                            {item.order?.vendor?.name ?? (item.order?.vendor_id ? 'Sudah ditugaskan' : 'Belum ditugaskan')}
+                          </span>
+                        </p>
+                        {item.order?.location_id ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <select
+                              value={selectedVendors[item.order_id] ?? ''}
+                              onChange={(event) => setSelectedVendors((prev) => ({ ...prev, [item.order_id]: event.target.value }))}
+                              className="min-w-0 flex-1 rounded-lg border border-default-200 px-2 py-1.5 text-xs"
+                            >
+                              <option value="">Pilih vendor</option>
+                              {(vendorCandidates[item.order_id] ?? []).map((vendor) => (
+                                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                              ))}
+                            </select>
+                            {canManageFulfillment && (
+                              <Button size="sm" color="primary" isLoading={vendorBusy === item.order_id} onPress={() => assignVendor(item.order_id)}>
+                                Tugaskan Vendor
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-xs text-warning-600">Lokasi layanan belum dipilih buyer.</p>
+                        )}
+                        {vendorError[item.order_id] && <p className="mt-1 text-xs text-danger">{vendorError[item.order_id]}</p>}
+                      </div>
                     </div>
                   </div>
                 );
@@ -524,25 +709,31 @@ export default function OrderDetailPage() {
 
                                 {groupError[key] && <p className="mt-2 text-xs text-danger">{groupError[key]}</p>}
 
-                                {hasEligible && canManageFulfillment && (
+                                {hasEligible && canManageFulfillment && isStepBuyerOwned(step) && (
+                                  <p className="mt-3 rounded-lg border border-default-200 bg-default-50 p-3 text-xs text-default-500">
+                                    Menunggu buyer mengisi step ini (mis. No Resi) — bukan tugas seller.
+                                  </p>
+                                )}
+                                {hasEligible && canManageFulfillment && !isStepBuyerOwned(step) && (
                                   <div className="mt-3 space-y-2 rounded-lg border border-default-200 bg-white p-3">
                                     <p className="text-xs text-default-500">
                                       Berlaku untuk: {step.eligibleItems.map((i) => i.productName).join(', ')}
                                     </p>
-                                    {(step.formSchema ?? []).map((f) => (
-                                      <FormInput
-                                        key={f.key}
-                                        label={f.label}
-                                        required={f.required}
-                                        value={groupFormData[key]?.[f.key] ?? ''}
-                                        onChange={(v) =>
-                                          setGroupFormData((prev) => ({
-                                            ...prev,
-                                            [key]: { ...prev[key], [f.key]: v },
-                                          }))
-                                        }
-                                      />
-                                    ))}
+                                    {(step.formSchema ?? [])
+                                      .map((f) => (
+                                        <FormInput
+                                          key={f.key}
+                                          label={f.label}
+                                          required={f.required}
+                                          value={groupFormData[key]?.[f.key] ?? ''}
+                                          onChange={(v) =>
+                                            setGroupFormData((prev) => ({
+                                              ...prev,
+                                              [key]: { ...prev[key], [f.key]: v },
+                                            }))
+                                          }
+                                        />
+                                      ))}
                                     <Button
                                       size="sm"
                                       color="primary"
@@ -658,21 +849,28 @@ export default function OrderDetailPage() {
                                         <p className="mt-2 text-xs text-danger">{stepError[key]}</p>
                                       )}
 
+                                      {isCurrent && canManageFulfillment && isStepBuyerOwned(step) && (
+                                        <p className="mt-2 rounded-lg border border-default-200 bg-default-50 p-3 text-xs text-default-500">
+                                          Menunggu buyer mengisi step ini (mis. No Resi) — bukan tugas seller.
+                                        </p>
+                                      )}
                                       {isCurrent &&
                                         canManageFulfillment &&
+                                        !isStepBuyerOwned(step) &&
                                         (completingKey === key ? (
                                           <div className="mt-3 space-y-2 rounded-lg border border-default-200 bg-white p-3">
-                                            {(step.formSchema ?? []).map((f) => (
-                                              <FormInput
-                                                key={f.key}
-                                                label={f.label}
-                                                required={f.required}
-                                                value={completeFormData[f.key] ?? ''}
-                                                onChange={(v) =>
-                                                  setCompleteFormData((prev) => ({ ...prev, [f.key]: v }))
-                                                }
-                                              />
-                                            ))}
+                                            {(step.formSchema ?? [])
+                                              .map((f) => (
+                                                <FormInput
+                                                  key={f.key}
+                                                  label={f.label}
+                                                  required={f.required}
+                                                  value={completeFormData[f.key] ?? ''}
+                                                  onChange={(v) =>
+                                                    setCompleteFormData((prev) => ({ ...prev, [f.key]: v }))
+                                                  }
+                                                />
+                                              ))}
                                             {stepError[key] && (
                                               <p className="text-xs text-danger">{stepError[key]}</p>
                                             )}
@@ -709,6 +907,108 @@ export default function OrderDetailPage() {
                                   );
                                 })}
                               </ol>
+
+                              {gi.progress.termins.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  <p className="text-xs font-medium text-default-500">Termin</p>
+                                  {gi.progress.termins.map((termin) => (
+                                    <div
+                                      key={termin.id}
+                                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default-200 bg-white p-3 text-sm"
+                                    >
+                                      <div>
+                                        <span className="font-medium">{termin.label}</span>
+                                        <span className="ml-2 text-xs text-default-400">
+                                          {formatCurrency(termin.amount, transaction.currency)}
+                                          {termin.anchorStepName && ` — setelah "${termin.anchorStepName}"`}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Chip
+                                          size="sm"
+                                          variant="flat"
+                                          color={
+                                            termin.status === 'PAID'
+                                              ? 'success'
+                                              : termin.status === 'ISSUED'
+                                                ? 'warning'
+                                                : 'default'
+                                          }
+                                        >
+                                          {termin.status}
+                                        </Chip>
+                                        {termin.status === 'SCHEDULED' && canManageFulfillment && (
+                                          <Button
+                                            size="sm"
+                                            color="primary"
+                                            variant="flat"
+                                            isLoading={terminBusy === termin.id}
+                                            onPress={() => issueTermin(gi.orderId, termin.id)}
+                                          >
+                                            Terbitkan
+                                          </Button>
+                                        )}
+                                      </div>
+                                      {terminError[termin.id] && (
+                                        <p className="w-full text-xs text-danger">{terminError[termin.id]}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {canManageFulfillment && (
+                                <div className="mt-3">
+                                  {adhocFormOpen[gi.orderId] ? (
+                                    <div className="space-y-2 rounded-lg border border-default-200 bg-default-50 p-3">
+                                      <FormInput
+                                        label="Label Tagihan"
+                                        value={adhocForm[gi.orderId]?.label ?? ''}
+                                        onChange={(v) => updateAdhocForm(gi.orderId, { label: v })}
+                                      />
+                                      <FormInput
+                                        label="Jumlah"
+                                        type="number"
+                                        value={adhocForm[gi.orderId]?.amount ?? ''}
+                                        onChange={(v) => updateAdhocForm(gi.orderId, { amount: v })}
+                                      />
+                                      <FormInput
+                                        label="Muncul setelah step (opsional)"
+                                        value={adhocForm[gi.orderId]?.anchor_step_name ?? ''}
+                                        onChange={(v) => updateAdhocForm(gi.orderId, { anchor_step_name: v })}
+                                      />
+                                      {adhocError[gi.orderId] && (
+                                        <p className="text-xs text-danger">{adhocError[gi.orderId]}</p>
+                                      )}
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="light"
+                                          onPress={() => setAdhocFormOpen((prev) => ({ ...prev, [gi.orderId]: false }))}
+                                        >
+                                          Batal
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          color="primary"
+                                          isLoading={adhocBusy === gi.orderId}
+                                          onPress={() => submitAdhocTermin(gi.orderId)}
+                                        >
+                                          Simpan
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="flat"
+                                      onPress={() => setAdhocFormOpen((prev) => ({ ...prev, [gi.orderId]: true }))}
+                                    >
+                                      + Tagihan Tambahan
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

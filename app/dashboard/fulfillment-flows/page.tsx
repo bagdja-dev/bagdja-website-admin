@@ -20,6 +20,16 @@ const FIELD_TYPE_OPTIONS: FormSelectOption[] = [
   { value: 'select', label: 'Pilihan (dropdown)' },
 ];
 
+// fulfillment-praorder-plan.md §2.1 — "diisi oleh" sekarang di level STEP
+// (bukan per-field lagi). Field.filled_by di form_schema sudah tidak
+// dipakai sebagai sumber kebenaran, sengaja tidak ditampilkan lagi di sini.
+const STEP_FILLED_BY_OPTIONS: FormSelectOption[] = [
+  { value: 'admin', label: 'Admin/Seller' },
+  { value: 'buyer', label: 'Buyer' },
+];
+
+type FlowPhase = 'PRAORDER' | 'PASCAORDER';
+
 interface StepFieldState {
   key: string;
   label: string;
@@ -34,6 +44,7 @@ interface StepState {
   process_day: string;
   release_percentage: string;
   guaranty_days: string;
+  filled_by: 'admin' | 'buyer';
   fields: StepFieldState[];
 }
 
@@ -50,27 +61,39 @@ function emptyStep(): StepState {
     // Standar masa garansi per step = 1 hari (dipakai kalau seller mengisi
     // release_percentage — kalau tidak, field ini tidak relevan).
     guaranty_days: '1',
+    filled_by: 'admin',
     fields: [],
   };
 }
 
-function loadStepsFromFlow(flow: FulfillmentFlow): StepState[] {
-  return [...flow.steps]
-    .sort((a, b) => a.sequence - b.sequence)
-    .map((step) => ({
-      status_name: step.status_name,
-      description: step.description ?? '',
-      process_day: step.process_day != null ? String(step.process_day) : '',
-      release_percentage: step.release_percentage != null ? String(step.release_percentage) : '',
-      guaranty_days: step.guaranty_days != null ? String(step.guaranty_days) : '',
-      fields: (step.form_schema ?? []).map((f) => ({
-        key: f.key,
-        label: f.label,
-        type: f.type,
-        required: f.required ?? false,
-        optionsText: (f.options ?? []).join(', '),
-      })),
-    }));
+/**
+ * Pecah step Flow jadi 2 kelompok terpisah sesuai `phase` (fulfillment-
+ * praorder-plan.md §2.1) — Praorder jalan sebelum checkout (di atas order
+ * PENDING), Pascaorder setelah dibayar (existing). Urutan Praorder SELALU
+ * mendahului Pascaorder saat disimpan lagi (lihat handleSave), jadi tidak
+ * perlu simpan `sequence` mentah di sini — cukup urutan dalam tiap kelompok.
+ */
+function loadStepsFromFlow(flow: FulfillmentFlow): { praorder: StepState[]; pascaorder: StepState[] } {
+  const sorted = [...flow.steps].sort((a, b) => a.sequence - b.sequence);
+  const toState = (step: (typeof sorted)[number]): StepState => ({
+    status_name: step.status_name,
+    description: step.description ?? '',
+    process_day: step.process_day != null ? String(step.process_day) : '',
+    release_percentage: step.release_percentage != null ? String(step.release_percentage) : '',
+    guaranty_days: step.guaranty_days != null ? String(step.guaranty_days) : '',
+    filled_by: step.filled_by ?? 'admin',
+    fields: (step.form_schema ?? []).map((f) => ({
+      key: f.key,
+      label: f.label,
+      type: f.type,
+      required: f.required ?? false,
+      optionsText: (f.options ?? []).join(', '),
+    })),
+  });
+  return {
+    praorder: sorted.filter((s) => s.phase === 'PRAORDER').map(toState),
+    pascaorder: sorted.filter((s) => (s.phase ?? 'PASCAORDER') === 'PASCAORDER').map(toState),
+  };
 }
 
 function totalReleasePercentage(steps: StepState[]): number {
@@ -87,9 +110,17 @@ export default function FulfillmentFlowsManagement() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [steps, setSteps] = useState<StepState[]>([emptyStep()]);
+  // fulfillment-praorder-plan.md §2.1 — 2 section terpisah sesuai arahan:
+  // Praorder kosong secara default (flow lama tanpa Praorder tetap sama
+  // persis seperti sebelumnya), Pascaorder tetap default 1 step kosong
+  // (perilaku existing untuk flow baru).
+  const [praorderSteps, setPraorderSteps] = useState<StepState[]>([]);
+  const [pascaorderSteps, setPascaorderSteps] = useState<StepState[]>([emptyStep()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const stepsFor = (phase: FlowPhase): StepState[] => (phase === 'PRAORDER' ? praorderSteps : pascaorderSteps);
+  const setStepsFor = (phase: FlowPhase) => (phase === 'PRAORDER' ? setPraorderSteps : setPascaorderSteps);
 
   const canEdit = role ? hasMinRole(role, 'editor') : false;
   const canDelete = role ? hasMinRole(role, 'admin') : false;
@@ -116,7 +147,8 @@ export default function FulfillmentFlowsManagement() {
     setName('');
     setDescription('');
     setIsActive(true);
-    setSteps([emptyStep()]);
+    setPraorderSteps([]);
+    setPascaorderSteps([emptyStep()]);
     setError('');
     setModalOpen(true);
   };
@@ -126,21 +158,23 @@ export default function FulfillmentFlowsManagement() {
     setName(flow.name);
     setDescription(flow.description ?? '');
     setIsActive(flow.is_active);
-    setSteps(loadStepsFromFlow(flow));
+    const loaded = loadStepsFromFlow(flow);
+    setPraorderSteps(loaded.praorder);
+    setPascaorderSteps(loaded.pascaorder.length ? loaded.pascaorder : [emptyStep()]);
     setError('');
     setModalOpen(true);
   };
 
-  const updateStep = (index: number, patch: Partial<StepState>) => {
-    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  const updateStep = (phase: FlowPhase, index: number, patch: Partial<StepState>) => {
+    setStepsFor(phase)((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   };
 
-  const removeStep = (index: number) => {
-    setSteps((prev) => prev.filter((_, i) => i !== index));
+  const removeStep = (phase: FlowPhase, index: number) => {
+    setStepsFor(phase)((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const moveStep = (index: number, direction: -1 | 1) => {
-    setSteps((prev) => {
+  const moveStep = (phase: FlowPhase, index: number, direction: -1 | 1) => {
+    setStepsFor(phase)((prev) => {
       const target = index + direction;
       if (target < 0 || target >= prev.length) return prev;
       const next = [...prev];
@@ -149,8 +183,8 @@ export default function FulfillmentFlowsManagement() {
     });
   };
 
-  const updateField = (stepIndex: number, fieldIndex: number, patch: Partial<StepFieldState>) => {
-    setSteps((prev) =>
+  const updateField = (phase: FlowPhase, stepIndex: number, fieldIndex: number, patch: Partial<StepFieldState>) => {
+    setStepsFor(phase)((prev) =>
       prev.map((s, i) =>
         i === stepIndex
           ? { ...s, fields: s.fields.map((f, fi) => (fi === fieldIndex ? { ...f, ...patch } : f)) }
@@ -159,24 +193,25 @@ export default function FulfillmentFlowsManagement() {
     );
   };
 
-  const removeField = (stepIndex: number, fieldIndex: number) => {
-    setSteps((prev) =>
+  const removeField = (phase: FlowPhase, stepIndex: number, fieldIndex: number) => {
+    setStepsFor(phase)((prev) =>
       prev.map((s, i) => (i === stepIndex ? { ...s, fields: s.fields.filter((_, fi) => fi !== fieldIndex) } : s)),
     );
   };
 
-  const releasePercentageTotal = totalReleasePercentage(steps);
+  const allSteps = [...praorderSteps, ...pascaorderSteps];
+  const releasePercentageTotal = totalReleasePercentage(allSteps);
 
   const handleSave = async () => {
     if (!websiteId || !name.trim()) {
       setError('Nama flow wajib diisi');
       return;
     }
-    if (steps.length === 0) {
+    if (allSteps.length === 0) {
       setError('Minimal 1 step');
       return;
     }
-    if (steps.some((s) => !s.status_name.trim())) {
+    if (allSteps.some((s) => !s.status_name.trim())) {
       setError('Nama status tiap step wajib diisi');
       return;
     }
@@ -187,12 +222,21 @@ export default function FulfillmentFlowsManagement() {
     setSaving(true);
     setError('');
     try {
+      // Praorder SELALU didahulukan dari Pascaorder saat disimpan — checkout
+      // jadi gerbang di antara keduanya (fulfillment-praorder-plan.md §2.1),
+      // jadi sequence dibangun dari urutan gabungan ini, bukan per-section.
+      const orderedSteps: { phase: FlowPhase; step: StepState }[] = [
+        ...praorderSteps.map((step) => ({ phase: 'PRAORDER' as FlowPhase, step })),
+        ...pascaorderSteps.map((step) => ({ phase: 'PASCAORDER' as FlowPhase, step })),
+      ];
       const body = {
         name: name.trim(),
         description: description.trim() || undefined,
         is_active: isActive,
-        steps: steps.map((s, index) => ({
+        steps: orderedSteps.map(({ phase, step: s }, index) => ({
           sequence: index + 1,
+          phase,
+          filled_by: s.filled_by,
           status_name: s.status_name.trim(),
           description: s.description.trim() || undefined,
           process_day: s.process_day ? parseInt(s.process_day, 10) : undefined,
@@ -251,6 +295,237 @@ export default function FulfillmentFlowsManagement() {
       alert('Gagal menghapus');
     }
   };
+
+  /**
+   * 1 section step (Praorder atau Pascaorder) — sesuai arahan eksplisit
+   * untuk UI Master Flow dipecah 2 bagian terpisah (fulfillment-praorder-
+   * plan.md §2.1). Reusable lewat closure `phase`, supaya JSX-nya tidak
+   * perlu diduplikasi mentah-mentah.
+   */
+  function renderStepSection(phase: FlowPhase, title: string, hint: string) {
+    const sectionSteps = stepsFor(phase);
+    return (
+      <div className="flex flex-col gap-3 rounded-xl border border-default-200 p-4">
+        <div>
+          <span className="text-sm font-semibold text-foreground">{title}</span>
+          <p className="mt-0.5 text-xs text-default-500">{hint}</p>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {sectionSteps.map((step, index) => (
+            <div key={index} className="rounded-xl border border-default-200 bg-default-50/50 p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground">
+                  {title} — Step {index + 1}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveStep(phase, index, -1)}
+                    className="rounded-lg p-1.5 text-default-500 hover:bg-default-100 disabled:opacity-30"
+                    aria-label="Pindah ke atas"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === sectionSteps.length - 1}
+                    onClick={() => moveStep(phase, index, 1)}
+                    className="rounded-lg p-1.5 text-default-500 hover:bg-default-100 disabled:opacity-30"
+                    aria-label="Pindah ke bawah"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeStep(phase, index)}
+                    className="rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-danger-50"
+                  >
+                    Hapus step
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FormInput
+                  label="Nama status"
+                  value={step.status_name}
+                  onChange={(v) => updateStep(phase, index, { status_name: v })}
+                  placeholder="Mis. SHIPPED"
+                  required
+                />
+                <FormInput
+                  label="Estimasi hari"
+                  type="number"
+                  min={1}
+                  value={step.process_day}
+                  onChange={(v) => updateStep(phase, index, { process_day: v })}
+                  placeholder="Opsional"
+                />
+              </div>
+              <div className="mt-3">
+                <FormTextarea
+                  label="Deskripsi step"
+                  value={step.description}
+                  onChange={(v) => updateStep(phase, index, { description: v })}
+                  rows={2}
+                  placeholder="Opsional"
+                />
+              </div>
+
+              <div className="mt-3">
+                <span className="mb-1.5 block text-xs font-medium text-default-600">Diisi oleh</span>
+                <select
+                  value={step.filled_by}
+                  onChange={(e) =>
+                    updateStep(phase, index, { filled_by: e.target.value as StepState['filled_by'] })
+                  }
+                  className="w-full max-w-xs rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                >
+                  {STEP_FILLED_BY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-default-400">
+                  Step Buyer diselesaikan lewat endpoint buyer sendiri — admin cuma lihat read-only.
+                </p>
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <FormInput
+                  label="% pelepasan dana"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={step.release_percentage}
+                  onChange={(v) => updateStep(phase, index, { release_percentage: v })}
+                  description="Opsional — % dari total amount grup yang dirilis saat step ini selesai (§3.0.1)"
+                  placeholder="Kosongkan kalau tidak ada"
+                />
+                <FormInput
+                  label="Masa garansi (hari)"
+                  type="number"
+                  min={1}
+                  value={step.guaranty_days}
+                  onChange={(v) => updateStep(phase, index, { guaranty_days: v })}
+                  description="Batas hari buyer approve sebelum seller boleh force-release"
+                  placeholder="Kosongkan kalau tidak ada"
+                  disabled={!step.release_percentage}
+                />
+              </div>
+
+              <div className="mt-4 rounded-lg border border-dashed border-default-300 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
+                    Kolom Form yang Harus Diisi Saat Step Ini Selesai
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {step.fields.map((field, fieldIndex) => (
+                    <div key={fieldIndex} className="rounded-lg border border-default-200 bg-white p-2">
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-default-500">Key</span>
+                          <input
+                            type="text"
+                            placeholder="no_resi"
+                            value={field.key}
+                            onChange={(e) => updateField(phase, index, fieldIndex, { key: e.target.value })}
+                            className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-default-500">Label</span>
+                          <input
+                            type="text"
+                            placeholder="No Resi"
+                            value={field.label}
+                            onChange={(e) => updateField(phase, index, fieldIndex, { label: e.target.value })}
+                            className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-default-500">Tipe</span>
+                          <select
+                            value={field.type}
+                            onChange={(e) =>
+                              updateField(phase, index, fieldIndex, {
+                                type: e.target.value as FulfillmentStepFormField['type'],
+                              })
+                            }
+                            className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                          >
+                            {FIELD_TYPE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {field.type === 'select' && (
+                        <div className="mt-2 flex flex-col gap-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-default-500">Pilihan</span>
+                          <input
+                            type="text"
+                            placeholder="Opsional, pisah koma"
+                            value={field.optionsText}
+                            onChange={(e) => updateField(phase, index, fieldIndex, { optionsText: e.target.value })}
+                            className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                          />
+                        </div>
+                      )}
+
+                      <div className="mt-2 flex items-center justify-end gap-3">
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-default-500">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={(e) => updateField(phase, index, fieldIndex, { required: e.target.checked })}
+                          />
+                          Wajib
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeField(phase, index, fieldIndex)}
+                          className="rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-danger-50"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => updateStep(phase, index, { fields: [...step.fields, emptyField()] })}
+                    className="self-start rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50"
+                  >
+                    + Tambah field
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setStepsFor(phase)((prev) => [...prev, emptyStep()])}
+            className="self-start rounded-lg border border-dashed border-default-300 px-4 py-2 text-sm font-medium text-primary hover:bg-primary-50"
+          >
+            + Tambah step {title}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (ctxLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
@@ -322,11 +597,17 @@ export default function FulfillmentFlowsManagement() {
                   <ol className="space-y-1.5 border-l-2 border-default-100 pl-3">
                     {sortedSteps.map((step) => (
                       <li key={step.id ?? step.sequence} className="text-sm">
+                        {step.phase === 'PRAORDER' && (
+                          <span className="mr-1.5 rounded bg-warning-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-warning-700">
+                            Praorder
+                          </span>
+                        )}
                         <span className="font-medium text-foreground">
                           {step.sequence}. {step.status_name}
                         </span>
                         <span className="ml-1.5 text-xs text-default-400">
-                          {step.process_day ? `± ${step.process_day} hari` : null}
+                          {step.filled_by === 'buyer' ? '· diisi buyer' : null}
+                          {step.process_day ? ` · ± ${step.process_day} hari` : null}
                           {step.release_percentage ? ` · rilis ${step.release_percentage}%` : null}
                         </span>
                       </li>
@@ -396,173 +677,16 @@ export default function FulfillmentFlowsManagement() {
             </span>
           </div>
 
-          <div className="flex flex-col gap-4">
-            {steps.map((step, index) => (
-              <div key={index} className="rounded-xl border border-default-200 bg-default-50/50 p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-foreground">Step {index + 1}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={index === 0}
-                      onClick={() => moveStep(index, -1)}
-                      className="rounded-lg p-1.5 text-default-500 hover:bg-default-100 disabled:opacity-30"
-                      aria-label="Pindah ke atas"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={index === steps.length - 1}
-                      onClick={() => moveStep(index, 1)}
-                      className="rounded-lg p-1.5 text-default-500 hover:bg-default-100 disabled:opacity-30"
-                      aria-label="Pindah ke bawah"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      disabled={steps.length === 1}
-                      onClick={() => removeStep(index)}
-                      className="rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-danger-50 disabled:opacity-30"
-                    >
-                      Hapus step
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormInput
-                    label="Nama status"
-                    value={step.status_name}
-                    onChange={(v) => updateStep(index, { status_name: v })}
-                    placeholder="Mis. SHIPPED"
-                    required
-                  />
-                  <FormInput
-                    label="Estimasi hari"
-                    type="number"
-                    min={1}
-                    value={step.process_day}
-                    onChange={(v) => updateStep(index, { process_day: v })}
-                    placeholder="Opsional"
-                  />
-                </div>
-                <div className="mt-3">
-                  <FormTextarea
-                    label="Deskripsi step"
-                    value={step.description}
-                    onChange={(v) => updateStep(index, { description: v })}
-                    rows={2}
-                    placeholder="Opsional"
-                  />
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <FormInput
-                    label="% pelepasan dana"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={step.release_percentage}
-                    onChange={(v) => updateStep(index, { release_percentage: v })}
-                    description="Opsional — % dari total amount grup yang dirilis saat step ini selesai (§3.0.1)"
-                    placeholder="Kosongkan kalau tidak ada"
-                  />
-                  <FormInput
-                    label="Masa garansi (hari)"
-                    type="number"
-                    min={1}
-                    value={step.guaranty_days}
-                    onChange={(v) => updateStep(index, { guaranty_days: v })}
-                    description="Batas hari buyer approve sebelum seller boleh force-release"
-                    placeholder="Kosongkan kalau tidak ada"
-                    disabled={!step.release_percentage}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-lg border border-dashed border-default-300 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-default-500">
-                      Form yang diisi penjual saat step ini selesai
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {step.fields.map((field, fieldIndex) => (
-                      <div key={fieldIndex} className="flex flex-wrap items-center gap-2 rounded-lg bg-white p-2 ring-1 ring-default-100">
-                        <input
-                          type="text"
-                          placeholder="Key (mis. no_resi)"
-                          value={field.key}
-                          onChange={(e) => updateField(index, fieldIndex, { key: e.target.value })}
-                          className="w-32 rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Label (mis. No Resi)"
-                          value={field.label}
-                          onChange={(e) => updateField(index, fieldIndex, { label: e.target.value })}
-                          className="w-40 rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                        />
-                        <select
-                          value={field.type}
-                          onChange={(e) => updateField(index, fieldIndex, { type: e.target.value as FulfillmentStepFormField['type'] })}
-                          className="rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                        >
-                          {FIELD_TYPE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        {field.type === 'select' && (
-                          <input
-                            type="text"
-                            placeholder="Opsi, pisah koma"
-                            value={field.optionsText}
-                            onChange={(e) => updateField(index, fieldIndex, { optionsText: e.target.value })}
-                            className="min-w-[10rem] flex-1 rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-                          />
-                        )}
-                        <label className="flex items-center gap-1.5 text-xs text-default-500">
-                          <input
-                            type="checkbox"
-                            checked={field.required}
-                            onChange={(e) => updateField(index, fieldIndex, { required: e.target.checked })}
-                          />
-                          Wajib
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeField(index, fieldIndex)}
-                          className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-danger-50"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateStep(index, { fields: [...step.fields, emptyField()] })
-                      }
-                      className="self-start rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50"
-                    >
-                      + Tambah field
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setSteps((prev) => [...prev, emptyStep()])}
-              className="self-start rounded-lg border border-dashed border-default-300 px-4 py-2 text-sm font-medium text-primary hover:bg-primary-50"
-            >
-              + Tambah step
-            </button>
-          </div>
+          {renderStepSection(
+            'PRAORDER',
+            'Step Praorder',
+            'Jalan SEBELUM checkout, di atas order yang belum dibayar — mis. survey, upload dokumen, negosiasi harga. Kosongkan kalau produk ini tidak butuh quotation.',
+          )}
+          {renderStepSection(
+            'PASCAORDER',
+            'Step Pascaorder',
+            'Jalan SETELAH order dibayar (existing) — mis. Dikemas → Dikirim → Sampai. Minimal 1 step.',
+          )}
 
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">

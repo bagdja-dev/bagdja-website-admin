@@ -11,6 +11,19 @@ import { formatCurrency } from '../../lib/currency';
 import { TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
+/** Nama vendor unik dari semua item transaksi ini — biasanya 1 order/transaksi, tapi dirender aman utk >1. */
+function vendorNamesFor(tx: WebsiteTransaction): string {
+  const names = Array.from(
+    new Set((tx.items ?? []).map((item) => item.order?.vendor?.name).filter((n): n is string => Boolean(n))),
+  );
+  return names.length > 0 ? names.join(', ') : '—';
+}
+
 /**
  * Order Handling Phase 1 (plan/website-builder/order-hanlde-plan.md) —
  * daftar pesanan masuk ke website ini. Read-only (visibilitas), aksi
@@ -56,6 +69,8 @@ export default function OrdersPage() {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
+  const [vendorFilter, setVendorFilter] = useState('');
 
   const activeTab = TABS.find((t) => t.key === tab) ?? TABS[0];
 
@@ -66,6 +81,7 @@ export default function OrdersPage() {
     try {
       const params = new URLSearchParams({ page: String(page), size: '20' });
       if (activeTab.statusQuery) params.set('status', activeTab.statusQuery);
+      if (vendorFilter) params.set('vendorId', vendorFilter);
       const result = await apiClient<{ data: WebsiteTransaction[]; meta: { totalPages: number } }>(
         `/api/websites/${websiteId}/transactions?${params.toString()}`,
       );
@@ -78,7 +94,7 @@ export default function OrdersPage() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [websiteId, page, activeTab.statusQuery]);
+  }, [websiteId, page, activeTab.statusQuery, vendorFilter]);
 
   useEffect(() => {
     void load();
@@ -86,7 +102,15 @@ export default function OrdersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [tab]);
+  }, [tab, vendorFilter]);
+
+  // D5 (bisnis-with-vendor-availibility-plan.md §2.5) — rekap manual pembayaran per vendor.
+  useEffect(() => {
+    if (!websiteId) return;
+    apiClient<VendorOption[]>(`/api/websites/${websiteId}/vendors`)
+      .then((data) => setVendors(data))
+      .catch(() => setVendors([]));
+  }, [websiteId]);
 
   if (ctxLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
@@ -97,6 +121,27 @@ export default function OrdersPage() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Pesanan</h1>
         <p className="mt-1 text-default-500">Pesanan yang masuk ke toko ini dari buyer.</p>
       </div>
+
+      {vendors.length > 0 && (
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-default-500" htmlFor="vendor-filter">
+            Vendor
+          </label>
+          <select
+            id="vendor-filter"
+            value={vendorFilter}
+            onChange={(e) => setVendorFilter(e.target.value)}
+            className="rounded-lg border border-default-200 px-3 py-1.5 text-sm"
+          >
+            <option value="">Semua vendor</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">
         {TABS.map((t) => {
@@ -146,6 +191,7 @@ export default function OrdersPage() {
                   <TableColumn>PEMBELI</TableColumn>
                   <TableColumn>ITEM</TableColumn>
                   <TableColumn>TOTAL</TableColumn>
+                  <TableColumn>VENDOR</TableColumn>
                   <TableColumn>STATUS</TableColumn>
                   <TableColumn> </TableColumn>
                 </TableHeader>
@@ -158,6 +204,7 @@ export default function OrdersPage() {
                       <TableCell className="font-semibold">
                         {formatCurrency(tx.total_amount, tx.currency)}
                       </TableCell>
+                      <TableCell>{vendorNamesFor(tx)}</TableCell>
                       <TableCell>
                         <Chip size="sm" variant="flat" color={STATUS_TONE[tx.status] ?? 'default'}>
                           {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
@@ -190,6 +237,9 @@ export default function OrdersPage() {
                     <p className="mt-0.5 text-xs text-default-500">
                       {formatDate(tx.created_at)} · {tx.items?.length ?? 0} item
                     </p>
+                    {vendorNamesFor(tx) !== '—' && (
+                      <p className="mt-0.5 text-xs text-default-400">Vendor: {vendorNamesFor(tx)}</p>
+                    )}
                   </div>
                   <Chip
                     size="sm"

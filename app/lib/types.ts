@@ -67,7 +67,10 @@ export interface WebsiteCategory {
   id: string;
   website_id: string;
   label: string;
+  description?: string | null;
   images: string[];
+  specifications?: Record<string, string> | null;
+  estimation?: Array<{ label: string; price: number | string | null }> | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -93,6 +96,11 @@ export type PaymentMetaEntry =
   | AddToCartPaymentMeta
   | EscrowPaymentMeta;
 
+export interface ProductEstimationEntry {
+  label: string;
+  price: number;
+}
+
 export interface WebsiteProduct {
   id: string;
   website_id: string;
@@ -100,6 +108,7 @@ export interface WebsiteProduct {
   category_id?: string | null;
   /** Kalau diisi, produk ini adalah varian (mis. warna/ukuran) dari produk lain. */
   parent_product_id?: string | null;
+  location_ids?: string[];
   name: string;
   slug: string;
   description?: string | null;
@@ -111,6 +120,8 @@ export interface WebsiteProduct {
   /** Model 3D produk (opsional, glTF/GLB), diupload lewat bagdja-storage-service. */
   model3d_url?: string | null;
   metadata: Record<string, unknown>;
+  specifications?: Record<string, string>;
+  estimation?: ProductEstimationEntry[];
   payment_meta: PaymentMetaEntry[];
   sort_order: number;
   is_active: boolean;
@@ -126,6 +137,8 @@ export interface WebsiteProduct {
   width_cm?: number | null;
   /** Tinggi kemasan (cm). Null = default 5cm. */
   height_cm?: number | null;
+  /** Independen dari `type`/vendor-routing — perlu dihitung ongkir/kurir saat checkout (fulfillment-praorder-plan.md §2.6). */
+  requires_shipping?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -249,7 +262,12 @@ export interface TransactionItem {
   quantity: number;
   unit_price: number;
   total_amount: number;
-  order?: { product?: TransactionProduct | null } | null;
+  order?: {
+    location_id?: string | null;
+    vendor_id?: string | null;
+    vendor?: { id: string; name: string } | null;
+    product?: TransactionProduct | null;
+  } | null;
 }
 
 export interface EscrowMilestoneSummary {
@@ -312,17 +330,24 @@ export interface WebsiteTransaction {
  * Order Handling Phase 3 (plan/website-builder/order-hanlde-plan.md §3.0.1)
  * — Master Flow: SOP pengiriman kustom, reusable lintas produk 1 website.
  */
+export type FulfillmentStepFormFieldFilledBy = 'seller' | 'buyer';
+
 export interface FulfillmentStepFormField {
   key: string;
   label: string;
   type: 'text' | 'number' | 'textarea' | 'select';
   required?: boolean;
+  filled_by?: FulfillmentStepFormFieldFilledBy;
   options?: string[];
 }
 
 export interface FulfillmentFlowStep {
   id?: string;
   sequence: number;
+  /** fulfillment-praorder-plan.md §2.1 — PRAORDER (sebelum checkout) atau PASCAORDER (default, existing). */
+  phase?: 'PRAORDER' | 'PASCAORDER';
+  /** Siapa yang menyelesaikan step ini — level Step, bukan lagi per-field. */
+  filled_by?: 'admin' | 'buyer';
   status_name: string;
   description?: string | null;
   process_day?: number | null;
@@ -344,6 +369,10 @@ export interface FulfillmentFlow {
 
 export interface OrderFulfillmentStepProgress {
   stepName: string;
+  /** fulfillment-praorder-plan.md §2.1 — PRAORDER (sebelum checkout) atau PASCAORDER (existing). */
+  phase: 'PRAORDER' | 'PASCAORDER';
+  /** Siapa yang menyelesaikan step ini — sumber kebenaran (bukan lagi field.filled_by di formSchema). */
+  filledBy: 'admin' | 'buyer';
   description: string | null;
   processDay: number | null;
   releasePercentage: number | null;
@@ -357,9 +386,21 @@ export interface OrderFulfillmentStepProgress {
   disputed: boolean;
 }
 
+/** 1 Termin (fulfillment-praorder-plan.md §2.4) — disisipkan di timeline lewat `anchorStepName`. */
+export interface TerminSummary {
+  id: string;
+  sequence: number;
+  label: string;
+  amount: number;
+  anchorStepName: string | null;
+  status: 'SCHEDULED' | 'ISSUED' | 'PAID' | 'CANCELLED';
+  transactionId: string | null;
+}
+
 export interface OrderFulfillmentProgress {
   flowName: string;
   steps: OrderFulfillmentStepProgress[];
+  termins: TerminSummary[];
 }
 
 /** Status pembayaran/escrow — vocabulary sama dengan `EscrowStatus` payment-service + `CANCELLED`/`PENDING_PAYMENT` lokal. */

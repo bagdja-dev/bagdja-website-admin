@@ -26,6 +26,7 @@ import {
   type PaymentMetaEntry,
   type ProductType,
   type WebsiteCategory,
+  type WebsiteLocation,
   type WebsiteProduct,
 } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
@@ -143,6 +144,24 @@ function computeVariantSlug(parentSlug: string, attrs: { key: string; value: str
     .filter(Boolean)
     .join('-');
   return suffix ? `${parentSlug}-${suffix}` : parentSlug;
+}
+
+function formatCurrencyInput(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '0';
+
+  const numeric = Number(digits);
+  if (Number.isNaN(numeric)) return '0';
+
+  return new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 0,
+  }).format(numeric);
+}
+
+function parseCurrencyInput(value: string): number {
+  const normalized = value.replace(/\./g, '').replace(/,/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function getMetaHint(product: WebsiteProduct): string | null {
@@ -296,6 +315,7 @@ export default function ProductsManagement() {
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
   const { confirm, dialog } = useConfirmDialog();
   const [products, setProducts] = useState<WebsiteProduct[]>([]);
+  const [locations, setLocations] = useState<WebsiteLocation[]>([]);
   const [categories, setCategories] = useState<WebsiteCategory[]>([]);
   const [fulfillmentFlows, setFulfillmentFlows] = useState<FulfillmentFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -324,16 +344,24 @@ export default function ProductsManagement() {
   const [isBookable, setIsBookable] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState('');
   const [itemsIncluded, setItemsIncluded] = useState('');
+  const [specificationsRows, setSpecificationsRows] = useState<{ key: string; value: string }[]>([
+    { key: '', value: '' },
+  ]);
+  const [estimationRows, setEstimationRows] = useState<{ label: string; price: string }[]>([
+    { label: '', price: '' },
+  ]);
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [videoUrl, setVideoUrl] = useState('');
   const [model3dUrl, setModel3dUrl] = useState('');
   const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [fulfillmentFlowId, setFulfillmentFlowId] = useState('');
   const [finalReleaseGuarantyDays, setFinalReleaseGuarantyDays] = useState('');
   const [weightGrams, setWeightGrams] = useState('');
   const [lengthCm, setLengthCm] = useState('');
   const [widthCm, setWidthCm] = useState('');
   const [heightCm, setHeightCm] = useState('');
+  const [requiresShipping, setRequiresShipping] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -345,13 +373,15 @@ export default function ProductsManagement() {
     setLoading(true);
     try {
       const query = typeFilter !== 'all' ? `?type=${typeFilter}` : '';
-      const [productsData, categoriesData, flowsData] = await Promise.all([
+      const [productsData, categoriesData, locationsData, flowsData] = await Promise.all([
         apiClient<WebsiteProduct[]>(`/api/websites/${websiteId}/products${query}`),
         apiClient<WebsiteCategory[]>(`/api/websites/${websiteId}/categories`),
+        apiClient<WebsiteLocation[]>(`/api/websites/${websiteId}/locations`),
         apiClient<FulfillmentFlow[]>(`/api/websites/${websiteId}/fulfillment-flows`),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
+      setLocations(locationsData);
       setFulfillmentFlows(flowsData);
     } catch {
       setProducts([]);
@@ -415,6 +445,8 @@ export default function ProductsManagement() {
     setIsBookable(false);
     setDownloadUrl('');
     setItemsIncluded('');
+    setSpecificationsRows([{ key: '', value: '' }]);
+    setEstimationRows([{ label: '', price: '' }]);
     setImages([]);
     setVideoUrl('');
     setModel3dUrl('');
@@ -429,7 +461,12 @@ export default function ProductsManagement() {
 
   const openCreate = () => {
     setEditProduct(null);
-    setType(typeFilter !== 'all' ? (typeFilter as ProductType) : 'product');
+    const initialType = typeFilter !== 'all' ? (typeFilter as ProductType) : 'product';
+    setType(initialType);
+    // Default requires_shipping dari type (bisa diubah manual di form) —
+    // konsisten dgn default yang diturunkan ProductsService.create() kalau
+    // field ini tidak dikirim (fulfillment-praorder-plan.md §2.6, Q10).
+    setRequiresShipping(!(initialType === 'service' || initialType === 'digital'));
     setCategoryId('');
     setCategoryLabel('');
     setIsVariant(false);
@@ -444,6 +481,7 @@ export default function ProductsManagement() {
     setPrice('0');
     setIsActive(true);
     setPaymentMeta([]);
+    setSelectedLocationIds([]);
     setFulfillmentFlowId('');
     // Standar masa garansi konfirmasi penerimaan = 3 hari (opt-out — kosongkan
     // manual kalau seller tidak mau mengaktifkan force-complete produk ini).
@@ -485,10 +523,21 @@ export default function ProductsManagement() {
     setIsBookable(fields.isBookable);
     setDownloadUrl(fields.downloadUrl);
     setItemsIncluded(fields.itemsIncluded);
+    setSpecificationsRows(
+      Object.entries(product.specifications ?? {}).length > 0
+        ? Object.entries(product.specifications ?? {}).map(([key, value]) => ({ key, value: String(value) }))
+        : [{ key: '', value: '' }],
+    );
+    setEstimationRows(
+      (product.estimation ?? []).length > 0
+        ? (product.estimation ?? []).map((entry) => ({ label: entry.label, price: String(entry.price) }))
+        : [{ label: '', price: '' }],
+    );
     setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
     setVideoUrl(product.video_url ?? '');
     setModel3dUrl(product.model3d_url ?? '');
     setPaymentMeta(product.payment_meta ?? []);
+    setSelectedLocationIds(product.location_ids ?? []);
     setFulfillmentFlowId(product.fulfillment_flow_id ?? '');
     setFinalReleaseGuarantyDays(
       product.final_release_guaranty_days != null ? String(product.final_release_guaranty_days) : '',
@@ -497,6 +546,7 @@ export default function ProductsManagement() {
     setLengthCm(product.length_cm != null ? String(product.length_cm) : '');
     setWidthCm(product.width_cm != null ? String(product.width_cm) : '');
     setHeightCm(product.height_cm != null ? String(product.height_cm) : '');
+    setRequiresShipping(product.requires_shipping ?? true);
     setError('');
     setModalOpen(true);
   };
@@ -510,6 +560,22 @@ export default function ProductsManagement() {
     setError('');
     try {
       const willInherit = isVariant && inheritDescription;
+      const specifications = Object.fromEntries(
+        specificationsRows
+          .filter((row) => row.key.trim() && row.value.trim())
+          .map((row) => [row.key.trim(), row.value.trim()]),
+      );
+      const estimation = estimationRows
+        .filter((row) => row.label.trim() && row.price.trim())
+        .map((row) => ({
+          label: row.label.trim(),
+          price: parseCurrencyInput(row.price),
+        }));
+
+      if (estimation.some((row) => Number.isNaN(row.price) || row.price < 0)) {
+        throw new Error('Estimasi harga mengandung nilai tidak valid. Pastikan semua harga angka non-negatif.');
+      }
+
       const metadata = buildMetadata(type, sku, stock, durationMinutes, isBookable, downloadUrl, itemsIncluded);
       if (isVariant && parentProductId) {
         metadata.inherit_description = inheritDescription;
@@ -534,18 +600,22 @@ export default function ProductsManagement() {
         // dari induk (lihat PublicService.resolveInheritedText).
         description: willInherit ? '' : description.trim() || undefined,
         detail: willInherit ? '' : detail.trim() || undefined,
-        price: parseFloat(price) || 0,
+        price: parseCurrencyInput(price),
         images: images.map((img) => img.url).filter(Boolean),
         video_url: videoUrl.trim() || null,
         model3d_url: model3dUrl.trim() || null,
         metadata,
+        specifications,
+        estimation,
         payment_meta: paymentMeta,
+        location_ids: selectedLocationIds,
         fulfillment_flow_id: fulfillmentFlowId || null,
         final_release_guaranty_days: finalReleaseGuarantyDays ? parseInt(finalReleaseGuarantyDays, 10) : null,
         weight_grams: weightGrams ? parseInt(weightGrams, 10) : null,
         length_cm: lengthCm ? parseInt(lengthCm, 10) : null,
         width_cm: widthCm ? parseInt(widthCm, 10) : null,
         height_cm: heightCm ? parseInt(heightCm, 10) : null,
+        requires_shipping: requiresShipping,
         is_active: isActive,
       };
       if (editProduct) {
@@ -858,13 +928,17 @@ export default function ProductsManagement() {
               />
             </>
           )}
-          <FormInput
-            label="Harga (IDR)"
-            type="number"
-            min={0}
-            value={price}
-            onChange={setPrice}
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">Harga (IDR)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formatCurrencyInput(price)}
+              onChange={(e) => setPrice(formatCurrencyInput(e.target.value))}
+              placeholder="0"
+              className="w-full rounded-xl border border-default-300 bg-white px-3.5 py-2.5 text-sm text-foreground shadow-sm transition-all placeholder:text-default-400 hover:border-default-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
 
           <GalleryEditor
             label="Foto Produk"
@@ -908,6 +982,120 @@ export default function ProductsManagement() {
                 onChange={setDurationMinutes}
               />
               <FormSwitch label="Dapat dibooking" checked={isBookable} onChange={setIsBookable} />
+              <div className="rounded-xl border border-dashed border-default-300 bg-default-50/50 p-3">
+                <div className="mb-2">
+                  <span className="text-sm font-medium text-foreground">Spesifikasi teknis</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {specificationsRows.map((row, index) => (
+                    <div key={`spec-${index}`} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        type="text"
+                        placeholder="Kunci (mis. material)"
+                        value={row.key}
+                        onChange={(e) =>
+                          setSpecificationsRows((prev) =>
+                            prev.map((item, idx) => (idx === index ? { ...item, key: e.target.value } : item)),
+                          )
+                        }
+                        className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nilai (mis. Aluminium Composite Panel)"
+                        value={row.value}
+                        onChange={(e) =>
+                          setSpecificationsRows((prev) =>
+                            prev.map((item, idx) => (idx === index ? { ...item, value: e.target.value } : item)),
+                          )
+                        }
+                        className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Hapus spesifikasi"
+                        onClick={() =>
+                          setSpecificationsRows((prev) =>
+                            prev.length === 1 ? [{ key: '', value: '' }] : prev.filter((_, idx) => idx !== index),
+                          )
+                        }
+                        className="rounded-lg p-2 text-danger hover:bg-danger-50"
+                      >
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                          <path d="M5 7.5h10M7.5 7.5V15a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V7.5M8.5 5.5h3l.5-.5h-4l.5.5ZM4 5.5h12" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSpecificationsRows((prev) => [...prev, { key: '', value: '' }])}
+                  className="mt-3 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50"
+                >
+                  + Tambah field
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-dashed border-default-300 bg-default-50/50 p-3">
+                <div className="mb-2">
+                  <span className="text-sm font-medium text-foreground">Estimasi harga</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {estimationRows.map((row, index) => (
+                    <div key={`est-${index}`} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        type="text"
+                        placeholder="Label (mis. Basic)"
+                        value={row.label}
+                        onChange={(e) =>
+                          setEstimationRows((prev) =>
+                            prev.map((item, idx) => (idx === index ? { ...item, label: e.target.value } : item)),
+                          )
+                        }
+                        className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Harga (mis. 150.000)"
+                        value={formatCurrencyInput(row.price)}
+                        onChange={(e) =>
+                          setEstimationRows((prev) =>
+                            prev.map((item, idx) => (idx === index ? { ...item, price: formatCurrencyInput(e.target.value) } : item)),
+                          )
+                        }
+                        className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Hapus estimasi"
+                        onClick={() =>
+                          setEstimationRows((prev) =>
+                            prev.length === 1 ? [{ label: '', price: '' }] : prev.filter((_, idx) => idx !== index),
+                          )
+                        }
+                        className="rounded-lg p-2 text-danger hover:bg-danger-50"
+                      >
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                          <path d="M5 7.5h10M7.5 7.5V15a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V7.5M8.5 5.5h3l.5-.5h-4l.5.5ZM4 5.5h12" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEstimationRows((prev) => [...prev, { label: '', price: '' }])}
+                  className="mt-3 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50"
+                >
+                  + Tambah field
+                </button>
+              </div>
             </>
           )}
 
@@ -924,7 +1112,21 @@ export default function ProductsManagement() {
             />
           )}
 
-          {(type === 'product' || type === 'package') && (
+          {type !== 'digital' && (
+            <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/50 p-4">
+              <FormSwitch
+                label="Perlu dikirim kurir (ongkir)"
+                checked={requiresShipping}
+                onChange={setRequiresShipping}
+              />
+              <p className="text-xs text-default-500">
+                Independen dari tipe produk — jasa on-site (mis. pasang kanopi) biasanya TIDAK perlu ongkir,
+                tapi jasa reparasi/kirim-balik TETAP perlu walau sama-sama &quot;Jasa&quot;.
+              </p>
+            </div>
+          )}
+
+          {requiresShipping && type !== 'digital' && (
             <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/50 p-4">
               <p className="text-sm font-medium text-foreground">Berat &amp; Dimensi Kemasan</p>
               <p className="text-xs text-default-500">
@@ -966,6 +1168,45 @@ export default function ProductsManagement() {
               </div>
             </div>
           )}
+
+          <div className="rounded-xl border border-default-200 bg-default-50/50 p-4">
+            <p className="text-sm font-medium text-foreground">Lokasi Tersedia</p>
+            <p className="mt-1 text-xs text-default-500">
+              Kosongkan semua untuk menandakan produk tersedia di seluruh lokasi website. Pilih lokasi tertentu kalau produk hanya berlaku di area tertentu.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {locations.length === 0 ? (
+                <span className="text-xs text-default-400">Belum ada lokasi yang dibuat.</span>
+              ) : (
+                locations.map((location) => {
+                  const checked = selectedLocationIds.includes(location.id);
+                  return (
+                    <label
+                      key={location.id}
+                      className={
+                        'inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ' +
+                        (checked
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-default-200 bg-white text-default-600 hover:bg-default-50')
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={checked}
+                        onChange={(e) => {
+                          setSelectedLocationIds((prev) =>
+                            e.target.checked ? [...prev, location.id] : prev.filter((id) => id !== location.id),
+                          );
+                        }}
+                      />
+                      {location.name}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
 
           <FormSelect
             label="Flow Pengiriman"
