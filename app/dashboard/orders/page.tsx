@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
+import PreordersPage from '../preorders/page';
 import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
 import { TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
@@ -30,10 +31,11 @@ function vendorNamesFor(tx: WebsiteTransaction): string {
  * (refund/resolusi dispute/fulfillment) menyusul di fase berikutnya.
  */
 
-type TabKey = 'all' | 'awaiting' | 'process' | 'done' | 'cancelled';
+type TabKey = 'all' | 'preorder' | 'awaiting' | 'process' | 'done' | 'cancelled';
 
 const TABS: Array<{ key: TabKey; label: string; statusQuery?: string }> = [
   { key: 'all', label: 'Semua' },
+  { key: 'preorder', label: 'Praorder' },
   { key: 'awaiting', label: 'Menunggu Bayar', statusQuery: 'PENDING_PAYMENT,PENDING' },
   { key: 'process', label: 'Diproses', statusQuery: 'HELD,DISPUTED' },
   { key: 'done', label: 'Selesai', statusQuery: 'COMPLETED' },
@@ -73,9 +75,14 @@ export default function OrdersPage() {
   const [vendorFilter, setVendorFilter] = useState('');
 
   const activeTab = TABS.find((t) => t.key === tab) ?? TABS[0];
+  const isPreorderTab = tab === 'preorder';
 
   const load = useCallback(async () => {
     if (!websiteId) return;
+    if (isPreorderTab) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -94,7 +101,7 @@ export default function OrdersPage() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [websiteId, page, activeTab.statusQuery, vendorFilter]);
+  }, [websiteId, page, activeTab.statusQuery, vendorFilter, isPreorderTab]);
 
   useEffect(() => {
     void load();
@@ -122,7 +129,7 @@ export default function OrdersPage() {
         <p className="mt-1 text-default-500">Pesanan yang masuk ke toko ini dari buyer.</p>
       </div>
 
-      {vendors.length > 0 && (
+      {vendors.length > 0 && !isPreorderTab && (
         <div className="flex items-center gap-2">
           <label className="text-sm text-default-500" htmlFor="vendor-filter">
             Vendor
@@ -163,7 +170,9 @@ export default function OrdersPage() {
         })}
       </div>
 
-      {loading ? (
+      {isPreorderTab ? (
+        <PreordersPage />
+      ) : loading ? (
         <LoadingSpinner className="h-48" />
       ) : error ? (
         <Card className="border-0 shadow-md ring-1 ring-default-100">
@@ -262,7 +271,7 @@ export default function OrdersPage() {
         </>
       )}
 
-      {!loading && transactions.length > 0 && totalPages > 1 && (
+      {!isPreorderTab && !loading && transactions.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
             Sebelumnya

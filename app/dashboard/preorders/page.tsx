@@ -4,6 +4,8 @@ import { Button, Card, CardBody, Chip } from '@heroui/react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { FormInput, FormSwitch } from '../../components/form-field';
+import { FulfillmentFieldInput } from '../../components/fulfillment-field-input';
+import { FulfillmentFieldValue } from '../../components/fulfillment-field-value';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient } from '../../lib/api-client';
@@ -48,6 +50,54 @@ function formatDate(value: string): string {
   }
 }
 
+function maskInteger(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function unmaskInteger(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function MaskedIntegerInput({ value, onChange, ...props }: Omit<React.ComponentProps<typeof FormInput>, 'value' | 'onChange'> & {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <FormInput
+      {...props}
+      type="text"
+      inputMode="numeric"
+      value={maskInteger(value)}
+      onChange={(nextValue) => onChange(unmaskInteger(nextValue))}
+    />
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 .5 9m5-9-.5 9M5 6h14m-9-3h4l1 3H9l1-3Zm-3 3 .7 13h8.6L17 6" />
+    </svg>
+  );
+}
+
+function FillRemainingIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h10M4 12h6m-6 5h10m7-10v10m0 0-3-3m3 3 3-3" />
+    </svg>
+  );
+}
+
 export default function PreordersPage() {
   const { websiteId, role, loading: contextLoading } = useWebsiteContext();
   const canEdit = role ? hasMinRole(role, 'editor') : false;
@@ -63,6 +113,19 @@ export default function PreordersPage() {
   const [openStepKey, setOpenStepKey] = useState<string | null>(null);
   const [stepBusy, setStepBusy] = useState<string | null>(null);
   const [stepError, setStepError] = useState<Record<string, string>>({});
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+
+  const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? null;
+
+  const getTerminSummary = (draftId: string, draft: DraftOrder) => {
+    const rows = terminRows[draftId] ?? DEFAULT_TERMIN_ROWS;
+    const finalPrice = Number(quoteValues[draftId] ?? (draft.unit_price > 0 ? draft.unit_price : 0));
+    const total = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const difference = finalPrice - total;
+    const percentage = finalPrice > 0 ? Math.min(100, Math.max(0, (total / finalPrice) * 100)) : 0;
+
+    return { rows, finalPrice, total, difference, percentage };
+  };
 
   const load = useCallback(async () => {
     if (!websiteId) return;
@@ -77,6 +140,12 @@ export default function PreordersPage() {
   }, [websiteId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (selectedDraftId && !drafts.some((draft) => draft.id === selectedDraftId)) {
+      setSelectedDraftId(null);
+    }
+  }, [drafts, selectedDraftId]);
 
   const saveQuote = async (draft: DraftOrder) => {
     if (!websiteId) return;
@@ -146,6 +215,19 @@ export default function PreordersPage() {
     });
   };
 
+  const updateTerminPercentage = (draftId: string, index: number, value: string) => {
+    const draft = drafts.find((item) => item.id === draftId);
+    if (!draft) return;
+
+    const finalPrice = Number(quoteValues[draftId] ?? (draft.unit_price > 0 ? draft.unit_price : 0));
+    const percentage = Number(value);
+    updateTerminRow(draftId, index, {
+      amount: Number.isFinite(percentage) && finalPrice > 0
+        ? String(Math.round((finalPrice * percentage) / 100))
+        : '',
+    });
+  };
+
   const addTerminRow = (draftId: string) => {
     setTerminRows((prev) => {
       const rows = prev[draftId] ?? DEFAULT_TERMIN_ROWS.map((r) => ({ ...r }));
@@ -209,9 +291,13 @@ export default function PreordersPage() {
       {error && <p className="text-sm text-danger">{error}</p>}
       {loading ? <LoadingSpinner className="h-48" /> : drafts.length === 0 ? (
         <Card className="border-0 shadow-md ring-1 ring-default-100"><CardBody className="py-16 text-center"><p className="text-lg font-semibold">Belum ada draft praorder</p><p className="mt-1 text-sm text-default-500">Draft akan muncul setelah buyer menekan Pesan, sebelum checkout.</p></CardBody></Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {drafts.map((draft) => (
+      ) : selectedDraft ? (
+        <>
+          <Button variant="light" onPress={() => setSelectedDraftId(null)}>
+            ← Kembali ke daftar praorder
+          </Button>
+          <div className="grid gap-4">
+          {[selectedDraft].map((draft) => (
             <Card key={draft.id} className="border-0 shadow-md ring-1 ring-default-100">
               <CardBody className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -259,10 +345,10 @@ export default function PreordersPage() {
                               openStepKey === key ? (
                                 <div className="mt-2 flex flex-col gap-2 rounded-lg bg-default-50 p-2">
                                   {(step.formSchema ?? []).map((f) => (
-                                    <FormInput
+                                    <FulfillmentFieldInput
+                                      field={f}
+                                        websiteId={websiteId}
                                       key={f.key}
-                                      label={f.label}
-                                      required={f.required}
                                       value={stepFormData[f.key] ?? ''}
                                       onChange={(v) => setStepFormData((prev) => ({ ...prev, [f.key]: v }))}
                                     />
@@ -292,6 +378,19 @@ export default function PreordersPage() {
                                 </Button>
                               )
                             )}
+                            {step.completed && step.formData && Object.keys(step.formData).length > 0 && (
+                              <div className="mt-2 space-y-2 rounded-lg bg-default-50 p-2">
+                                {(step.formSchema ?? []).map((field) => {
+                                  const value = step.formData?.[field.key];
+                                  return value != null && value !== '' ? (
+                                    <div key={field.key} className="space-y-1">
+                                      <p className="text-default-400">{field.label}</p>
+                                      <FulfillmentFieldValue field={field} value={value} />
+                                    </div>
+                                  ) : null;
+                                })}
+                              </div>
+                            )}
                           </li>
                         );
                       })}
@@ -302,18 +401,12 @@ export default function PreordersPage() {
                 <div className="rounded-lg border border-default-200 bg-white p-3">
                   <p className="mb-2 text-xs font-medium text-default-600">Harga final quotation</p>
                   <div className="flex items-end gap-2">
-                    <FormInput
+                    <MaskedIntegerInput
                       label="Harga"
-                      type="number"
                       disabled={!canEdit}
                       value={quoteValues[draft.id] ?? (draft.unit_price > 0 ? String(draft.unit_price) : '')}
                       onChange={(value) => setQuoteValues((prev) => ({ ...prev, [draft.id]: value }))}
                     />
-                    {canEdit && (
-                      <Button color="primary" size="sm" isLoading={quoteBusy === draft.id} onPress={() => saveQuote(draft)}>
-                        Simpan
-                      </Button>
-                    )}
                   </div>
                   <p className="mt-2 text-xs text-default-400">
                     {canEdit
@@ -329,51 +422,192 @@ export default function PreordersPage() {
                         onChange={(checked) => toggleTermin(draft.id, checked)}
                       />
                       {terminEnabled[draft.id] && (
-                        <div className="mt-3 flex flex-col gap-2">
-                          {(terminRows[draft.id] ?? DEFAULT_TERMIN_ROWS).map((row, index) => (
-                            <div key={index} className="flex items-end gap-2 rounded-lg bg-default-50 p-2">
-                              <FormInput
-                                label={index === 0 ? 'Termin 1' : `Termin ${index + 1}`}
-                                value={row.label}
-                                onChange={(v) => updateTerminRow(draft.id, index, { label: v })}
-                              />
-                              <FormInput
-                                label="Jumlah"
-                                type="number"
-                                value={row.amount}
-                                onChange={(v) => updateTerminRow(draft.id, index, { amount: v })}
-                              />
-                              {index > 0 && (
-                                <FormInput
-                                  label="Muncul setelah step (opsional)"
-                                  value={row.anchor_step_name}
-                                  onChange={(v) => updateTerminRow(draft.id, index, { anchor_step_name: v })}
-                                />
-                              )}
-                              {index > 1 && (
-                                <Button size="sm" variant="light" color="danger" onPress={() => removeTerminRow(draft.id, index)}>
-                                  Hapus
+                        <div className="mt-3 space-y-3 rounded-xl border border-primary-100 bg-primary-50/30 p-3">
+                          {(() => {
+                            const summary = getTerminSummary(draft.id, draft);
+                            const isBalanced = summary.finalPrice > 0 && Math.abs(summary.difference) <= 1;
+                            const isOver = summary.difference < -1;
+                            return (
+                              <>
+                                <div className="flex flex-wrap items-end justify-between gap-3">
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-default-500">Alokasi pembayaran</p>
+                                    <p className="mt-1 text-sm text-default-600">
+                                      {formatCurrency(summary.total, 'IDR')} dari {formatCurrency(summary.finalPrice, 'IDR')}
+                                    </p>
+                                  </div>
+                                  <Chip size="sm" color={isBalanced ? 'success' : isOver ? 'danger' : 'warning'} variant="flat">
+                                    {isBalanced
+                                      ? 'Total sesuai'
+                                      : isOver
+                                        ? `Kelebihan ${formatCurrency(Math.abs(summary.difference), 'IDR')}`
+                                        : `Sisa ${formatCurrency(summary.difference, 'IDR')}`}
+                                  </Chip>
+                                </div>
+                                <div className="h-2 overflow-hidden rounded-full bg-default-200">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${isOver ? 'bg-danger' : isBalanced ? 'bg-success' : 'bg-primary'}`}
+                                    style={{ width: `${summary.percentage}%` }}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  {summary.rows.map((row, index) => {
+                                    const amount = Number(row.amount) || 0;
+                                    const share = summary.finalPrice > 0 ? (amount / summary.finalPrice) * 100 : 0;
+                                    const isLast = index === summary.rows.length - 1;
+                                    const remaining = Math.max(0, summary.difference + amount);
+                                    return (
+                                      <div key={index} className="rounded-lg border border-default-200 bg-white p-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                          <span className="text-xs font-semibold text-default-600">
+                                            Termin {index + 1}{index === 0 ? ' · dibayar saat checkout' : ''}
+                                          </span>
+                                          <span className="text-xs font-medium text-primary">{share.toFixed(1)}%</span>
+                                        </div>
+                                        <div className="grid gap-2 md:grid-cols-[1fr_150px_150px_auto] md:items-end">
+                                          <FormInput
+                                            label="Label"
+                                            value={row.label}
+                                            onChange={(v) => updateTerminRow(draft.id, index, { label: v })}
+                                          />
+                                          <MaskedIntegerInput
+                                            label="Persentase (%)"
+                                            value={share ? String(Math.round(share)) : ''}
+                                            onChange={(v) => updateTerminPercentage(draft.id, index, v)}
+                                          />
+                                          <MaskedIntegerInput
+                                            label="Jumlah"
+                                            value={row.amount}
+                                            onChange={(v) => updateTerminRow(draft.id, index, { amount: v })}
+                                          />
+                                          <div className="flex gap-2">
+                                            {isLast && summary.difference > 1 && (
+                                              <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="primary"
+                                                isIconOnly
+                                                aria-label="Isi sisa ke termin ini"
+                                                title="Isi sisa"
+                                                onPress={() => updateTerminRow(draft.id, index, { amount: String(remaining) })}
+                                              >
+                                                <FillRemainingIcon />
+                                              </Button>
+                                            )}
+                                            {index > 1 && (
+                                              <Button
+                                                size="sm"
+                                                variant="light"
+                                                color="danger"
+                                                isIconOnly
+                                                aria-label={`Hapus Termin ${index + 1}`}
+                                                title={`Hapus Termin ${index + 1}`}
+                                                onPress={() => removeTerminRow(draft.id, index)}
+                                              >
+                                                <TrashIcon />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {index > 0 && (
+                                          <div className="mt-2">
+                                            <FormInput
+                                              label="Muncul setelah step (opsional)"
+                                              value={row.anchor_step_name}
+                                              onChange={(v) => updateTerminRow(draft.id, index, { anchor_step_name: v })}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="flat"
+                                  isIconOnly
+                                  aria-label="Tambah termin"
+                                  title="Tambah termin"
+                                  onPress={() => addTerminRow(draft.id)}
+                                >
+                                  <PlusIcon />
                                 </Button>
-                              )}
-                            </div>
-                          ))}
-                          <Button size="sm" variant="flat" onPress={() => addTerminRow(draft.id)}>
-                            + Tambah Termin
-                          </Button>
-                          <p className="text-xs text-default-400">
-                            Total tiap Termin harus persis sama dengan Harga Final di atas. Termin 1 langsung jadi harga
-                            checkout; Termin 2 dst. muncul di timeline Pascaorder setelah Anda &quot;Terbitkan&quot;.
-                          </p>
+                                <p className="text-xs text-default-400">
+                                  Total termin harus sama persis dengan harga final. Termin 1 menjadi harga checkout;
+                                  termin berikutnya diterbitkan manual dan muncul di timeline pascaorder.
+                                </p>
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {canEdit && (
+                    <Button
+                      color="primary"
+                      fullWidth
+                      isLoading={quoteBusy === draft.id}
+                      onPress={() => saveQuote(draft)}
+                      className="mt-4 font-semibold"
+                    >
+                      Simpan Quotation
+                    </Button>
                   )}
                 </div>
                 <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
               </CardBody>
             </Card>
           ))}
-        </div>
+          </div>
+        </>
+      ) : (
+        <Card className="border-0 shadow-md ring-1 ring-default-100">
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="border-b border-default-200 bg-default-50 text-xs uppercase text-default-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Waktu</th>
+                    <th className="px-4 py-3 font-semibold">Buyer</th>
+                    <th className="px-4 py-3 font-semibold">Produk</th>
+                    <th className="px-4 py-3 font-semibold">Lokasi</th>
+                    <th className="px-4 py-3 font-semibold">Vendor</th>
+                    <th className="px-4 py-3 font-semibold">Harga</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-default-100">
+                  {drafts.map((draft) => (
+                    <tr
+                      key={draft.id}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => setSelectedDraftId(draft.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') setSelectedDraftId(draft.id);
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-primary-50 focus:bg-primary-50 focus:outline-none"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 text-default-500">{formatDate(draft.created_at)}</td>
+                      <td className="max-w-[180px] truncate px-4 py-3 font-medium">{draft.buyer_identifier ?? '—'}</td>
+                      <td className="max-w-[220px] truncate px-4 py-3">{draft.product?.name ?? 'Produk'}</td>
+                      <td className="px-4 py-3">{draft.location?.name ?? 'Belum dipilih'}</td>
+                      <td className="px-4 py-3">{draft.vendor?.name ?? 'Belum ditugaskan'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</td>
+                      <td className="px-4 py-3">
+                        <Chip size="sm" color={draft.unit_price > 0 ? 'success' : 'warning'} variant="flat">
+                          {draft.unit_price > 0 ? 'Siap checkout' : 'Menunggu quotation'}
+                        </Chip>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
       )}
     </div>
   );

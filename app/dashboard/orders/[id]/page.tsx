@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAlertDialog } from '../../../components/alert-dialog';
 import { useConfirmDialog } from '../../../components/confirm-dialog';
 import { FormInput } from '../../../components/form-field';
+import { FulfillmentFieldInput } from '../../../components/fulfillment-field-input';
+import { FulfillmentFieldValue } from '../../../components/fulfillment-field-value';
 import { LoadingSpinner } from '../../../components/loading-spinner';
 import { NoWebsiteState } from '../../../components/no-website-state';
 import { apiClient, ApiError } from '../../../lib/api-client';
@@ -721,10 +723,10 @@ export default function OrderDetailPage() {
                                     </p>
                                     {(step.formSchema ?? [])
                                       .map((f) => (
-                                        <FormInput
+                                        <FulfillmentFieldInput
+                                          field={f}
+                                          websiteId={transaction.website_id}
                                           key={f.key}
-                                          label={f.label}
-                                          required={f.required}
                                           value={groupFormData[key]?.[f.key] ?? ''}
                                           onChange={(v) =>
                                             setGroupFormData((prev) => ({
@@ -797,10 +799,10 @@ export default function OrderDetailPage() {
                                           <div className="mt-2 space-y-0.5 text-xs text-default-600">
                                             {(step.formSchema ?? []).map((f) =>
                                               step.formData?.[f.key] != null && step.formData[f.key] !== '' ? (
-                                                <p key={f.key}>
-                                                  <span className="text-default-400">{f.label}:</span>{' '}
-                                                  {String(step.formData?.[f.key])}
-                                                </p>
+                                                <div key={f.key} className="space-y-1">
+                                                  <p className="text-default-400">{f.label}</p>
+                                                  <FulfillmentFieldValue field={f} value={step.formData?.[f.key]} />
+                                                </div>
                                               ) : null,
                                             )}
                                           </div>
@@ -861,10 +863,10 @@ export default function OrderDetailPage() {
                                           <div className="mt-3 space-y-2 rounded-lg border border-default-200 bg-white p-3">
                                             {(step.formSchema ?? [])
                                               .map((f) => (
-                                                <FormInput
+                                                <FulfillmentFieldInput
+                                                  field={f}
+                                                  websiteId={transaction.website_id}
                                                   key={f.key}
-                                                  label={f.label}
-                                                  required={f.required}
                                                   value={completeFormData[f.key] ?? ''}
                                                   onChange={(v) =>
                                                     setCompleteFormData((prev) => ({ ...prev, [f.key]: v }))

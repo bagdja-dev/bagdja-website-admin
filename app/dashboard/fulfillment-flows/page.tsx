@@ -18,6 +18,10 @@ const FIELD_TYPE_OPTIONS: FormSelectOption[] = [
   { value: 'number', label: 'Angka' },
   { value: 'textarea', label: 'Teks panjang' },
   { value: 'select', label: 'Pilihan (dropdown)' },
+  { value: 'pdf', label: 'Dokumen PDF' },
+  { value: 'foto', label: 'Foto' },
+  { value: 'video', label: 'Video' },
+  { value: 'lokasi', label: 'Lokasi picker' },
 ];
 
 // fulfillment-praorder-plan.md §2.1 — "diisi oleh" sekarang di level STEP
@@ -27,6 +31,18 @@ const STEP_FILLED_BY_OPTIONS: FormSelectOption[] = [
   { value: 'admin', label: 'Admin/Seller' },
   { value: 'buyer', label: 'Buyer' },
 ];
+
+function EditIcon() {
+  return <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 2.651 2.651M4 20l4.243-.884L19.513 7.846a1.875 1.875 0 0 0-2.652-2.652L5.591 16.757 4 20Z" /></svg>;
+}
+
+function TrashIcon() {
+  return <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m9 9 .5 9m5-9-.5 9M5 6h14m-9-3h4l1 3H9l1-3Zm-3 3 .7 13h8.6L17 6" /></svg>;
+}
+
+function PlusIcon() {
+  return <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" /></svg>;
+}
 
 type FlowPhase = 'PRAORDER' | 'PASCAORDER';
 
@@ -541,8 +557,8 @@ export default function FulfillmentFlowsManagement() {
           </p>
         </div>
         {canEdit && (
-          <Button color="primary" onPress={openCreate} className={desktopAddButtonClass}>
-            Tambah
+          <Button color="primary" onPress={openCreate} isIconOnly className={desktopAddButtonClass} aria-label="Tambah flow" title="Tambah flow">
+            <PlusIcon />
           </Button>
         )}
       </div>
@@ -563,14 +579,70 @@ export default function FulfillmentFlowsManagement() {
               </p>
             </div>
             {canEdit && (
-              <Button color="primary" onPress={openCreate} className="hidden font-semibold sm:inline-flex">
-                + Flow Baru
+              <Button color="primary" onPress={openCreate} isIconOnly className="hidden sm:inline-flex" aria-label="Tambah flow" title="Tambah flow">
+                <PlusIcon />
               </Button>
             )}
           </CardBody>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <>
+          <div className="hidden overflow-x-auto rounded-xl border border-default-200 bg-white shadow-sm sm:block">
+            <table className="w-full min-w-[820px] text-left text-sm">
+              <thead className="border-b border-default-200 bg-default-50 text-xs uppercase text-default-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Flow</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Step</th>
+                  <th className="px-4 py-3 font-semibold">Rilis bertahap</th>
+                  <th className="px-4 py-3 text-right font-semibold">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-default-100">
+                {flows.map((flow) => {
+                  const sortedSteps = [...flow.steps].sort((a, b) => a.sequence - b.sequence);
+                  const pct = flow.steps.reduce((sum, step) => sum + (step.release_percentage ?? 0), 0);
+                  return (
+                    <tr key={flow.id} className="align-top hover:bg-default-50/70">
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-foreground">{flow.name}</p>
+                        {flow.description && <p className="mt-1 max-w-xs text-xs text-default-500">{flow.description}</p>}
+                      </td>
+                      <td className="px-4 py-4">
+                        <Chip size="sm" variant="flat" color={flow.is_active ? 'success' : 'default'}>
+                          {flow.is_active ? 'Aktif' : 'Nonaktif'}
+                        </Chip>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex max-w-md flex-wrap gap-1.5">
+                          {sortedSteps.map((step) => (
+                            <span key={step.id ?? step.sequence} className="rounded-lg bg-default-100 px-2 py-1 text-xs text-default-600">
+                              {step.phase === 'PRAORDER' && <span className="mr-1 font-semibold text-warning-700">Praorder:</span>}
+                              {step.status_name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-default-600">
+                        {pct > 0 ? `${pct}%` : '—'}
+                        <span className="ml-1 text-xs text-default-400">({flow.steps.length} step)</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {(canEdit || canDelete) && (
+                          <div className="flex justify-end gap-2">
+                            {canEdit && <Button size="sm" color="primary" variant="flat" isIconOnly onPress={() => openEdit(flow)} aria-label={`Edit ${flow.name}`} title="Edit"><EditIcon /></Button>}
+                            {canDelete && <Button size="sm" color="danger" variant="light" isIconOnly onPress={() => handleDelete(flow.id)} aria-label={`Hapus ${flow.name}`} title="Hapus"><TrashIcon /></Button>}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:hidden">
           {flows.map((flow) => {
             const sortedSteps = [...flow.steps].sort((a, b) => a.sequence - b.sequence);
             const pct = flow.steps.reduce((sum, s) => sum + (s.release_percentage ?? 0), 0);
@@ -628,13 +700,13 @@ export default function FulfillmentFlowsManagement() {
                   {(canEdit || canDelete) && (
                     <div className="flex gap-2 border-t border-default-100 pt-3">
                       {canEdit && (
-                        <Button size="sm" color="primary" variant="flat" className="flex-1 font-medium" onPress={() => openEdit(flow)}>
-                          Edit
+                        <Button size="sm" color="primary" variant="flat" isIconOnly onPress={() => openEdit(flow)} aria-label={`Edit ${flow.name}`} title="Edit">
+                          <EditIcon />
                         </Button>
                       )}
                       {canDelete && (
-                        <Button size="sm" color="danger" variant="light" className="flex-1" onPress={() => handleDelete(flow.id)}>
-                          Hapus
+                        <Button size="sm" color="danger" variant="light" isIconOnly onPress={() => handleDelete(flow.id)} aria-label={`Hapus ${flow.name}`} title="Hapus">
+                          <TrashIcon />
                         </Button>
                       )}
                     </div>
@@ -644,6 +716,7 @@ export default function FulfillmentFlowsManagement() {
             );
           })}
         </div>
+        </>
       )}
 
       <AppModal

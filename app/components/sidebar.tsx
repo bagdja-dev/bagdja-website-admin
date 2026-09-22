@@ -47,15 +47,6 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    label: 'Praorder',
-    href: '/dashboard/preorders',
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75h6M9 3.75A1.5 1.5 0 0 0 7.5 5.25v.75h9v-.75A1.5 1.5 0 0 0 15 3.75M7.5 6h9m-9 0A2.25 2.25 0 0 0 5.25 8.25v10.5A2.25 2.25 0 0 0 7.5 21h9a2.25 2.25 0 0 0 2.25-2.25V8.25A2.25 2.25 0 0 0 16.5 6m-6 4.5h3m-3 3h3m-3 3h1.5" />
-      </svg>
-    ),
-  },
-  {
     label: 'Master Flow',
     href: '/dashboard/fulfillment-flows',
     icon: (
