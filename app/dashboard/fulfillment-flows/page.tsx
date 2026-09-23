@@ -52,6 +52,7 @@ interface StepFieldState {
   type: FulfillmentStepFormField['type'];
   required: boolean;
   optionsText: string;
+  maxFiles: string;
 }
 
 interface StepState {
@@ -65,7 +66,7 @@ interface StepState {
 }
 
 function emptyField(): StepFieldState {
-  return { key: '', label: '', type: 'text', required: false, optionsText: '' };
+  return { key: '', label: '', type: 'text', required: false, optionsText: '', maxFiles: '5' };
 }
 
 function emptyStep(): StepState {
@@ -104,6 +105,7 @@ function loadStepsFromFlow(flow: FulfillmentFlow): { praorder: StepState[]; pasc
       type: f.type,
       required: f.required ?? false,
       optionsText: (f.options ?? []).join(', '),
+      maxFiles: String(f.max_files ?? 5),
     })),
   });
   return {
@@ -273,6 +275,9 @@ export default function FulfillmentFlowsManagement() {
                           .map((o) => o.trim())
                           .filter(Boolean)
                       : undefined,
+                        max_files: ['pdf', 'foto', 'video'].includes(f.type)
+                          ? Math.max(1, Math.min(20, parseInt(f.maxFiles, 10) || 5))
+                          : undefined,
                 }))
             : undefined,
         })),
@@ -496,6 +501,21 @@ export default function FulfillmentFlowsManagement() {
                             onChange={(e) => updateField(phase, index, fieldIndex, { optionsText: e.target.value })}
                             className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
                           />
+                        </div>
+                      )}
+
+                      {['pdf', 'foto', 'video'].includes(field.type) && (
+                        <div className="mt-2 flex max-w-xs flex-col gap-1">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-default-500">Maksimal file</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={20}
+                            value={field.maxFiles}
+                            onChange={(e) => updateField(phase, index, fieldIndex, { maxFiles: e.target.value })}
+                            className="w-full rounded-lg border border-default-300 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                          />
+                          <span className="text-[10px] text-default-500">Field media selalu multiple. Default: 5 file.</span>
                         </div>
                       )}
 

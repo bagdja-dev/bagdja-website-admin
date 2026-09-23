@@ -28,6 +28,7 @@ import {
   type WebsiteCategory,
   type WebsiteLocation,
   type WebsiteProduct,
+  type ProductUom,
 } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 import type { GalleryImage } from '../../lib/section-types';
@@ -169,7 +170,6 @@ function getMetaHint(product: WebsiteProduct): string | null {
   if (product.type === 'service') {
     const parts: string[] = [];
     if (meta.duration_minutes) parts.push(`${meta.duration_minutes} menit`);
-    if (meta.is_bookable) parts.push('Bookable');
     return parts.length ? parts.join(' · ') : null;
   }
   if (product.type === 'product') {
@@ -229,6 +229,21 @@ function ProductCard({ product, categoryLabel, variantCount, parentLabel, canEdi
                 >
                   {product.is_active ? '● Aktif' : '○ Nonaktif'}
                 </Chip>
+                {product.quotable && (
+                  <Chip size="sm" variant="flat" className="border border-amber-200/50 bg-amber-400/20 backdrop-blur-sm" classNames={{ content: 'font-semibold text-[10px] text-amber-50' }}>
+                    Quotation
+                  </Chip>
+                )}
+                {product.type === 'service' && product.metadata?.is_bookable === true && (
+                  <Chip size="sm" variant="flat" className="border border-sky-200/50 bg-sky-400/20 backdrop-blur-sm" classNames={{ content: 'font-semibold text-[10px] text-sky-50' }}>
+                    Booking
+                  </Chip>
+                )}
+                {product.requires_shipping && (
+                  <Chip size="sm" variant="flat" className="border border-violet-200/50 bg-violet-400/20 backdrop-blur-sm" classNames={{ content: 'font-semibold text-[10px] text-violet-50' }}>
+                    Perlu Pengiriman
+                  </Chip>
+                )}
               </div>
               <h3 className="line-clamp-2 text-base font-bold leading-snug text-white sm:text-lg">
                 {product.name}
@@ -244,7 +259,10 @@ function ProductCard({ product, categoryLabel, variantCount, parentLabel, canEdi
       <CardBody className="relative -mt-5 space-y-3 rounded-t-2xl bg-white px-4 pb-4 pt-4 sm:px-5">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xl font-bold tracking-tight text-foreground">{formatPrice(product.price)}</p>
+            <p className="text-xl font-bold tracking-tight text-foreground">
+              {formatPrice(product.price)}
+              {product.uom?.symbol && <span className="ml-1 text-sm font-medium text-default-500">/{product.uom.symbol}</span>}
+            </p>
             {categoryLabel && (
               <Chip size="sm" variant="flat" className="shrink-0 bg-default-100 text-default-600">
                 {categoryLabel}
@@ -318,6 +336,7 @@ export default function ProductsManagement() {
   const [locations, setLocations] = useState<WebsiteLocation[]>([]);
   const [categories, setCategories] = useState<WebsiteCategory[]>([]);
   const [fulfillmentFlows, setFulfillmentFlows] = useState<FulfillmentFlow[]>([]);
+  const [uoms, setUoms] = useState<ProductUom[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -337,6 +356,8 @@ export default function ProductsManagement() {
   const [description, setDescription] = useState('');
   const [detail, setDetail] = useState('');
   const [price, setPrice] = useState('');
+  const [uomId, setUomId] = useState('');
+  const [quotable, setQuotable] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [sku, setSku] = useState('');
   const [stock, setStock] = useState('');
@@ -373,16 +394,18 @@ export default function ProductsManagement() {
     setLoading(true);
     try {
       const query = typeFilter !== 'all' ? `?type=${typeFilter}` : '';
-      const [productsData, categoriesData, locationsData, flowsData] = await Promise.all([
+      const [productsData, categoriesData, locationsData, flowsData, uomsData] = await Promise.all([
         apiClient<WebsiteProduct[]>(`/api/websites/${websiteId}/products${query}`),
         apiClient<WebsiteCategory[]>(`/api/websites/${websiteId}/categories`),
         apiClient<WebsiteLocation[]>(`/api/websites/${websiteId}/locations`),
         apiClient<FulfillmentFlow[]>(`/api/websites/${websiteId}/fulfillment-flows`),
+        apiClient<ProductUom[]>(`/api/websites/${websiteId}/products/uoms/list`),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
       setLocations(locationsData);
       setFulfillmentFlows(flowsData);
+      setUoms(uomsData);
     } catch {
       setProducts([]);
     } finally {
@@ -479,6 +502,8 @@ export default function ProductsManagement() {
     setDescription('');
     setDetail('');
     setPrice('0');
+    setUomId('');
+    setQuotable(false);
     setIsActive(true);
     setPaymentMeta([]);
     setSelectedLocationIds([]);
@@ -516,6 +541,8 @@ export default function ProductsManagement() {
     setDescription(product.description ?? '');
     setDetail(product.detail ?? '');
     setPrice(String(product.price));
+    setUomId(product.uom_id ?? '');
+    setQuotable(product.quotable ?? false);
     setIsActive(product.is_active);
     setSku(fields.sku);
     setStock(fields.stock);
@@ -601,6 +628,8 @@ export default function ProductsManagement() {
         description: willInherit ? '' : description.trim() || undefined,
         detail: willInherit ? '' : detail.trim() || undefined,
         price: parseCurrencyInput(price),
+        quotable,
+        uom_id: uomId || null,
         images: images.map((img) => img.url).filter(Boolean),
         video_url: videoUrl.trim() || null,
         model3d_url: model3dUrl.trim() || null,
@@ -940,6 +969,38 @@ export default function ProductsManagement() {
             />
           </div>
 
+          <FormSelect
+            label="Satuan Produk (UOM)"
+            value={uomId}
+            onChange={setUomId}
+            options={[{ value: '', label: 'Tanpa satuan' }, ...uoms.map((uom) => ({ value: uom.id, label: `${uom.label} (${uom.symbol})` }))]}
+            description="Dipakai sebagai konteks quantity dan harga quotation, misalnya Rp350.000/m²."
+          />
+
+          <div className="flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50/50 p-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Pengaturan Operasional</p>
+              <p className="mt-1 text-xs text-default-500">Atur cara produk ini dipesan, dibayar, dan dipenuhi.</p>
+            </div>
+            <FormSwitch
+              label="Memerlukan quotation seller"
+              description="Buyer mengisi deskripsi pesanan terlebih dahulu sebelum seller menetapkan harga final."
+              checked={quotable}
+              onChange={setQuotable}
+            />
+            {type === 'service' && (
+              <FormSwitch label="Dapat dibooking" checked={isBookable} onChange={setIsBookable} />
+            )}
+            {type !== 'digital' && (
+              <FormSwitch
+                label="Perlu dikirim kurir (ongkir)"
+                checked={requiresShipping}
+                onChange={setRequiresShipping}
+              />
+            )}
+            <FormSwitch label="Aktif" checked={isActive} onChange={setIsActive} />
+          </div>
+
           <GalleryEditor
             label="Foto Produk"
             description="PNG, JPG, WebP, GIF — maks. 5 MB. Foto pertama menjadi cover di katalog."
@@ -981,7 +1042,6 @@ export default function ProductsManagement() {
                 value={durationMinutes}
                 onChange={setDurationMinutes}
               />
-              <FormSwitch label="Dapat dibooking" checked={isBookable} onChange={setIsBookable} />
               <div className="rounded-xl border border-dashed border-default-300 bg-default-50/50 p-3">
                 <div className="mb-2">
                   <span className="text-sm font-medium text-foreground">Spesifikasi teknis</span>
@@ -1114,11 +1174,6 @@ export default function ProductsManagement() {
 
           {type !== 'digital' && (
             <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/50 p-4">
-              <FormSwitch
-                label="Perlu dikirim kurir (ongkir)"
-                checked={requiresShipping}
-                onChange={setRequiresShipping}
-              />
               <p className="text-xs text-default-500">
                 Independen dari tipe produk — jasa on-site (mis. pasang kanopi) biasanya TIDAK perlu ongkir,
                 tapi jasa reparasi/kirim-balik TETAP perlu walau sama-sama &quot;Jasa&quot;.
@@ -1229,7 +1284,6 @@ export default function ProductsManagement() {
 
           <PaymentMetaEditor value={paymentMeta} onChange={setPaymentMeta} />
 
-          <FormSwitch label="Aktif" checked={isActive} onChange={setIsActive} />
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
               {error}

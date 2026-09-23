@@ -143,8 +143,9 @@ export default function OrderDetailPage() {
   const [refundError, setRefundError] = useState('');
   const [forceCompleting, setForceCompleting] = useState(false);
   const [completingKey, setCompletingKey] = useState<string | null>(null);
-  const [completeFormData, setCompleteFormData] = useState<Record<string, string>>({});
+  const [completeFormData, setCompleteFormData] = useState<Record<string, unknown>>({});
   const [stepBusy, setStepBusy] = useState<string | null>(null);
+  const [stepSaveBusy, setStepSaveBusy] = useState<string | null>(null);
   const [stepError, setStepError] = useState<Record<string, string>>({});
   /** fulfillment-praorder-plan.md §2.4 — "Terbitkan" Termin & Tagihan Tambahan ad-hoc. */
   const [terminBusy, setTerminBusy] = useState<string | null>(null);
@@ -154,7 +155,7 @@ export default function OrderDetailPage() {
   const [adhocBusy, setAdhocBusy] = useState<string | null>(null);
   const [adhocError, setAdhocError] = useState<Record<string, string>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [groupFormData, setGroupFormData] = useState<Record<string, Record<string, string>>>({});
+  const [groupFormData, setGroupFormData] = useState<Record<string, Record<string, unknown>>>({});
   const [groupBusy, setGroupBusy] = useState<string | null>(null);
   const [groupError, setGroupError] = useState<Record<string, string>>({});
   const [vendorCandidates, setVendorCandidates] = useState<Record<string, VendorCandidate[]>>({});
@@ -265,12 +266,12 @@ export default function OrderDetailPage() {
   const openCompleteForm = (orderId: string, step: OrderFulfillmentStepProgress) => {
     const key = stepKey(orderId, step.stepName);
     setCompletingKey(key);
-    const initial: Record<string, string> = {};
+    const initial: Record<string, unknown> = {};
     // Kepemilikan sekarang di level Step (isStepBuyerOwned menggate render
     // form ini) — semua field di step admin ini milik admin, tidak perlu
     // disaring per-field lagi.
     (step.formSchema ?? []).forEach((f) => {
-      initial[f.key] = '';
+      initial[f.key] = step.formData?.[f.key] ?? '';
     });
     setCompleteFormData(initial);
     setStepError((prev) => ({ ...prev, [key]: '' }));
@@ -281,7 +282,8 @@ export default function OrderDetailPage() {
     const key = stepKey(orderId, step.stepName);
     const sellerFields = step.formSchema ?? [];
     for (const field of sellerFields) {
-      if (field.required && !completeFormData[field.key]?.trim()) {
+      const value = completeFormData[field.key];
+      if (field.required && (!value || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && value.length === 0))) {
         setStepError((prev) => ({ ...prev, [key]: `Field "${field.label}" wajib diisi` }));
         return;
       }
@@ -291,7 +293,10 @@ export default function OrderDetailPage() {
     try {
       const formData: Record<string, unknown> = {};
       for (const field of sellerFields) {
-        if (completeFormData[field.key]?.trim()) formData[field.key] = completeFormData[field.key].trim();
+        const value = completeFormData[field.key];
+        if (Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim()) {
+          formData[field.key] = Array.isArray(value) ? value : String(value).trim();
+        }
       }
       await apiClient(
         `/api/websites/${websiteId}/transactions/${params.id}/orders/${orderId}/steps/complete`,
@@ -413,7 +418,8 @@ export default function OrderDetailPage() {
     const key = groupStepKey(flowName, step.stepName);
     const fields = step.formSchema ?? [];
     for (const field of fields) {
-      if (field.required && !groupFormData[key]?.[field.key]?.trim()) {
+      const value = groupFormData[key]?.[field.key];
+      if (field.required && (!value || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && value.length === 0))) {
         setGroupError((prev) => ({ ...prev, [key]: `Field "${field.label}" wajib diisi` }));
         return;
       }
@@ -424,7 +430,9 @@ export default function OrderDetailPage() {
       const formData: Record<string, unknown> = {};
       for (const field of fields) {
         const v = groupFormData[key]?.[field.key];
-        if (v?.trim()) formData[field.key] = v.trim();
+        if (Array.isArray(v) ? v.length > 0 : typeof v === 'string' && v.trim()) {
+          formData[field.key] = Array.isArray(v) ? v : String(v).trim();
+        }
       }
       await Promise.all(
         step.eligibleItems.map((item) =>
@@ -886,11 +894,31 @@ export default function OrderDetailPage() {
                                               </Button>
                                               <Button
                                                 size="sm"
+                                                variant="flat"
+                                                isLoading={stepSaveBusy === key}
+                                                isDisabled={stepSaveBusy === key || stepBusy === key}
+                                                onPress={async () => {
+                                                  setStepSaveBusy(key);
+                                                  try {
+                                                    await apiClient(`/api/websites/${websiteId}/transactions/${params.id}/orders/${gi.orderId}/steps/draft`, {
+                                                      method: 'POST',
+                                                      body: JSON.stringify({ step_name: step.stepName, form_data: completeFormData }),
+                                                    });
+                                                    await alert({ title: 'Tersimpan', message: `${step.stepName} berhasil disimpan.`, tone: 'default' });
+                                                  } finally {
+                                                    setStepSaveBusy(null);
+                                                  }
+                                                }}
+                                              >
+                                                Simpan
+                                              </Button>
+                                              <Button
+                                                size="sm"
                                                 color="primary"
                                                 isLoading={stepBusy === key}
                                                 onPress={() => submitCompleteStep(gi.orderId, step)}
                                               >
-                                                Tandai Selesai
+                                                Kirim
                                               </Button>
                                             </div>
                                           </div>

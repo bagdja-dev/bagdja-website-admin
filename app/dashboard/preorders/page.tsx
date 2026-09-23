@@ -7,6 +7,7 @@ import { FormInput, FormSwitch } from '../../components/form-field';
 import { FulfillmentFieldInput } from '../../components/fulfillment-field-input';
 import { FulfillmentFieldValue } from '../../components/fulfillment-field-value';
 import { LoadingSpinner } from '../../components/loading-spinner';
+import { useAlertDialog } from '../../components/alert-dialog';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
@@ -19,10 +20,11 @@ interface DraftOrder {
   quantity: number;
   unit_price: number;
   total_amount: number;
+  quoted_total_amount: number | null;
   created_at: string;
   location?: { name?: string } | null;
   vendor?: { name?: string; status?: string } | null;
-  product?: { name?: string; type?: string; fulfillment_flow_id?: string | null } | null;
+  product?: { name?: string; type?: string; quotable?: boolean; fulfillment_flow_id?: string | null } | null;
   /** fulfillment-praorder-plan.md §2.1 — ada kalau produknya punya step Praorder. */
   praorderProgress?: OrderFulfillmentProgress | null;
 }
@@ -99,6 +101,7 @@ function FillRemainingIcon() {
 }
 
 export default function PreordersPage() {
+  const { alert, dialog: alertDialog } = useAlertDialog();
   const { websiteId, role, loading: contextLoading } = useWebsiteContext();
   const canEdit = role ? hasMinRole(role, 'editor') : false;
   const [drafts, setDrafts] = useState<DraftOrder[]>([]);
@@ -109,9 +112,10 @@ export default function PreordersPage() {
   /** fulfillment-praorder-plan.md §2.3 — "Atur Termin" opsional di widget Harga Final. */
   const [terminEnabled, setTerminEnabled] = useState<Record<string, boolean>>({});
   const [terminRows, setTerminRows] = useState<Record<string, TerminRowState[]>>({});
-  const [stepFormData, setStepFormData] = useState<Record<string, string>>({});
+  const [stepFormData, setStepFormData] = useState<Record<string, unknown>>({});
   const [openStepKey, setOpenStepKey] = useState<string | null>(null);
   const [stepBusy, setStepBusy] = useState<string | null>(null);
+  const [stepSaveBusy, setStepSaveBusy] = useState<string | null>(null);
   const [stepError, setStepError] = useState<Record<string, string>>({});
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
 
@@ -119,7 +123,7 @@ export default function PreordersPage() {
 
   const getTerminSummary = (draftId: string, draft: DraftOrder) => {
     const rows = terminRows[draftId] ?? DEFAULT_TERMIN_ROWS;
-    const finalPrice = Number(quoteValues[draftId] ?? (draft.unit_price > 0 ? draft.unit_price : 0));
+    const finalPrice = Number(quoteValues[draftId] ?? (draft.quoted_total_amount ?? (draft.unit_price > 0 ? draft.unit_price : 0)));
     const total = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
     const difference = finalPrice - total;
     const percentage = finalPrice > 0 ? Math.min(100, Math.max(0, (total / finalPrice) * 100)) : 0;
@@ -152,7 +156,7 @@ export default function PreordersPage() {
     // quoteValues[draft.id] baru terisi setelah onChange pertama kali — kalau
     // admin belum menyentuh field (harga prefill sudah benar di layar), harus
     // tetap pakai nilai yang tertampil, bukan diam-diam gagal karena undefined.
-    const effectiveValue = quoteValues[draft.id] ?? (draft.unit_price > 0 ? String(draft.unit_price) : '');
+    const effectiveValue = quoteValues[draft.id] ?? (draft.quoted_total_amount != null ? String(draft.quoted_total_amount) : (draft.unit_price > 0 ? String(draft.unit_price) : ''));
     const value = Number(effectiveValue);
     if (!Number.isFinite(value) || value <= 0) {
       setError('Isi harga final yang valid (lebih dari nol) sebelum menyimpan.');
@@ -219,7 +223,7 @@ export default function PreordersPage() {
     const draft = drafts.find((item) => item.id === draftId);
     if (!draft) return;
 
-    const finalPrice = Number(quoteValues[draftId] ?? (draft.unit_price > 0 ? draft.unit_price : 0));
+    const finalPrice = Number(quoteValues[draftId] ?? (draft.quoted_total_amount ?? (draft.unit_price > 0 ? draft.unit_price : 0)));
     const percentage = Number(value);
     updateTerminRow(draftId, index, {
       amount: Number.isFinite(percentage) && finalPrice > 0
@@ -247,7 +251,8 @@ export default function PreordersPage() {
     const key = stepKey(draftId, step.stepName);
     const fields = step.formSchema ?? [];
     for (const field of fields) {
-      if (field.required && !stepFormData[field.key]?.trim()) {
+      const value = stepFormData[field.key];
+      if (field.required && (!value || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && value.length === 0))) {
         setStepError((prev) => ({ ...prev, [key]: `Field "${field.label}" wajib diisi` }));
         return;
       }
@@ -255,9 +260,12 @@ export default function PreordersPage() {
     setStepBusy(key);
     setStepError((prev) => ({ ...prev, [key]: '' }));
     try {
-      const payload: Record<string, string> = {};
+      const payload: Record<string, unknown> = {};
       for (const field of fields) {
-        if (stepFormData[field.key]?.trim()) payload[field.key] = stepFormData[field.key].trim();
+        const value = stepFormData[field.key];
+        if (Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim()) {
+          payload[field.key] = Array.isArray(value) ? value : String(value).trim();
+        }
       }
       await apiClient(`/api/websites/${websiteId}/orders/${draftId}/steps/complete`, {
         method: 'POST',
@@ -341,7 +349,7 @@ export default function PreordersPage() {
                                       : 'Giliran Anda'}
                               </span>
                             </div>
-                            {isCurrent && step.filledBy === 'admin' && canEdit && (
+                            {isCurrent && step.stepName !== 'Quotation' && step.filledBy === 'admin' && canEdit && (
                               openStepKey === key ? (
                                 <div className="mt-2 flex flex-col gap-2 rounded-lg bg-default-50 p-2">
                                   {(step.formSchema ?? []).map((f) => (
@@ -358,11 +366,31 @@ export default function PreordersPage() {
                                     <Button size="sm" variant="light" onPress={() => setOpenStepKey(null)}>Batal</Button>
                                     <Button
                                       size="sm"
+                                      variant="flat"
+                                      isLoading={stepSaveBusy === key}
+                                      isDisabled={stepSaveBusy === key || stepBusy === key}
+                                      onPress={async () => {
+                                        setStepSaveBusy(key);
+                                        try {
+                                          await apiClient(`/api/websites/${websiteId}/orders/${draft.id}/steps/draft`, {
+                                            method: 'POST',
+                                            body: JSON.stringify({ step_name: step.stepName, form_data: stepFormData }),
+                                          });
+                                          await alert({ title: 'Tersimpan', message: `${step.stepName} berhasil disimpan.`, tone: 'default' });
+                                        } finally {
+                                          setStepSaveBusy(null);
+                                        }
+                                      }}
+                                    >
+                                      Simpan
+                                    </Button>
+                                    <Button
+                                      size="sm"
                                       color="primary"
                                       isLoading={stepBusy === key}
                                       onPress={() => submitStep(draft.id, step)}
                                     >
-                                      Tandai Selesai
+                                      Kirim
                                     </Button>
                                   </div>
                                 </div>
@@ -372,7 +400,10 @@ export default function PreordersPage() {
                                   variant="flat"
                                   color="primary"
                                   className="mt-2"
-                                  onPress={() => setOpenStepKey(key)}
+                                  onPress={() => {
+                                    setStepFormData(step.formData ?? {});
+                                    setOpenStepKey(key);
+                                  }}
                                 >
                                   Lengkapi {step.stepName}
                                 </Button>
@@ -404,7 +435,7 @@ export default function PreordersPage() {
                     <MaskedIntegerInput
                       label="Harga"
                       disabled={!canEdit}
-                      value={quoteValues[draft.id] ?? (draft.unit_price > 0 ? String(draft.unit_price) : '')}
+                      value={quoteValues[draft.id] ?? (draft.quoted_total_amount != null ? String(draft.quoted_total_amount) : (draft.unit_price > 0 ? String(draft.unit_price) : ''))}
                       onChange={(value) => setQuoteValues((prev) => ({ ...prev, [draft.id]: value }))}
                     />
                   </div>
@@ -597,8 +628,8 @@ export default function PreordersPage() {
                       <td className="px-4 py-3">{draft.vendor?.name ?? 'Belum ditugaskan'}</td>
                       <td className="whitespace-nowrap px-4 py-3 font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</td>
                       <td className="px-4 py-3">
-                        <Chip size="sm" color={draft.unit_price > 0 ? 'success' : 'warning'} variant="flat">
-                          {draft.unit_price > 0 ? 'Siap checkout' : 'Menunggu quotation'}
+                        <Chip size="sm" color={draft.quoted_total_amount != null || (!draft.product?.quotable && draft.unit_price > 0) ? 'success' : 'warning'} variant="flat">
+                          {draft.quoted_total_amount != null || (!draft.product?.quotable && draft.unit_price > 0) ? 'Siap checkout' : 'Menunggu quotation'}
                         </Chip>
                       </td>
                     </tr>
@@ -609,6 +640,7 @@ export default function PreordersPage() {
           </CardBody>
         </Card>
       )}
+      {alertDialog}
     </div>
   );
 }

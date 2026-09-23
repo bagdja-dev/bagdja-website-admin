@@ -125,6 +125,9 @@ export interface WebsiteProduct {
   payment_meta: PaymentMetaEntry[];
   sort_order: number;
   is_active: boolean;
+  quotable?: boolean;
+  uom_id?: string | null;
+  uom?: ProductUom | null;
   /** Order Handling Phase 3 — SOP pengiriman kustom (null = tidak butuh tracking). */
   fulfillment_flow_id?: string | null;
   /** Order Handling Phase 3 §3.0.2 — masa garansi (hari) sebelum seller boleh force-complete transaksi kalau buyer tidak konfirm terima barang. Null = force-complete dinonaktifkan untuk produk ini. */
@@ -141,6 +144,15 @@ export interface WebsiteProduct {
   requires_shipping?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProductUom {
+  id: string;
+  code: string;
+  label: string;
+  symbol: string;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export type LocationType = 'branch' | 'warehouse' | 'pickup' | 'office';
@@ -339,6 +351,7 @@ export interface FulfillmentStepFormField {
   required?: boolean;
   filled_by?: FulfillmentStepFormFieldFilledBy;
   options?: string[];
+  max_files?: number;
 }
 
 export interface FulfillmentFlowStep {
