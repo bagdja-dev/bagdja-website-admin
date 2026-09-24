@@ -33,7 +33,14 @@ interface DraftOrder {
   created_at: string;
   location?: { name?: string } | null;
   vendor?: { name?: string; status?: string } | null;
-  product?: { name?: string; type?: string; quotable?: boolean; fulfillment_flow_id?: string | null } | null;
+  product?: {
+    name?: string;
+    type?: string;
+    description?: string | null;
+    images?: string[] | null;
+    quotable?: boolean;
+    fulfillment_flow_id?: string | null;
+  } | null;
   /** fulfillment-praorder-plan.md §2.1 — ada kalau produknya punya step Praorder. */
   praorderProgress?: OrderFulfillmentProgress | null;
 }
@@ -392,17 +399,38 @@ function PraorderAktifTab() {
                   <div><h2 className="font-semibold">{draft.product?.name ?? 'Produk'}</h2><p className="mt-1 text-xs text-default-500">{formatDate(draft.created_at)}</p></div>
                   <Chip size="sm" color={draft.vendor ? 'success' : 'warning'} variant="flat">{draft.vendor ? 'Vendor ditugaskan' : 'Belum ditugaskan'}</Chip>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm lg:col-start-1 lg:row-start-2">
+                <div className="overflow-hidden rounded-lg border border-default-200 bg-white lg:col-start-2 lg:row-start-2">
+                  {draft.product?.images?.[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={draft.product.images[0]}
+                      alt={draft.product.name ?? 'Produk'}
+                      className="h-44 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 items-center justify-center bg-default-100 text-xs text-default-400">
+                      Tidak ada foto produk
+                    </div>
+                  )}
+                  <div className="space-y-1 p-3">
+                    <p className="text-xs font-medium text-default-500">Detail produk</p>
+                    <p className="font-semibold">{draft.product?.name ?? 'Produk'}</p>
+                    <p className="line-clamp-3 text-sm text-default-500">
+                      {draft.product?.description?.trim() || 'Belum ada deskripsi produk.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:col-start-2 lg:row-start-3">
                   <div><p className="text-xs text-default-400">Buyer</p><p className="truncate">{draft.buyer_identifier ?? '—'}</p></div>
                   <div><p className="text-xs text-default-400">Total</p><p className="font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</p></div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs lg:col-start-1 lg:row-start-3">
+                <div className="flex flex-wrap gap-2 text-xs lg:col-start-2 lg:row-start-4">
                   <Chip size="sm" variant="flat">Qty {draft.quantity}</Chip>
                   <Chip size="sm" variant="flat">Lokasi: {draft.location?.name ?? 'Belum dipilih'}</Chip>
                   {draft.vendor && <Chip size="sm" variant="flat">Vendor: {draft.vendor.name}</Chip>}
                 </div>
                 {draft.praorderProgress && (
-                  <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-4">
+                  <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-2 lg:row-start-5">
                     <p className="mb-2 text-xs font-medium text-default-600">
                       Step Praorder — {draft.praorderProgress.flowName}
                     </p>
@@ -509,7 +537,7 @@ function PraorderAktifTab() {
                   </div>
                 )}
 
-                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-2 lg:row-start-2 lg:row-span-3">
+                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-2 lg:row-span-3">
                   <p className="mb-2 text-xs font-medium text-default-600">Harga final quotation</p>
                   <div className="flex items-end gap-2">
                     <MaskedIntegerInput
