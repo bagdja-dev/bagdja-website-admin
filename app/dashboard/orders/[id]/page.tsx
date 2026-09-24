@@ -19,6 +19,7 @@ import {
   TERMIN_STATUS_LABELS,
   TRANSACTION_STATUS_LABELS,
   type OrderFulfillmentStepProgress,
+  type TerminSummary,
   type WebsiteTransaction,
 } from '../../../lib/types';
 import { formatCourierCode } from '../../../lib/courier-labels';
@@ -549,6 +550,48 @@ export default function OrderDetailPage() {
     (f) => f.termins,
   ).filter((t) => t.status === 'SCHEDULED').length;
 
+  /** 1 baris Termin — dipakai baik di ringkasan grup (default, tanpa perlu "Lihat per produk") maupun di rincian per produk. */
+  const renderTerminRow = (termin: TerminSummary, orderId: string, productName?: string) => {
+    return (
+      <div
+        key={termin.id}
+        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default-200 bg-white p-3 text-sm"
+      >
+        <div>
+          <span className="font-medium">{termin.label}</span>
+          {productName && <span className="ml-1 text-xs text-default-400">— {productName}</span>}
+          <span className="ml-2 text-xs text-default-400">
+            {formatCurrency(termin.amount, transaction.currency)}
+            {termin.anchorStepName && ` — setelah "${termin.anchorStepName}"`}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Chip
+            size="sm"
+            variant="flat"
+            color={termin.status === 'PAID' ? 'success' : termin.status === 'ISSUED' ? 'warning' : 'default'}
+          >
+            {TERMIN_STATUS_LABELS[termin.status] ?? termin.status}
+          </Chip>
+          {termin.status === 'SCHEDULED' && canManageFulfillment && (
+            <Button
+              size="sm"
+              color="primary"
+              variant="flat"
+              isLoading={terminBusy === termin.id}
+              onPress={() => issueTermin(orderId, termin.id)}
+            >
+              Terbitkan
+            </Button>
+          )}
+        </div>
+        {terminError[termin.id] && (
+          <p className="w-full text-xs text-danger">{terminError[termin.id]}</p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Link href="/dashboard/orders" className="text-sm font-medium text-primary hover:underline">
@@ -669,6 +712,7 @@ export default function OrderDetailPage() {
                       </div>
 
                       {!isExpanded ? (
+                        <>
                         <ol className="space-y-2">
                           {groupSteps.map((step) => {
                             const key = groupStepKey(group.flowName, step.stepName);
@@ -771,6 +815,22 @@ export default function OrderDetailPage() {
                             );
                           })}
                         </ol>
+
+                        {(() => {
+                          const groupTermins = group.items.flatMap((gi) =>
+                            gi.progress.termins.map((termin) => ({ termin, orderId: gi.orderId, productName: gi.productName })),
+                          );
+                          if (groupTermins.length === 0) return null;
+                          return (
+                            <div className="mt-3 space-y-2">
+                              <p className="text-xs font-medium text-default-500">Termin</p>
+                              {groupTermins.map(({ termin, orderId, productName }) =>
+                                renderTerminRow(termin, orderId, group.items.length > 1 ? productName : undefined),
+                              )}
+                            </div>
+                          );
+                        })()}
+                        </>
                       ) : (
                         <div className="space-y-4">
                           {group.items.map((gi) => (
@@ -954,49 +1014,7 @@ export default function OrderDetailPage() {
                               {gi.progress.termins.length > 0 && (
                                 <div className="mt-3 space-y-2">
                                   <p className="text-xs font-medium text-default-500">Termin</p>
-                                  {gi.progress.termins.map((termin) => (
-                                    <div
-                                      key={termin.id}
-                                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default-200 bg-white p-3 text-sm"
-                                    >
-                                      <div>
-                                        <span className="font-medium">{termin.label}</span>
-                                        <span className="ml-2 text-xs text-default-400">
-                                          {formatCurrency(termin.amount, transaction.currency)}
-                                          {termin.anchorStepName && ` — setelah "${termin.anchorStepName}"`}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Chip
-                                          size="sm"
-                                          variant="flat"
-                                          color={
-                                            termin.status === 'PAID'
-                                              ? 'success'
-                                              : termin.status === 'ISSUED'
-                                                ? 'warning'
-                                                : 'default'
-                                          }
-                                        >
-                                          {TERMIN_STATUS_LABELS[termin.status] ?? termin.status}
-                                        </Chip>
-                                        {termin.status === 'SCHEDULED' && canManageFulfillment && (
-                                          <Button
-                                            size="sm"
-                                            color="primary"
-                                            variant="flat"
-                                            isLoading={terminBusy === termin.id}
-                                            onPress={() => issueTermin(gi.orderId, termin.id)}
-                                          >
-                                            Terbitkan
-                                          </Button>
-                                        )}
-                                      </div>
-                                      {terminError[termin.id] && (
-                                        <p className="w-full text-xs text-danger">{terminError[termin.id]}</p>
-                                      )}
-                                    </div>
-                                  ))}
+                                  {gi.progress.termins.map((termin) => renderTerminRow(termin, gi.orderId))}
                                 </div>
                               )}
 

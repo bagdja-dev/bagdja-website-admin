@@ -128,6 +128,9 @@ function PraorderAktifTab() {
   const [drafts, setDrafts] = useState<DraftOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelBusy, setCancelBusy] = useState<string | null>(null);
+  const [cancelFormOpen, setCancelFormOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [quoteValues, setQuoteValues] = useState<Record<string, string>>({});
   const [quoteBusy, setQuoteBusy] = useState<string | null>(null);
   /** fulfillment-praorder-plan.md §2.3 — "Atur Termin" opsional di widget Harga Final. */
@@ -225,6 +228,26 @@ function PraorderAktifTab() {
     }
   };
 
+  const cancelDraftOrder = async (draft: DraftOrder) => {
+    if (!websiteId) return;
+    setCancelBusy(draft.id);
+    setError('');
+    try {
+      await apiClient(`/api/websites/${websiteId}/orders/${draft.id}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: cancelReason.trim() || undefined }),
+      });
+      setCancelFormOpen(false);
+      setCancelReason('');
+      setSelectedDraftId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal membatalkan penawaran');
+    } finally {
+      setCancelBusy(null);
+    }
+  };
+
   const toggleTermin = (draftId: string, enabled: boolean) => {
     setTerminEnabled((prev) => ({ ...prev, [draftId]: enabled }));
     if (enabled && !terminRows[draftId]) {
@@ -319,9 +342,48 @@ function PraorderAktifTab() {
         <Card className="border-0 shadow-md ring-1 ring-default-100"><CardBody className="py-16 text-center"><p className="text-lg font-semibold">Belum ada draft praorder</p><p className="mt-1 text-sm text-default-500">Draft akan muncul setelah buyer menekan Pesan, sebelum checkout.</p></CardBody></Card>
       ) : selectedDraft ? (
         <>
-          <Button variant="light" onPress={() => setSelectedDraftId(null)}>
-            ← Kembali ke daftar penawaran
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button variant="light" onPress={() => setSelectedDraftId(null)}>
+              ← Kembali ke daftar penawaran
+            </Button>
+            {canEdit && !cancelFormOpen && (
+              <Button variant="flat" color="danger" onPress={() => setCancelFormOpen(true)}>
+                Batalkan Penawaran
+              </Button>
+            )}
+          </div>
+
+          {canEdit && cancelFormOpen && (
+            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50/50 p-3">
+              <FormInput
+                label="Alasan pembatalan (opsional)"
+                value={cancelReason}
+                onChange={setCancelReason}
+                placeholder="Mis. Buyer tidak merespons quotation"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="light"
+                  onPress={() => {
+                    setCancelFormOpen(false);
+                    setCancelReason('');
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button
+                  size="sm"
+                  color="danger"
+                  isLoading={cancelBusy === selectedDraft.id}
+                  onPress={() => cancelDraftOrder(selectedDraft)}
+                >
+                  Ya, Batalkan Penawaran Ini
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4">
           {[selectedDraft].map((draft) => (
             <Card key={draft.id} className="border-0 shadow-md ring-1 ring-default-100">
