@@ -76,6 +76,13 @@ export default function OrdersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [vendors, setVendors] = useState<VendorOption[]>([]);
   const [vendorFilter, setVendorFilter] = useState('');
+  const [tabCounts, setTabCounts] = useState<Record<TabKey, number>>({
+    all: 0,
+    awaiting: 0,
+    process: 0,
+    done: 0,
+    cancelled: 0,
+  });
 
   const activeTab = TABS.find((t) => t.key === tab) ?? TABS[0];
 
@@ -103,6 +110,28 @@ export default function OrdersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!websiteId) return;
+    const loadCounts = async () => {
+      try {
+        const results = await Promise.all(
+          TABS.map(async (item) => {
+            const params = new URLSearchParams({ page: '1', size: '1' });
+            if (item.statusQuery) params.set('status', item.statusQuery);
+            const result = await apiClient<{ meta: { total: number } }>(
+              `/api/websites/${websiteId}/transactions?${params.toString()}`,
+            );
+            return [item.key, result.meta.total] as const;
+          }),
+        );
+        setTabCounts(Object.fromEntries(results) as Record<TabKey, number>);
+      } catch {
+        // Daftar utama tetap dapat digunakan walau counter gagal dimuat.
+      }
+    };
+    void loadCounts();
+  }, [websiteId]);
 
   useEffect(() => {
     setPage(1);
@@ -161,7 +190,7 @@ export default function OrdersPage() {
                   : 'bg-white text-default-600 ring-1 ring-default-200 hover:bg-default-50'
               }`}
             >
-              {t.label}
+              {t.label} <span className="ml-1 opacity-80">({tabCounts[t.key]})</span>
             </button>
           );
         })}

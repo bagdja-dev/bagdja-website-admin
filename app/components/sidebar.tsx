@@ -151,10 +151,24 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-/** Path nav item yang butuh badge count dinamis, dan endpoint sumber count-nya. */
-const BADGE_COUNT_SOURCES: Record<string, (websiteId: string) => string> = {
-  '/dashboard/penawaran': (websiteId) => `/api/websites/${websiteId}/orders/drafts/count`,
-  '/dashboard/tagihan': (websiteId) => `/api/websites/${websiteId}/transactions/termins/count?status=SCHEDULED`,
+/** Counter menu sidebar yang di-scope ke website aktif. */
+const BADGE_COUNT_LOADERS: Record<string, (websiteId: string) => Promise<number>> = {
+  '/dashboard/penawaran': async (websiteId) => {
+    const result = await apiClient<{ count: number }>(`/api/websites/${websiteId}/orders/drafts/count`);
+    return result.count;
+  },
+  '/dashboard/orders': async (websiteId) => {
+    const result = await apiClient<{ meta: { total: number } }>(
+      `/api/websites/${websiteId}/transactions?page=1&size=1&status=PENDING_PAYMENT,PENDING,HELD,DISPUTED`,
+    );
+    return result.meta.total;
+  },
+  '/dashboard/tagihan': async (websiteId) => {
+    const result = await apiClient<{ count: number }>(
+      `/api/websites/${websiteId}/transactions/termins/count?status=SCHEDULED`,
+    );
+    return result.count;
+  },
 };
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -167,10 +181,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     let cancelled = false;
 
     const loadCounts = () => {
-      Object.entries(BADGE_COUNT_SOURCES).forEach(([href, buildPath]) => {
-        apiClient<{ count: number }>(buildPath(websiteId))
-          .then((res) => {
-            if (!cancelled) setBadgeCounts((prev) => ({ ...prev, [href]: res.count }));
+      Object.entries(BADGE_COUNT_LOADERS).forEach(([href, loadCount]) => {
+        loadCount(websiteId)
+          .then((count) => {
+            if (!cancelled) setBadgeCounts((prev) => ({ ...prev, [href]: count }));
           })
           .catch(() => {
             // Badge opsional — diamkan saja kalau gagal, jangan ganggu navigasi.

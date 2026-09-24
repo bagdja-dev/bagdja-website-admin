@@ -863,6 +863,23 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 export default function PenawaranPage() {
   const { websiteId, loading: ctxLoading } = useWebsiteContext();
   const [tab, setTab] = useState<TabKey>('aktif');
+  const [tabCounts, setTabCounts] = useState<Record<TabKey, number>>({ aktif: 0, dibatalkan: 0 });
+
+  useEffect(() => {
+    if (!websiteId) return;
+    const loadCounts = async () => {
+      try {
+        const [active, cancelled] = await Promise.all([
+          apiClient<Array<unknown>>(`/api/websites/${websiteId}/orders/drafts`),
+          apiClient<Array<unknown>>(`/api/websites/${websiteId}/orders/preorders/cancelled`),
+        ]);
+        setTabCounts({ aktif: active.length, dibatalkan: cancelled.length });
+      } catch {
+        // Tab content tetap dapat dimuat walau counter gagal.
+      }
+    };
+    void loadCounts();
+  }, [websiteId]);
 
   if (ctxLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
@@ -888,7 +905,7 @@ export default function PenawaranPage() {
                   : 'bg-white text-default-600 ring-1 ring-default-200 hover:bg-default-50'
               }`}
             >
-              {t.label}
+              {t.label} <span className="ml-1 opacity-80">({tabCounts[t.key]})</span>
             </button>
           );
         })}
