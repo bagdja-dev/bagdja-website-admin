@@ -30,6 +30,7 @@ interface DraftOrder {
   unit_price: number;
   total_amount: number;
   quoted_total_amount: number | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   location?: { name?: string } | null;
   vendor?: { name?: string; status?: string } | null;
@@ -399,7 +400,8 @@ function PraorderAktifTab() {
                   <div><h2 className="font-semibold">{draft.product?.name ?? 'Produk'}</h2><p className="mt-1 text-xs text-default-500">{formatDate(draft.created_at)}</p></div>
                   <Chip size="sm" color={draft.vendor ? 'success' : 'warning'} variant="flat">{draft.vendor ? 'Vendor ditugaskan' : 'Belum ditugaskan'}</Chip>
                 </div>
-                <div className="overflow-hidden rounded-lg border border-default-200 bg-white lg:col-start-2 lg:row-start-2">
+                <div className="space-y-4 lg:col-start-2 lg:row-start-2">
+                <div className="overflow-hidden rounded-lg border border-default-200 bg-white">
                   {draft.product?.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -420,17 +422,26 @@ function PraorderAktifTab() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm lg:col-start-2 lg:row-start-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div><p className="text-xs text-default-400">Buyer</p><p className="truncate">{draft.buyer_identifier ?? '—'}</p></div>
-                  <div><p className="text-xs text-default-400">Total</p><p className="font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</p></div>
+                  <div>
+                    <p className="text-xs text-default-400">
+                      {draft.quoted_total_amount == null
+                        ? 'Total'
+                        : typeof draft.metadata?.quote_first_termin_label === 'string'
+                          ? `Termin 1 (${draft.metadata.quote_first_termin_label})`
+                          : 'Sekali Bayar'}
+                    </p>
+                    <p className="font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</p>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs lg:col-start-2 lg:row-start-4">
+                <div className="flex flex-wrap gap-2 text-xs">
                   <Chip size="sm" variant="flat">Qty {draft.quantity}</Chip>
                   <Chip size="sm" variant="flat">Lokasi: {draft.location?.name ?? 'Belum dipilih'}</Chip>
                   {draft.vendor && <Chip size="sm" variant="flat">Vendor: {draft.vendor.name}</Chip>}
                 </div>
                 {draft.praorderProgress && (
-                  <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-2 lg:row-start-5">
+                  <div className="rounded-lg border border-default-200 bg-white p-3">
                     <p className="mb-2 text-xs font-medium text-default-600">
                       Step Praorder — {draft.praorderProgress.flowName}
                     </p>
@@ -537,7 +548,9 @@ function PraorderAktifTab() {
                   </div>
                 )}
 
-                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-2 lg:row-span-3">
+                </div>
+
+                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-2">
                   <p className="mb-2 text-xs font-medium text-default-600">Harga final quotation</p>
                   <div className="flex items-end gap-2">
                     <MaskedIntegerInput
@@ -695,7 +708,7 @@ function PraorderAktifTab() {
                     </Button>
                   )}
                 </div>
-                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500 lg:col-start-2">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
+                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500 lg:col-start-1">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
               </CardBody>
             </Card>
           ))}
