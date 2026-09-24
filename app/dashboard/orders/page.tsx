@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
-import PreordersPage from '../preorders/page';
 import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
 import { TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
@@ -15,17 +14,6 @@ import { useWebsiteContext } from '../../context/website-context';
 interface VendorOption {
   id: string;
   name: string;
-}
-
-interface CancelledPreorder {
-  id: string;
-  buyer_identifier: string | null;
-  quantity: number;
-  total_amount: number;
-  quoted_total_amount: number | null;
-  created_at: string;
-  metadata?: Record<string, unknown> | null;
-  product?: { name?: string | null } | null;
 }
 
 /** Nama vendor unik dari semua item transaksi ini — biasanya 1 order/transaksi, tapi dirender aman utk >1. */
@@ -40,14 +28,17 @@ function vendorNamesFor(tx: WebsiteTransaction): string {
  * Order Handling Phase 1 (plan/website-builder/order-hanlde-plan.md) —
  * daftar pesanan masuk ke website ini. Read-only (visibilitas), aksi
  * (refund/resolusi dispute/fulfillment) menyusul di fase berikutnya.
+ *
+ * Praorder (draft sebelum checkout) dipindah ke menu "Penawaran" tersendiri
+ * (`/dashboard/penawaran`) — sebelumnya jadi tab di sini tapi terpaksa
+ * dikecualikan dari tab "Semua" karena bukan filter status dari dataset
+ * transaksi yang sama (draft order, bukan transaksi).
  */
 
-type TabKey = 'all' | 'preorder' | 'preorder-cancelled' | 'awaiting' | 'process' | 'done' | 'cancelled';
+type TabKey = 'all' | 'awaiting' | 'process' | 'done' | 'cancelled';
 
 const TABS: Array<{ key: TabKey; label: string; statusQuery?: string }> = [
   { key: 'all', label: 'Semua' },
-  { key: 'preorder', label: 'Praorder' },
-  { key: 'preorder-cancelled', label: 'Praorder Dibatalkan' },
   { key: 'awaiting', label: 'Menunggu Bayar', statusQuery: 'PENDING_PAYMENT,PENDING' },
   { key: 'process', label: 'Diproses', statusQuery: 'HELD,DISPUTED' },
   { key: 'done', label: 'Selesai', statusQuery: 'COMPLETED' },
@@ -79,7 +70,6 @@ export default function OrdersPage() {
   const { websiteId, loading: ctxLoading } = useWebsiteContext();
   const [tab, setTab] = useState<TabKey>('all');
   const [transactions, setTransactions] = useState<WebsiteTransaction[]>([]);
-  const [cancelledPreorders, setCancelledPreorders] = useState<CancelledPreorder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
@@ -88,30 +78,9 @@ export default function OrdersPage() {
   const [vendorFilter, setVendorFilter] = useState('');
 
   const activeTab = TABS.find((t) => t.key === tab) ?? TABS[0];
-  const isPreorderTab = tab === 'preorder';
-  const isCancelledPreorderTab = tab === 'preorder-cancelled';
 
   const load = useCallback(async () => {
     if (!websiteId) return;
-    if (isPreorderTab) {
-      setLoading(false);
-      return;
-    }
-    if (isCancelledPreorderTab) {
-      setLoading(true);
-      setError('');
-      try {
-        setCancelledPreorders(
-          await apiClient<CancelledPreorder[]>(`/api/websites/${websiteId}/orders/preorders/cancelled`),
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Gagal memuat praorder yang dibatalkan');
-        setCancelledPreorders([]);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
     setLoading(true);
     setError('');
     try {
@@ -129,8 +98,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [websiteId, page, activeTab.statusQuery, vendorFilter, isPreorderTab, isCancelledPreorderTab]);
+  }, [websiteId, page, activeTab.statusQuery, vendorFilter]);
 
   useEffect(() => {
     void load();
@@ -158,7 +126,7 @@ export default function OrdersPage() {
         <p className="mt-1 text-default-500">Pesanan yang masuk ke toko ini dari buyer.</p>
       </div>
 
-      {vendors.length > 0 && !isPreorderTab && !isCancelledPreorderTab && (
+      {vendors.length > 0 && (
         <div className="flex items-center gap-2">
           <label className="text-sm text-default-500" htmlFor="vendor-filter">
             Vendor
@@ -199,60 +167,7 @@ export default function OrdersPage() {
         })}
       </div>
 
-      {isPreorderTab ? (
-        <PreordersPage />
-      ) : isCancelledPreorderTab ? (
-        loading ? (
-          <LoadingSpinner className="h-48" />
-        ) : error ? (
-          <Card className="border-0 shadow-md ring-1 ring-default-100">
-            <CardBody className="py-10 text-center text-sm text-danger">{error}</CardBody>
-          </Card>
-        ) : cancelledPreorders.length === 0 ? (
-          <Card className="overflow-hidden border-0 shadow-md ring-1 ring-default-100">
-            <CardBody className="flex flex-col items-center gap-3 py-16 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-default-100 text-3xl">🧾</div>
-              <p className="text-lg font-semibold">Belum ada praorder dibatalkan</p>
-              <p className="max-w-sm text-sm text-default-500">Praorder yang sudah mendapat quotation lalu dibatalkan akan muncul di sini.</p>
-            </CardBody>
-          </Card>
-        ) : (
-          <Card className="border-0 shadow-md ring-1 ring-default-100">
-            <CardBody className="p-0">
-              <Table aria-label="Praorder dibatalkan" removeWrapper>
-                <TableHeader>
-                  <TableColumn>WAKTU</TableColumn>
-                  <TableColumn>PEMBELI</TableColumn>
-                  <TableColumn>PRODUK</TableColumn>
-                  <TableColumn>HARGA QUOTATION</TableColumn>
-                  <TableColumn>ALASAN</TableColumn>
-                  <TableColumn> </TableColumn>
-                </TableHeader>
-                <TableBody>
-                  {cancelledPreorders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>{formatDate(order.created_at)}</TableCell>
-                      <TableCell>{order.buyer_identifier ?? '—'}</TableCell>
-                      <TableCell>{order.product?.name ?? '—'} · {order.quantity} item</TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCurrency(order.quoted_total_amount ?? order.total_amount, 'IDR')}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-default-500">
-                        {typeof order.metadata?.cancellation_reason === 'string' ? order.metadata.cancellation_reason : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Button as={Link} href={`/dashboard/orders/${order.id}`} size="sm" variant="flat" color="primary">
-                          Detail
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardBody>
-          </Card>
-        )
-      ) : loading ? (
+      {loading ? (
         <LoadingSpinner className="h-48" />
       ) : error ? (
         <Card className="border-0 shadow-md ring-1 ring-default-100">
@@ -351,7 +266,7 @@ export default function OrdersPage() {
         </>
       )}
 
-      {!isPreorderTab && !isCancelledPreorderTab && !loading && transactions.length > 0 && totalPages > 1 && (
+      {!loading && transactions.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>
             Sebelumnya

@@ -450,7 +450,7 @@ function BillingPageContent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            Tagihan & Langganan
+            Langganan
           </h1>
           <p className="text-sm text-default-500">
             Kelola saldo dan langganan Bagdja Website Builder Anda.

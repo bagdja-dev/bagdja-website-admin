@@ -1,6 +1,7 @@
 'use client';
 
-import { Button, Card, CardBody, Chip } from '@heroui/react';
+import { Button, Card, CardBody, Chip, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@heroui/react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { FormInput, FormSwitch } from '../../components/form-field';
@@ -13,6 +14,14 @@ import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
 import { hasMinRole, type OrderFulfillmentProgress, type OrderFulfillmentStepProgress } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
+
+/**
+ * Halaman "Penawaran" — inbox Praorder (survei/negosiasi/quotation sebelum
+ * checkout), dipisah dari menu "Pesanan" karena secara struktur data ini
+ * bukan filter status dari dataset transaksi yang sama (draft order, bukan
+ * transaksi) — sebelumnya jadi tab "Praorder"/"Praorder Dibatalkan" yang
+ * terpaksa dikecualikan dari tab "Semua" milik Pesanan, terasa ambigu.
+ */
 
 interface DraftOrder {
   id: string;
@@ -27,6 +36,17 @@ interface DraftOrder {
   product?: { name?: string; type?: string; quotable?: boolean; fulfillment_flow_id?: string | null } | null;
   /** fulfillment-praorder-plan.md §2.1 — ada kalau produknya punya step Praorder. */
   praorderProgress?: OrderFulfillmentProgress | null;
+}
+
+interface CancelledPreorder {
+  id: string;
+  buyer_identifier: string | null;
+  quantity: number;
+  total_amount: number;
+  quoted_total_amount: number | null;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+  product?: { name?: string | null } | null;
 }
 
 function stepKey(orderId: string, stepName: string): string {
@@ -100,9 +120,10 @@ function FillRemainingIcon() {
   );
 }
 
-export default function PreordersPage() {
+/** Tab "Aktif" — inbox draft praorder (belum dibatalkan), termasuk widget "Harga Final"/"Atur Termin". */
+function PraorderAktifTab() {
   const { alert, dialog: alertDialog } = useAlertDialog();
-  const { websiteId, role, loading: contextLoading } = useWebsiteContext();
+  const { websiteId, role } = useWebsiteContext();
   const canEdit = role ? hasMinRole(role, 'editor') : false;
   const [drafts, setDrafts] = useState<DraftOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -286,23 +307,20 @@ export default function PreordersPage() {
     }
   };
 
-  if (contextLoading) return <LoadingSpinner />;
-  if (!websiteId) return <NoWebsiteState />;
+  // Parent (`PenawaranPage`) sudah menjamin `websiteId` terisi sebelum render tab
+  // ini, tapi TypeScript tidak bisa membawa narrowing lintas komponen — guard di
+  // sini murni supaya `websiteId` ke bawah bertipe `string` (bukan `string | null`).
+  if (!websiteId) return null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Praorder</h1>
-        <p className="mt-1 text-default-500">Inbox draft order sebelum checkout untuk survey, quotation, dan penugasan vendor.</p>
-      </div>
-
+    <div className="space-y-4">
       {error && <p className="text-sm text-danger">{error}</p>}
       {loading ? <LoadingSpinner className="h-48" /> : drafts.length === 0 ? (
         <Card className="border-0 shadow-md ring-1 ring-default-100"><CardBody className="py-16 text-center"><p className="text-lg font-semibold">Belum ada draft praorder</p><p className="mt-1 text-sm text-default-500">Draft akan muncul setelah buyer menekan Pesan, sebelum checkout.</p></CardBody></Card>
       ) : selectedDraft ? (
         <>
           <Button variant="light" onPress={() => setSelectedDraftId(null)}>
-            ← Kembali ke daftar praorder
+            ← Kembali ke daftar penawaran
           </Button>
           <div className="grid gap-4">
           {[selectedDraft].map((draft) => (
@@ -641,6 +659,139 @@ export default function PreordersPage() {
         </Card>
       )}
       {alertDialog}
+    </div>
+  );
+}
+
+/** Tab "Dibatalkan" — praorder quotable yang sudah di-quote lalu dibatalkan sebelum checkout. */
+function PraorderDibatalkanTab() {
+  const { websiteId } = useWebsiteContext();
+  const [cancelledPreorders, setCancelledPreorders] = useState<CancelledPreorder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!websiteId) return;
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    apiClient<CancelledPreorder[]>(`/api/websites/${websiteId}/orders/preorders/cancelled`)
+      .then((data) => {
+        if (!cancelled) setCancelledPreorders(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Gagal memuat praorder yang dibatalkan');
+          setCancelledPreorders([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [websiteId]);
+
+  if (loading) return <LoadingSpinner className="h-48" />;
+  if (error) {
+    return (
+      <Card className="border-0 shadow-md ring-1 ring-default-100">
+        <CardBody className="py-10 text-center text-sm text-danger">{error}</CardBody>
+      </Card>
+    );
+  }
+  if (cancelledPreorders.length === 0) {
+    return (
+      <Card className="overflow-hidden border-0 shadow-md ring-1 ring-default-100">
+        <CardBody className="flex flex-col items-center gap-3 py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-default-100 text-3xl">🧾</div>
+          <p className="text-lg font-semibold">Belum ada praorder dibatalkan</p>
+          <p className="max-w-sm text-sm text-default-500">Praorder yang sudah mendapat quotation lalu dibatalkan akan muncul di sini.</p>
+        </CardBody>
+      </Card>
+    );
+  }
+  return (
+    <Card className="border-0 shadow-md ring-1 ring-default-100">
+      <CardBody className="p-0">
+        <Table aria-label="Praorder dibatalkan" removeWrapper>
+          <TableHeader>
+            <TableColumn>WAKTU</TableColumn>
+            <TableColumn>PEMBELI</TableColumn>
+            <TableColumn>PRODUK</TableColumn>
+            <TableColumn>HARGA QUOTATION</TableColumn>
+            <TableColumn>ALASAN</TableColumn>
+            <TableColumn> </TableColumn>
+          </TableHeader>
+          <TableBody>
+            {cancelledPreorders.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell>{formatDate(order.created_at)}</TableCell>
+                <TableCell>{order.buyer_identifier ?? '—'}</TableCell>
+                <TableCell>{order.product?.name ?? '—'} · {order.quantity} item</TableCell>
+                <TableCell className="font-semibold">
+                  {formatCurrency(order.quoted_total_amount ?? order.total_amount, 'IDR')}
+                </TableCell>
+                <TableCell className="max-w-xs truncate text-default-500">
+                  {typeof order.metadata?.cancellation_reason === 'string' ? order.metadata.cancellation_reason : '—'}
+                </TableCell>
+                <TableCell>
+                  <Button as={Link} href={`/dashboard/orders/${order.id}`} size="sm" variant="flat" color="primary">
+                    Detail
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardBody>
+    </Card>
+  );
+}
+
+type TabKey = 'aktif' | 'dibatalkan';
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: 'aktif', label: 'Aktif' },
+  { key: 'dibatalkan', label: 'Dibatalkan' },
+];
+
+export default function PenawaranPage() {
+  const { websiteId, loading: ctxLoading } = useWebsiteContext();
+  const [tab, setTab] = useState<TabKey>('aktif');
+
+  if (ctxLoading) return <LoadingSpinner />;
+  if (!websiteId) return <NoWebsiteState />;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Penawaran</h1>
+        <p className="mt-1 text-default-500">Inbox permintaan penawaran sebelum checkout — survey, quotation, dan penugasan vendor.</p>
+      </div>
+
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                active
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/25'
+                  : 'bg-white text-default-600 ring-1 ring-default-200 hover:bg-default-50'
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'aktif' ? <PraorderAktifTab /> : <PraorderDibatalkanTab />}
     </div>
   );
 }

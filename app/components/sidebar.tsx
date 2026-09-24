@@ -2,6 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { useWebsiteContext } from '../context/website-context';
+import { apiClient } from '../lib/api-client';
 
 interface NavItem {
   label: string;
@@ -38,11 +42,30 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Penawaran',
+    href: '/dashboard/penawaran',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
+      </svg>
+    ),
+  },
+  {
     label: 'Pesanan',
     href: '/dashboard/orders',
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.716 2.622-7.22a1.126 1.126 0 0 0-1.108-1.372H5.25M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Tagihan',
+    href: '/dashboard/tagihan',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9v12a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V4.5A2.25 2.25 0 0 1 6.75 2.25h7.5l4.5 4.5Z" />
       </svg>
     ),
   },
@@ -103,7 +126,7 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    label: 'Tagihan & Langganan',
+    label: 'Langganan',
     href: '/dashboard/billing',
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -128,8 +151,40 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+/** Path nav item yang butuh badge count dinamis, dan endpoint sumber count-nya. */
+const BADGE_COUNT_SOURCES: Record<string, (websiteId: string) => string> = {
+  '/dashboard/penawaran': (websiteId) => `/api/websites/${websiteId}/orders/drafts/count`,
+  '/dashboard/tagihan': (websiteId) => `/api/websites/${websiteId}/transactions/termins/count?status=SCHEDULED`,
+};
+
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { websiteId } = useWebsiteContext();
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!websiteId) return;
+    let cancelled = false;
+
+    const loadCounts = () => {
+      Object.entries(BADGE_COUNT_SOURCES).forEach(([href, buildPath]) => {
+        apiClient<{ count: number }>(buildPath(websiteId))
+          .then((res) => {
+            if (!cancelled) setBadgeCounts((prev) => ({ ...prev, [href]: res.count }));
+          })
+          .catch(() => {
+            // Badge opsional — diamkan saja kalau gagal, jangan ganggu navigasi.
+          });
+      });
+    };
+
+    loadCounts();
+    window.addEventListener('focus', loadCounts);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', loadCounts);
+    };
+  }, [websiteId]);
 
   return (
     <>
@@ -188,7 +243,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     `}
                   >
                     {item.icon}
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {Boolean(badgeCounts[item.href]) && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-xs font-semibold text-white">
+                        {badgeCounts[item.href]}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

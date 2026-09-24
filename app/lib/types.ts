@@ -428,6 +428,37 @@ export const TRANSACTION_STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Dibatalkan',
 };
 
+export const TERMIN_STATUS_LABELS: Record<TerminSummary['status'], string> = {
+  SCHEDULED: 'Menunggu diterbitkan',
+  ISSUED: 'Menunggu dibayar',
+  PAID: 'Lunas',
+  CANCELLED: 'Dibatalkan',
+};
+
+/** 1 baris di halaman "Tagihan" (list Termin lintas-order) — lihat `TerminListItemDto` di bagdja-website-api. */
+export interface TagihanListItem {
+  id: string;
+  sequence: number;
+  label: string;
+  amount: number;
+  status: TerminSummary['status'];
+  anchorStepName: string | null;
+  orderId: string;
+  /** Transaksi ASLI berisi order ini — dipakai utk link "Lihat Order" (BEDA dari `transactionId` di bawah). */
+  orderTransactionId: string | null;
+  productName: string | null;
+  buyerIdentifier: string | null;
+  /** Terisi begitu Termin ini sendiri sudah dibayar (transaksi pembayaran Termin, bukan transaksi order asal). */
+  transactionId: string | null;
+  createdAt: string;
+  issuedAt: string | null;
+}
+
+export interface TagihanListResponse {
+  data: TagihanListItem[];
+  meta: { page: number; size: number; total: number; totalPages: number };
+}
+
 export const LOCATION_TYPE_LABELS: Record<string, string> = {
   branch: 'Cabang',
   warehouse: 'Gudang',

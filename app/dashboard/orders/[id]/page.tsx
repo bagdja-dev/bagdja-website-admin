@@ -16,6 +16,7 @@ import { apiClient, ApiError } from '../../../lib/api-client';
 import { formatCurrency } from '../../../lib/currency';
 import {
   hasMinRole,
+  TERMIN_STATUS_LABELS,
   TRANSACTION_STATUS_LABELS,
   type OrderFulfillmentStepProgress,
   type WebsiteTransaction,
@@ -544,6 +545,9 @@ export default function OrderDetailPage() {
     0,
   );
   const shippingCost = transaction.shipping_cost ?? 0;
+  const pendingTerminsCount = Object.values(transaction.fulfillment ?? {}).flatMap(
+    (f) => f.termins,
+  ).filter((t) => t.status === 'SCHEDULED').length;
 
   return (
     <div className="space-y-6">
@@ -560,6 +564,15 @@ export default function OrderDetailPage() {
           {TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status}
         </Chip>
       </div>
+
+      {pendingTerminsCount > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          <span className="font-semibold">
+            {pendingTerminsCount} Termin menunggu diterbitkan
+          </span>
+          <span className="text-warning-600">— buka bagian Termin di bawah untuk menerbitkannya.</span>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
@@ -965,7 +978,7 @@ export default function OrderDetailPage() {
                                                 : 'default'
                                           }
                                         >
-                                          {termin.status}
+                                          {TERMIN_STATUS_LABELS[termin.status] ?? termin.status}
                                         </Chip>
                                         {termin.status === 'SCHEDULED' && canManageFulfillment && (
                                           <Button
