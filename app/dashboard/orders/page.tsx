@@ -8,7 +8,7 @@ import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
-import { TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
+import { transactionGridTotal, TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 
 interface VendorOption {
@@ -206,7 +206,7 @@ export default function OrdersPage() {
                       <TableCell>{tx.buyer_identifier ?? '—'}</TableCell>
                       <TableCell>{tx.items?.length ?? 0} item</TableCell>
                       <TableCell className="font-semibold">
-                        {formatCurrency(tx.total_amount, tx.currency)}
+                        {formatCurrency(transactionGridTotal(tx), tx.currency)}
                       </TableCell>
                       <TableCell>{vendorNamesFor(tx)}</TableCell>
                       <TableCell>
@@ -256,7 +256,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-semibold text-foreground">
-                    {formatCurrency(tx.total_amount, tx.currency)}
+                    {formatCurrency(transactionGridTotal(tx), tx.currency)}
                   </span>
                   <span className="text-xs font-medium text-primary">Lihat detail →</span>
                 </div>

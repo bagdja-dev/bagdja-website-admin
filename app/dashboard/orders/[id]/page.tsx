@@ -16,6 +16,7 @@ import { apiClient, ApiError } from '../../../lib/api-client';
 import { formatCurrency } from '../../../lib/currency';
 import {
   hasMinRole,
+  isPartiallyCompleted,
   TERMIN_STATUS_LABELS,
   TRANSACTION_STATUS_LABELS,
   type OrderFulfillmentStepProgress,
@@ -72,6 +73,18 @@ interface VendorCandidate {
   id: string;
   name: string;
   contact_whatsapp?: string | null;
+}
+
+interface CancelledPreorderDetail {
+  id: string;
+  buyer_identifier: string | null;
+  quantity: number;
+  total_amount: number;
+  quoted_total_amount: number | null;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+  location?: { name?: string } | null;
+  product?: { name?: string | null } | null;
 }
 
 /**
@@ -139,6 +152,7 @@ export default function OrderDetailPage() {
   const { confirm, dialog } = useConfirmDialog();
   const { alert, dialog: alertDialog } = useAlertDialog();
   const [transaction, setTransaction] = useState<WebsiteTransaction | null>(null);
+  const [cancelledPreorder, setCancelledPreorder] = useState<CancelledPreorderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refunding, setRefunding] = useState(false);
@@ -174,7 +188,21 @@ export default function OrderDetailPage() {
         `/api/websites/${websiteId}/transactions/${params.id}`,
       );
       setTransaction(data);
+      setCancelledPreorder(null);
     } catch (err) {
+      try {
+        const cancelled = await apiClient<CancelledPreorderDetail[]>(
+          `/api/websites/${websiteId}/orders/preorders/cancelled`,
+        );
+        const found = cancelled.find((order) => order.id === params.id) ?? null;
+        if (found) {
+          setCancelledPreorder(found);
+          setTransaction(null);
+          return;
+        }
+      } catch {
+        // Keep the original transaction error when the fallback also fails.
+      }
       setError(err instanceof Error ? err.message : 'Gagal memuat detail pesanan');
     } finally {
       setLoading(false);
@@ -514,6 +542,37 @@ export default function OrderDetailPage() {
   if (!websiteId) return <NoWebsiteState />;
   if (loading) return <LoadingSpinner />;
 
+  if (cancelledPreorder) {
+    const cancellationReason = typeof cancelledPreorder.metadata?.cancellation_reason === 'string'
+      ? cancelledPreorder.metadata.cancellation_reason
+      : 'Dibatalkan oleh penjual';
+    return (
+      <div className="space-y-6">
+        <Link href="/dashboard/penawaran?tab=dibatalkan" className="text-sm font-medium text-primary hover:underline">
+          ← Kembali ke Penawaran
+        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Detail Penawaran</h1>
+            <p className="mt-1 text-sm text-default-500">{formatDate(cancelledPreorder.created_at)}</p>
+          </div>
+          <Chip size="lg" variant="flat" color="danger">Dibatalkan</Chip>
+        </div>
+        <Card className="border-0 shadow-md ring-1 ring-default-100">
+          <CardHeader className="font-semibold">Ringkasan Penawaran</CardHeader>
+          <CardBody className="grid gap-3 text-sm sm:grid-cols-2">
+            <div><p className="text-xs text-default-500">Produk</p><p className="font-medium">{cancelledPreorder.product?.name ?? '—'}</p></div>
+            <div><p className="text-xs text-default-500">Buyer</p><p className="font-medium">{cancelledPreorder.buyer_identifier ?? '—'}</p></div>
+            <div><p className="text-xs text-default-500">Jumlah</p><p className="font-medium">{cancelledPreorder.quantity}</p></div>
+            <div><p className="text-xs text-default-500">Lokasi</p><p className="font-medium">{cancelledPreorder.location?.name ?? 'Belum dipilih'}</p></div>
+            <div><p className="text-xs text-default-500">Harga quotation</p><p className="font-semibold">{formatCurrency(cancelledPreorder.quoted_total_amount ?? cancelledPreorder.total_amount, 'IDR')}</p></div>
+            <div><p className="text-xs text-default-500">Alasan pembatalan</p><p className="font-medium">{cancellationReason}</p></div>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
   if (error || !transaction) {
     return (
       <div className="space-y-4">
@@ -549,6 +608,7 @@ export default function OrderDetailPage() {
   const pendingTerminsCount = Object.values(transaction.fulfillment ?? {}).flatMap(
     (f) => f.termins,
   ).filter((t) => t.status === 'SCHEDULED').length;
+  const partiallyCompleted = isPartiallyCompleted(transaction);
 
   /** 1 baris Termin — dipakai baik di ringkasan grup (default, tanpa perlu "Lihat per produk") maupun di rincian per produk. */
   const renderTerminRow = (termin: TerminSummary, orderId: string, productName?: string) => {
@@ -603,8 +663,8 @@ export default function OrderDetailPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Detail Pesanan</h1>
           <p className="mt-1 text-sm text-default-500">{formatDate(transaction.created_at)}</p>
         </div>
-        <Chip size="lg" variant="flat" color={STATUS_TONE[transaction.status] ?? 'default'}>
-          {TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status}
+        <Chip size="lg" variant="flat" color={partiallyCompleted ? 'warning' : (STATUS_TONE[transaction.status] ?? 'default')}>
+          {partiallyCompleted ? 'Selesai Sebagian' : (TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status)}
         </Chip>
       </div>
 

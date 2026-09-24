@@ -384,25 +384,25 @@ function PraorderAktifTab() {
             </div>
           )}
 
-          <div className="grid gap-4">
+          <div className="mx-auto grid w-full max-w-6xl gap-4">
           {[selectedDraft].map((draft) => (
             <Card key={draft.id} className="border-0 shadow-md ring-1 ring-default-100">
-              <CardBody className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
+              <CardBody className="grid items-start gap-4 lg:grid-cols-2">
+                <div className="flex items-start justify-between gap-3 lg:col-span-2">
                   <div><h2 className="font-semibold">{draft.product?.name ?? 'Produk'}</h2><p className="mt-1 text-xs text-default-500">{formatDate(draft.created_at)}</p></div>
                   <Chip size="sm" color={draft.vendor ? 'success' : 'warning'} variant="flat">{draft.vendor ? 'Vendor ditugaskan' : 'Belum ditugaskan'}</Chip>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm lg:col-start-1 lg:row-start-2">
                   <div><p className="text-xs text-default-400">Buyer</p><p className="truncate">{draft.buyer_identifier ?? '—'}</p></div>
                   <div><p className="text-xs text-default-400">Total</p><p className="font-semibold">{formatCurrency(draft.total_amount, 'IDR')}</p></div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs">
+                <div className="flex flex-wrap gap-2 text-xs lg:col-start-1 lg:row-start-3">
                   <Chip size="sm" variant="flat">Qty {draft.quantity}</Chip>
                   <Chip size="sm" variant="flat">Lokasi: {draft.location?.name ?? 'Belum dipilih'}</Chip>
                   {draft.vendor && <Chip size="sm" variant="flat">Vendor: {draft.vendor.name}</Chip>}
                 </div>
                 {draft.praorderProgress && (
-                  <div className="rounded-lg border border-default-200 bg-white p-3">
+                  <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-4">
                     <p className="mb-2 text-xs font-medium text-default-600">
                       Step Praorder — {draft.praorderProgress.flowName}
                     </p>
@@ -509,7 +509,7 @@ function PraorderAktifTab() {
                   </div>
                 )}
 
-                <div className="rounded-lg border border-default-200 bg-white p-3">
+                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-2 lg:row-start-2 lg:row-span-3">
                   <p className="mb-2 text-xs font-medium text-default-600">Harga final quotation</p>
                   <div className="flex items-end gap-2">
                     <MaskedIntegerInput
@@ -667,7 +667,7 @@ function PraorderAktifTab() {
                     </Button>
                   )}
                 </div>
-                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
+                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500 lg:col-start-2">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
               </CardBody>
             </Card>
           ))}

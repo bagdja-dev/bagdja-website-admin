@@ -279,6 +279,8 @@ export interface TransactionItem {
     vendor_id?: string | null;
     vendor?: { id: string; name: string } | null;
     product?: TransactionProduct | null;
+    /** Harga final quotation keseluruhan (beda dari `total_amount` item ini, yang cuma nilai DP kalau order-nya pakai skema Termin). Dipakai utk hitung nilai total transaksi di grid termasuk Termin. */
+    quoted_total_amount?: number | null;
   } | null;
 }
 
@@ -336,6 +338,33 @@ export interface WebsiteTransaction {
   /** `{ order_id: progress }` — hanya ada di response detail. */
   fulfillment?: Record<string, OrderFulfillmentProgress>;
   metadata?: { shipping?: TransactionShippingMetadata } | null;
+}
+
+/**
+ * Nilai total transaksi TERMASUK Termin 2..N — beda dari `tx.total_amount`
+ * yang cuma nilai checkout pertama (DP kalau order-nya pakai skema Termin).
+ * Per item: pakai `quoted_total_amount` (harga final quotation keseluruhan)
+ * kalau ada, fallback ke `total_amount` item itu sendiri (produk non-quotable
+ * atau belum di-quote — dua-duanya sama nilainya, jadi aman diterapkan ke
+ * semua transaksi, bukan cuma yang punya Termin).
+ */
+export function transactionGridTotal(tx: Pick<WebsiteTransaction, 'items' | 'total_amount'>): number {
+  const items = tx.items ?? [];
+  if (items.length === 0) return tx.total_amount;
+  return items.reduce((sum, item) => sum + (item.order?.quoted_total_amount ?? item.total_amount), 0);
+}
+
+/**
+ * Status COMPLETED tapi masih ada Termin yang belum PAID/CANCELLED — dari
+ * sudut pandang keseluruhan pesanan (bukan cuma transaksi/DP ini), order-nya
+ * belum benar-benar tuntas. Cuma label tampilan — TIDAK mengubah `tx.status`
+ * asli (yang masih dipakai logic lain: jendela dispute, force-complete, dst).
+ */
+export function isPartiallyCompleted(tx: Pick<WebsiteTransaction, 'status' | 'fulfillment'>): boolean {
+  if (tx.status !== 'COMPLETED') return false;
+  return Object.values(tx.fulfillment ?? {})
+    .flatMap((f) => f.termins)
+    .some((t) => t.status !== 'PAID' && t.status !== 'CANCELLED');
 }
 
 /**
