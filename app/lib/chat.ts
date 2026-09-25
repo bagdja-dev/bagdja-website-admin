@@ -128,6 +128,10 @@ export type ChatReference = {
   href?: string;
 };
 
+export function createChatReferenceMessage(reference: ChatReference): string {
+  return `${REFERENCE_PREFIX}${JSON.stringify(reference)}`;
+}
+
 export function parseChatReference(body?: string | null): ChatReference | null {
   const prefix = '__BAGDJA_CHAT_REFERENCE__';
   if (!body?.startsWith(prefix)) return null;

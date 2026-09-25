@@ -25,6 +25,7 @@ import {
 } from '../../../lib/types';
 import { formatCourierCode } from '../../../lib/courier-labels';
 import { useWebsiteContext } from '../../../context/website-context';
+import { createChatReferenceMessage } from '../../../lib/chat';
 
 function stepKey(orderId: string, stepName: string): string {
   return `${orderId}::${stepName}`;
@@ -158,6 +159,7 @@ export default function OrderDetailPage() {
   const [error, setError] = useState('');
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState('');
+  const [chatStarting, setChatStarting] = useState(false);
   const [forceCompleting, setForceCompleting] = useState(false);
   const [completingKey, setCompletingKey] = useState<string | null>(null);
   const [completeFormData, setCompleteFormData] = useState<Record<string, unknown>>({});
@@ -556,6 +558,41 @@ export default function OrderDetailPage() {
     }
   };
 
+  const startOrderChat = async () => {
+    if (!websiteId || !transaction) return;
+
+    setChatStarting(true);
+    try {
+      const firstOrderId = transaction.items?.[0]?.order_id ?? undefined;
+      const response = await apiClient<{ id?: string }>(`/api/chat/${websiteId}/threads`, {
+        method: 'POST',
+        body: JSON.stringify({
+          channel_type: 'order',
+          channel_label: `TRX ${transaction.id.slice(0, 8)}`,
+          order_id: firstOrderId,
+          customer_user_id: transaction.buyer_user_id,
+          initial_message: createChatReferenceMessage({
+            type: 'transaction',
+            id: transaction.id,
+            title: `TRX ${transaction.id.slice(0, 8)}`,
+            href: `/dashboard/orders/${transaction.id}`,
+            meta: transaction.items?.[0]?.order?.product?.name ?? 'Detail pesanan',
+          }),
+        }),
+      });
+
+      const createdThreadId = response.id;
+      router.push(createdThreadId ? `/dashboard/chats?thread=${encodeURIComponent(createdThreadId)}` : '/dashboard/chats');
+    } catch (err) {
+      await alert({
+        title: 'Gagal membuka chat',
+        message: err instanceof ApiError ? err.message : 'Tidak dapat menyiapkan percakapan order.',
+      });
+    } finally {
+      setChatStarting(false);
+    }
+  };
+
   if (ctxLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
   if (loading) return <LoadingSpinner />;
@@ -681,9 +718,20 @@ export default function OrderDetailPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Detail Pesanan</h1>
           <p className="mt-1 text-sm text-default-500">{formatDate(transaction.created_at)}</p>
         </div>
-        <Chip size="lg" variant="flat" color={partiallyCompleted ? 'warning' : (STATUS_TONE[transaction.status] ?? 'default')}>
-          {partiallyCompleted ? 'Selesai Sebagian' : (TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status)}
-        </Chip>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            color="primary"
+            variant="flat"
+            isLoading={chatStarting}
+            onPress={() => void startOrderChat()}
+          >
+            Mulai Chat
+          </Button>
+          <Chip size="lg" variant="flat" color={partiallyCompleted ? 'warning' : (STATUS_TONE[transaction.status] ?? 'default')}>
+            {partiallyCompleted ? 'Selesai Sebagian' : (TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status)}
+          </Chip>
+        </div>
       </div>
 
       {pendingTerminsCount > 0 && (

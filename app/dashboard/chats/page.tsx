@@ -1,6 +1,7 @@
 'use client';
 
-import { Card, CardBody, Textarea } from '@heroui/react';
+import { Card, CardBody } from '@heroui/react';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRealtime } from '../../components/realtime-provider';
@@ -33,10 +34,50 @@ interface ChatThread {
 
 interface ChatMessage {
   id: string;
+  messageId?: string | null;
+  message_id?: string | null;
   senderUserId?: string | null;
+  sender_user_id?: string | null;
   senderDisplayName?: string | null;
+  sender_display_name?: string | null;
   body?: string | null;
   createdAt?: string | null;
+  created_at?: string | null;
+}
+
+function messageId(message: ChatMessage) {
+  return message.id || message.messageId || message.message_id || '';
+}
+
+function sameMessage(left: ChatMessage, right: ChatMessage) {
+  const leftId = messageId(left);
+  const rightId = messageId(right);
+  if (leftId && rightId && leftId === rightId) return true;
+
+  const leftSender = left.senderUserId ?? left.sender_user_id;
+  const rightSender = right.senderUserId ?? right.sender_user_id;
+  const leftTime = Date.parse(left.createdAt ?? left.created_at ?? '');
+  const rightTime = Date.parse(right.createdAt ?? right.created_at ?? '');
+  return Boolean(
+    left.body
+    && left.body === right.body
+    && leftSender
+    && leftSender === rightSender
+    && Number.isFinite(leftTime)
+    && Number.isFinite(rightTime)
+    && Math.abs(leftTime - rightTime) < 3000,
+  );
+}
+
+function mergeMessage(existing: ChatMessage, incoming: ChatMessage): ChatMessage {
+  return {
+    ...existing,
+    ...incoming,
+    id: messageId(incoming) || messageId(existing),
+    senderUserId: incoming.senderUserId ?? incoming.sender_user_id ?? existing.senderUserId ?? existing.sender_user_id,
+    senderDisplayName: incoming.senderDisplayName ?? incoming.sender_display_name ?? existing.senderDisplayName ?? existing.sender_display_name,
+    createdAt: incoming.createdAt ?? incoming.created_at ?? existing.createdAt ?? existing.created_at,
+  };
 }
 
 type ChipTone = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
@@ -72,6 +113,7 @@ const STATUS_FILTERS = [
 export default function ChatsPage() {
   const { websiteId, loading: websiteLoading, activeWebsite } = useWebsiteContext();
   const websiteSlug = activeWebsite?.website.slug;
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { subscribe } = useRealtime();
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -86,6 +128,7 @@ export default function ChatsPage() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const messagesPaneRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
   const threadsRef = useRef<ChatThread[]>([]);
   const userIdRef = useRef<string | null>(null);
@@ -112,8 +155,11 @@ export default function ChatsPage() {
     try {
       if (!silent) setLoading(true);
 
+      const queryThreadId = searchParams.get('thread');
+      const effectiveChannelFilter = queryThreadId ? 'all' : channelFilter;
+
       const params = new URLSearchParams();
-      params.set('channel_type', channelFilter);
+      params.set('channel_type', effectiveChannelFilter);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (search.trim()) params.set('search', search.trim());
 
@@ -123,9 +169,18 @@ export default function ChatsPage() {
       );
       const nextThreads = Array.isArray(payload) ? payload : payload.items ?? [];
       setThreads(nextThreads);
-      setSelectedThreadId((current) => (
-        current && nextThreads.some((thread) => thread.id === current) ? current : null
-      ));
+
+      const matchedThread = queryThreadId ? nextThreads.find((thread) => thread.id === queryThreadId) : null;
+      if (matchedThread) {
+        const targetFilter = matchedThread.channel_type === 'support' ? 'support' : matchedThread.channel_type === 'product' ? 'product' : 'order';
+        setChannelFilter((current) => current === targetFilter ? current : targetFilter);
+        setSelectedThreadId(queryThreadId);
+      } else {
+        setSelectedThreadId((current) => {
+          if (queryThreadId) return null;
+          return current && nextThreads.some((thread) => thread.id === current) ? current : null;
+        });
+      }
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat inbox chat');
@@ -133,7 +188,7 @@ export default function ChatsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [channelFilter, search, statusFilter, websiteId]);
+  }, [channelFilter, search, statusFilter, searchParams, websiteId]);
 
   useEffect(() => {
     void loadThreads();
@@ -181,7 +236,7 @@ export default function ChatsPage() {
 
       const preview = typeof eventData.body === 'string' ? eventData.body.replace(/\s+/g, ' ').trim().slice(0, 140) : '';
       const createdAt = typeof eventData.createdAt === 'string' ? eventData.createdAt : new Date().toISOString();
-      const messageId = String(eventData.messageId ?? eventData.id ?? `evt-${createdAt}`);
+      const eventMessageId = String(eventData.messageId ?? eventData.message_id ?? eventData.id ?? `evt-${createdAt}`);
       const openThreadId = selectedThreadIdRef.current;
       const isOpen = Boolean(openThreadId && (
         openThreadId === eventThreadId
@@ -208,15 +263,18 @@ export default function ChatsPage() {
       if (!isOpen || !openThreadId) return;
 
       setMessages((current) => (
-        current.some((message) => message.id === messageId)
-          ? current
-          : [...current, {
-              id: messageId,
+        (() => {
+          const incoming: ChatMessage = {
+              id: eventMessageId,
               body: typeof eventData.body === 'string' ? eventData.body : '',
-              senderUserId: typeof eventData.senderUserId === 'string' ? eventData.senderUserId : null,
-              senderDisplayName: typeof eventData.senderDisplayName === 'string' ? eventData.senderDisplayName : null,
+              senderUserId: typeof (eventData.senderUserId ?? eventData.sender_user_id) === 'string' ? String(eventData.senderUserId ?? eventData.sender_user_id) : null,
+              senderDisplayName: typeof (eventData.senderDisplayName ?? eventData.sender_display_name) === 'string' ? String(eventData.senderDisplayName ?? eventData.sender_display_name) : null,
               createdAt,
-            }]
+          };
+          const duplicateIndex = current.findIndex((message) => sameMessage(message, incoming));
+          if (duplicateIndex < 0) return [...current, incoming];
+          return current.map((message, index) => index === duplicateIndex ? mergeMessage(message, incoming) : message);
+        })()
       ));
       void markThreadRead(openThreadId);
     });
@@ -257,6 +315,15 @@ export default function ChatsPage() {
     scrollMessagesToBottom();
   }, [messages, messagesLoading, selectedThreadId, scrollMessagesToBottom]);
 
+  useEffect(() => {
+    const textarea = composerRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const maxHeight = 160;
+    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [draft]);
+
   const sendMessage = useCallback(async () => {
     if (!selectedThreadId || !draft.trim() || sending) return;
     setSending(true);
@@ -266,7 +333,18 @@ export default function ChatsPage() {
         body: JSON.stringify({ body: draft.trim() }),
       });
       const preview = draft.trim().replace(/\s+/g, ' ').slice(0, 140);
-      setMessages((current) => [...current, created]);
+      const normalizedCreated: ChatMessage = {
+        ...created,
+        id: messageId(created) || `sent-${Date.now()}`,
+        senderUserId: created.senderUserId ?? created.sender_user_id ?? user?.userId ?? null,
+        senderDisplayName: created.senderDisplayName ?? created.sender_display_name,
+        createdAt: created.createdAt ?? created.created_at ?? new Date().toISOString(),
+      };
+      setMessages((current) => {
+        const duplicateIndex = current.findIndex((message) => sameMessage(message, normalizedCreated));
+        if (duplicateIndex < 0) return [...current, normalizedCreated];
+        return current.map((message, index) => index === duplicateIndex ? mergeMessage(message, normalizedCreated) : message);
+      });
       setDraft('');
       setThreads((current) => current.map((thread) => (
         thread.id === selectedThreadId
@@ -389,13 +467,14 @@ export default function ChatsPage() {
                     <p className="py-8 text-center text-sm text-default-500">Belum ada pesan.</p>
                   ) : (
                     messages.map((message) => {
-                      const isAdmin = message.senderUserId === selectedThread.merchant_id;
+                      const senderId = message.senderUserId ?? message.sender_user_id;
+                      const isAdmin = senderId === selectedThread.merchant_id || senderId === user?.userId;
                       const reference = parseChatReference(message.body);
                       return (
                         <div key={message.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground'}`}>
                             <p className="text-[10px] font-semibold uppercase opacity-70">
-                              {message.senderDisplayName ?? (isAdmin ? 'Admin' : selectedThread.customer_name ?? 'Customer')}
+                              {message.senderDisplayName ?? message.sender_display_name ?? (isAdmin ? 'Admin' : selectedThread.customer_name ?? 'Customer')}
                             </p>
                             {reference ? (
                               <AdminChatReferenceCard reference={reference} websiteSlug={websiteSlug} />
@@ -403,7 +482,7 @@ export default function ChatsPage() {
                               <p className="mt-1 whitespace-pre-wrap">{message.body}</p>
                             )}
                             <p className={`mt-1 text-[10px] ${isAdmin ? 'text-white/70' : 'text-default-500'}`}>
-                              {formatChatTime(message.createdAt)}
+                              {formatChatTime(message.createdAt ?? message.created_at)}
                             </p>
                           </div>
                         </div>
@@ -411,13 +490,15 @@ export default function ChatsPage() {
                     })
                   )}
                 </div>
-                <div className="flex shrink-0 items-end gap-2 border-t border-default-200 p-3">
-                  <Textarea
+                <div className="flex shrink-0 items-end gap-2 border-t border-default-200 bg-default-50/70 p-3">
+                  <textarea
+                    ref={composerRef}
                     value={draft}
-                    onValueChange={setDraft}
-                    minRows={1}
-                    maxRows={4}
+                    onChange={(event) => setDraft(event.target.value)}
+                    rows={1}
+                    maxLength={4000}
                     placeholder="Tulis balasan..."
+                    className="min-h-10 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-default-400 focus:ring-0"
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault();
