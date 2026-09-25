@@ -1,12 +1,13 @@
 'use client';
 
 import { Card, CardBody, Textarea } from '@heroui/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRealtime } from '../../components/realtime-provider';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { useWebsiteContext } from '../../context/website-context';
+import { useAuth } from '../../hooks/use-auth';
 import { apiClient } from '../../lib/api-client';
 import { AdminChatReferenceCard } from '../../components/chat-reference-card';
 import { formatChatTime, getThreadHeadline, getThreadSubtitle, parseChatReference } from '../../lib/chat';
@@ -71,6 +72,7 @@ const STATUS_FILTERS = [
 export default function ChatsPage() {
   const { websiteId, loading: websiteLoading, activeWebsite } = useWebsiteContext();
   const websiteSlug = activeWebsite?.website.slug;
+  const { user } = useAuth();
   const { subscribe } = useRealtime();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,16 +85,32 @@ export default function ChatsPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const messagesPaneRef = useRef<HTMLDivElement | null>(null);
+  const selectedThreadIdRef = useRef<string | null>(null);
+  const threadsRef = useRef<ChatThread[]>([]);
+  const userIdRef = useRef<string | null>(null);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
     [selectedThreadId, threads],
   );
 
-  const loadThreads = useCallback(async () => {
+  selectedThreadIdRef.current = selectedThreadId;
+  threadsRef.current = threads;
+  userIdRef.current = user?.userId ?? null;
+
+  const scrollMessagesToBottom = useCallback(() => {
+    const pane = messagesPaneRef.current;
+    if (!pane) return;
+    requestAnimationFrame(() => {
+      pane.scrollTop = pane.scrollHeight;
+    });
+  }, []);
+
+  const loadThreads = useCallback(async (silent = false) => {
     if (!websiteId) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
 
       const params = new URLSearchParams();
       params.set('channel_type', channelFilter);
@@ -105,13 +123,15 @@ export default function ChatsPage() {
       );
       const nextThreads = Array.isArray(payload) ? payload : payload.items ?? [];
       setThreads(nextThreads);
-      setSelectedThreadId((current) => current && nextThreads.some((thread) => thread.id === current) ? current : nextThreads[0]?.id ?? null);
+      setSelectedThreadId((current) => (
+        current && nextThreads.some((thread) => thread.id === current) ? current : null
+      ));
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat inbox chat');
       setThreads([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [channelFilter, search, statusFilter, websiteId]);
 
@@ -119,16 +139,106 @@ export default function ChatsPage() {
     void loadThreads();
   }, [loadThreads]);
 
+  const markThreadRead = useCallback(async (threadId: string) => {
+    setThreads((current) => current.map((thread) => (
+      thread.id === threadId ? { ...thread, unread_count: 0 } : thread
+    )));
+    try {
+      await apiClient(`/api/chat/${websiteId}/threads/${threadId}/read`, { method: 'POST' });
+      window.dispatchEvent(new CustomEvent('website-notifications-refresh'));
+    } catch {
+      // Read state is best-effort after the thread is opened.
+    }
+  }, [websiteId]);
+
+  const loadMessages = useCallback(async (threadId: string, silent = false) => {
+    if (!silent) setMessagesLoading(true);
+    try {
+      const payload = await apiClient<ChatMessage[] | { items?: ChatMessage[] }>(
+        `/api/chat/${websiteId}/threads/${threadId}/messages`,
+      );
+      const nextMessages = Array.isArray(payload) ? payload : payload.items ?? [];
+      setMessages(nextMessages.slice().reverse());
+      await markThreadRead(threadId);
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat pesan');
+    } finally {
+      if (!silent) setMessagesLoading(false);
+    }
+  }, [markThreadRead, websiteId]);
+
   useEffect(() => {
     if (!websiteId) return;
-    const unsubscribeMessage = subscribe('website.chat.message.created', () => {
-      void loadThreads();
+
+    const matchesThread = (thread: ChatThread, threadId: string, topicId: string) => (
+      Boolean((threadId && thread.id === threadId) || (topicId && thread.topic_id === topicId))
+    );
+
+    const unsubscribeMessage = subscribe('website.chat.message.created', (eventData) => {
+      const eventThreadId = String(eventData.threadId ?? eventData.thread_id ?? '');
+      const eventTopicId = String(eventData.topicId ?? eventData.topic_id ?? '');
+      if (!eventThreadId && !eventTopicId) return;
+
+      const preview = typeof eventData.body === 'string' ? eventData.body.replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+      const createdAt = typeof eventData.createdAt === 'string' ? eventData.createdAt : new Date().toISOString();
+      const messageId = String(eventData.messageId ?? eventData.id ?? `evt-${createdAt}`);
+      const openThreadId = selectedThreadIdRef.current;
+      const isOpen = Boolean(openThreadId && (
+        openThreadId === eventThreadId
+        || threadsRef.current.some((thread) => thread.id === openThreadId && matchesThread(thread, eventThreadId, eventTopicId))
+      ));
+
+      setThreads((current) => {
+        const index = current.findIndex((thread) => matchesThread(thread, eventThreadId, eventTopicId));
+        if (index < 0) {
+          void loadThreads(true);
+          return current;
+        }
+        const thread = current[index];
+        const next = current.slice();
+        next[index] = {
+          ...thread,
+          last_message_preview: preview || thread.last_message_preview,
+          last_message_at: createdAt,
+          unread_count: isOpen ? 0 : Number(thread.unread_count ?? 0) + 1,
+        };
+        return next;
+      });
+
+      if (!isOpen || !openThreadId) return;
+
+      setMessages((current) => (
+        current.some((message) => message.id === messageId)
+          ? current
+          : [...current, {
+              id: messageId,
+              body: typeof eventData.body === 'string' ? eventData.body : '',
+              senderUserId: typeof eventData.senderUserId === 'string' ? eventData.senderUserId : null,
+              senderDisplayName: typeof eventData.senderDisplayName === 'string' ? eventData.senderDisplayName : null,
+              createdAt,
+            }]
+      ));
+      void markThreadRead(openThreadId);
     });
+
     const unsubscribeThread = subscribe('website.chat.thread.created', () => {
-      void loadThreads();
+      void loadThreads(true);
     });
-    const unsubscribeUnread = subscribe('website.chat.unread.updated', () => {
-      void loadThreads();
+
+    const unsubscribeUnread = subscribe('website.chat.unread.updated', (eventData) => {
+      const eventUserId = String(eventData.userId ?? eventData.user_id ?? '');
+      const currentUserId = userIdRef.current;
+      if (!currentUserId || !eventUserId || eventUserId !== currentUserId) return;
+
+      const eventThreadId = String(eventData.threadId ?? eventData.thread_id ?? '');
+      const eventTopicId = String(eventData.topicId ?? eventData.topic_id ?? '');
+      if (!eventThreadId && !eventTopicId) return;
+      const unreadCount = Number(eventData.unreadCount ?? eventData.unread_count ?? 0);
+      setThreads((current) => current.map((thread) => (
+        matchesThread(thread, eventThreadId, eventTopicId)
+          ? { ...thread, unread_count: Number.isFinite(unreadCount) ? unreadCount : 0 }
+          : thread
+      )));
     });
 
     return () => {
@@ -136,28 +246,16 @@ export default function ChatsPage() {
       unsubscribeThread();
       unsubscribeUnread();
     };
-  }, [loadThreads, subscribe, websiteId]);
-
-  const loadMessages = useCallback(async (threadId: string) => {
-    setMessagesLoading(true);
-    try {
-      const payload = await apiClient<ChatMessage[] | { items?: ChatMessage[] }>(
-        `/api/chat/${websiteId}/threads/${threadId}/messages`,
-      );
-      const nextMessages = Array.isArray(payload) ? payload : payload.items ?? [];
-      setMessages(nextMessages.slice().reverse());
-      await apiClient(`/api/chat/${websiteId}/threads/${threadId}/read`, { method: 'POST' });
-      setThreads((current) => current.map((thread) => thread.id === threadId ? { ...thread, unread_count: 0 } : thread));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat pesan');
-    } finally {
-      setMessagesLoading(false);
-    }
-  }, [websiteId]);
+  }, [loadThreads, markThreadRead, subscribe, websiteId]);
 
   useEffect(() => {
     if (selectedThreadId && websiteId) void loadMessages(selectedThreadId);
   }, [loadMessages, selectedThreadId, websiteId]);
+
+  useEffect(() => {
+    if (messagesLoading) return;
+    scrollMessagesToBottom();
+  }, [messages, messagesLoading, selectedThreadId, scrollMessagesToBottom]);
 
   const sendMessage = useCallback(async () => {
     if (!selectedThreadId || !draft.trim() || sending) return;
@@ -167,15 +265,20 @@ export default function ChatsPage() {
         method: 'POST',
         body: JSON.stringify({ body: draft.trim() }),
       });
+      const preview = draft.trim().replace(/\s+/g, ' ').slice(0, 140);
       setMessages((current) => [...current, created]);
       setDraft('');
-      void loadThreads();
+      setThreads((current) => current.map((thread) => (
+        thread.id === selectedThreadId
+          ? { ...thread, last_message_preview: preview, last_message_at: created.createdAt ?? new Date().toISOString() }
+          : thread
+      )));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengirim balasan');
     } finally {
       setSending(false);
     }
-  }, [draft, loadThreads, selectedThreadId, sending, websiteId]);
+  }, [draft, selectedThreadId, sending, websiteId]);
 
   if (websiteLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
@@ -279,7 +382,7 @@ export default function ChatsPage() {
                     <p className="truncate text-xs text-default-500">{getThreadSubtitle(selectedThread)}</p>
                   </div>
                 </div>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+                <div ref={messagesPaneRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                   {messagesLoading ? (
                     <p className="py-8 text-center text-sm text-default-500">Memuat pesan...</p>
                   ) : messages.length === 0 ? (

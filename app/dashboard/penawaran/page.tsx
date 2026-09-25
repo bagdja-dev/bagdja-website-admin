@@ -113,22 +113,6 @@ function PlusIcon() {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 .5 9m5-9-.5 9M5 6h14m-9-3h4l1 3H9l1-3Zm-3 3 .7 13h8.6L17 6" />
-    </svg>
-  );
-}
-
-function FillRemainingIcon() {
-  return (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h10M4 12h6m-6 5h10m7-10v10m0 0-3-3m3 3 3-3" />
-    </svg>
-  );
-}
-
 /** Tab "Aktif" — inbox draft praorder (belum dibatalkan), termasuk widget "Harga Final"/"Atur Termin". */
 function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }) {
   const { alert, dialog: alertDialog } = useAlertDialog();
@@ -406,7 +390,7 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
                   <div><h2 className="font-semibold">{draft.product?.name ?? 'Produk'}</h2><p className="mt-1 text-xs text-default-500">{formatDate(draft.created_at)}</p></div>
                   <Chip size="sm" color={draft.vendor ? 'success' : 'warning'} variant="flat">{draft.vendor ? 'Vendor ditugaskan' : 'Belum ditugaskan'}</Chip>
                 </div>
-                <div className="space-y-4 lg:col-start-2 lg:row-start-2">
+                <div className="min-w-0 space-y-4 lg:col-start-2 lg:row-start-2">
                 <div className="overflow-hidden rounded-lg border border-default-200 bg-white">
                   {draft.product?.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -556,17 +540,15 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
 
                 </div>
 
-                <div className="rounded-lg border border-default-200 bg-white p-3 lg:col-start-1 lg:row-start-2">
+                <div className="min-w-0 rounded-lg border border-default-200 bg-white p-3 sm:p-4 lg:col-start-1 lg:row-start-2">
                   <p className="mb-2 text-xs font-medium text-default-600">Harga final quotation</p>
-                  <div className="flex items-end gap-2">
-                    <MaskedIntegerInput
-                      label="Harga"
-                      disabled={!canEdit}
-                      value={quoteValues[draft.id] ?? (draft.quoted_total_amount != null ? String(draft.quoted_total_amount) : (draft.unit_price > 0 ? String(draft.unit_price) : ''))}
-                      onChange={(value) => setQuoteValues((prev) => ({ ...prev, [draft.id]: value }))}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-default-400">
+                  <MaskedIntegerInput
+                    label="Harga"
+                    disabled={!canEdit}
+                    value={quoteValues[draft.id] ?? (draft.quoted_total_amount != null ? String(draft.quoted_total_amount) : (draft.unit_price > 0 ? String(draft.unit_price) : ''))}
+                    onChange={(value) => setQuoteValues((prev) => ({ ...prev, [draft.id]: value }))}
+                  />
+                  <p className="mt-2 text-xs leading-5 text-default-400">
                     {canEdit
                       ? 'Buyer baru dapat checkout setelah harga final lebih dari nol.'
                       : 'Perlu role editor ke atas untuk mengisi harga final.'}
@@ -580,21 +562,28 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
                         onChange={(checked) => toggleTermin(draft.id, checked)}
                       />
                       {terminEnabled[draft.id] && (
-                        <div className="mt-3 space-y-3 rounded-xl border border-primary-100 bg-primary-50/30 p-3">
+                        <div className="mt-3 space-y-3 rounded-xl border border-primary-100 bg-primary-50/30 p-3 sm:p-4">
                           {(() => {
                             const summary = getTerminSummary(draft.id, draft);
                             const isBalanced = summary.finalPrice > 0 && Math.abs(summary.difference) <= 1;
                             const isOver = summary.difference < -1;
                             return (
                               <>
-                                <div className="flex flex-wrap items-end justify-between gap-3">
-                                  <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-default-500">Alokasi pembayaran</p>
-                                    <p className="mt-1 text-sm text-default-600">
-                                      {formatCurrency(summary.total, 'IDR')} dari {formatCurrency(summary.finalPrice, 'IDR')}
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold uppercase text-default-500">Alokasi pembayaran</p>
+                                    <p className="mt-1 text-sm leading-6 text-default-600">
+                                      <span className="font-medium">{formatCurrency(summary.total, 'IDR')}</span>
+                                      <span className="px-1 text-default-400">dari</span>
+                                      <span>{formatCurrency(summary.finalPrice, 'IDR')}</span>
                                     </p>
                                   </div>
-                                  <Chip size="sm" color={isBalanced ? 'success' : isOver ? 'danger' : 'warning'} variant="flat">
+                                  <Chip
+                                    size="sm"
+                                    color={isBalanced ? 'success' : isOver ? 'danger' : 'warning'}
+                                    variant="flat"
+                                    className="h-auto max-w-full shrink-0 whitespace-normal py-1"
+                                  >
                                     {isBalanced
                                       ? 'Total sesuai'
                                       : isOver
@@ -605,72 +594,72 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
                                 <div className="h-2 overflow-hidden rounded-full bg-default-200">
                                   <div
                                     className={`h-full rounded-full transition-all ${isOver ? 'bg-danger' : isBalanced ? 'bg-success' : 'bg-primary'}`}
-                                    style={{ width: `${summary.percentage}%` }}
+                                    style={{ width: `${Math.min(summary.percentage, 100)}%` }}
                                   />
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                   {summary.rows.map((row, index) => {
                                     const amount = Number(row.amount) || 0;
                                     const share = summary.finalPrice > 0 ? (amount / summary.finalPrice) * 100 : 0;
                                     const isLast = index === summary.rows.length - 1;
                                     const remaining = Math.max(0, summary.difference + amount);
                                     return (
-                                      <div key={index} className="rounded-lg border border-default-200 bg-white p-3">
-                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                          <span className="text-xs font-semibold text-default-600">
-                                            Termin {index + 1}{index === 0 ? ' · dibayar saat checkout' : ''}
+                                      <div key={index} className="min-w-0 rounded-lg border border-default-200 bg-white p-3">
+                                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                          <span className="text-xs font-semibold leading-5 text-default-600">
+                                            Termin {index + 1}
+                                            {index === 0 ? (
+                                              <span className="ml-1 font-normal text-default-400">· dibayar saat checkout</span>
+                                            ) : null}
                                           </span>
                                           <span className="text-xs font-medium text-primary">{share.toFixed(1)}%</span>
                                         </div>
-                                        <div className="grid gap-2 md:grid-cols-[1fr_150px_150px_auto] md:items-end">
+                                        <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
                                           <FormInput
                                             label="Label"
                                             value={row.label}
                                             onChange={(v) => updateTerminRow(draft.id, index, { label: v })}
                                           />
-                                          <MaskedIntegerInput
-                                            label="Persentase (%)"
-                                            value={share ? String(Math.round(share)) : ''}
-                                            onChange={(v) => updateTerminPercentage(draft.id, index, v)}
-                                          />
-                                          <MaskedIntegerInput
-                                            label="Jumlah"
-                                            value={row.amount}
-                                            onChange={(v) => updateTerminRow(draft.id, index, { amount: v })}
-                                          />
-                                          <div className="flex gap-2">
-                                            {isLast && summary.difference > 1 && (
-                                              <Button
-                                                size="sm"
-                                                variant="flat"
-                                                color="primary"
-                                                isIconOnly
-                                                aria-label="Isi sisa ke termin ini"
-                                                title="Isi sisa"
-                                                onPress={() => updateTerminRow(draft.id, index, { amount: String(remaining) })}
-                                              >
-                                                <FillRemainingIcon />
-                                              </Button>
-                                            )}
-                                            {index > 1 && (
-                                              <Button
-                                                size="sm"
-                                                variant="light"
-                                                color="danger"
-                                                isIconOnly
-                                                aria-label={`Hapus Termin ${index + 1}`}
-                                                title={`Hapus Termin ${index + 1}`}
-                                                onPress={() => removeTerminRow(draft.id, index)}
-                                              >
-                                                <TrashIcon />
-                                              </Button>
-                                            )}
+                                          <div className="grid grid-cols-2 gap-3 min-[520px]:contents">
+                                            <MaskedIntegerInput
+                                              label="Persentase"
+                                              value={share ? String(Math.round(share)) : ''}
+                                              onChange={(v) => updateTerminPercentage(draft.id, index, v)}
+                                            />
+                                            <MaskedIntegerInput
+                                              label="Jumlah"
+                                              value={row.amount}
+                                              onChange={(v) => updateTerminRow(draft.id, index, { amount: v })}
+                                            />
                                           </div>
                                         </div>
+                                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                                          {isLast && summary.difference > 1 && (
+                                            <Button
+                                              size="sm"
+                                              variant="flat"
+                                              color="primary"
+                                              onPress={() => updateTerminRow(draft.id, index, { amount: String(remaining) })}
+                                            >
+                                              Isi sisa
+                                            </Button>
+                                          )}
+                                          {index > 1 && (
+                                            <Button
+                                              size="sm"
+                                              variant="light"
+                                              color="danger"
+                                              onPress={() => removeTerminRow(draft.id, index)}
+                                            >
+                                              Hapus
+                                            </Button>
+                                          )}
+                                        </div>
                                         {index > 0 && (
-                                          <div className="mt-2">
+                                          <div className="mt-3">
                                             <FormInput
-                                              label="Muncul setelah step (opsional)"
+                                              label="Muncul setelah step"
+                                              description="Opsional"
                                               value={row.anchor_step_name}
                                               onChange={(v) => updateTerminRow(draft.id, index, { anchor_step_name: v })}
                                             />
@@ -683,14 +672,12 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
                                 <Button
                                   size="sm"
                                   variant="flat"
-                                  isIconOnly
-                                  aria-label="Tambah termin"
-                                  title="Tambah termin"
+                                  startContent={<PlusIcon />}
                                   onPress={() => addTerminRow(draft.id)}
                                 >
-                                  <PlusIcon />
+                                  Tambah termin
                                 </Button>
-                                <p className="text-xs text-default-400">
+                                <p className="text-xs leading-5 text-default-400">
                                   Total termin harus sama persis dengan harga final. Termin 1 menjadi harga checkout;
                                   termin berikutnya diterbitkan manual dan muncul di timeline pascaorder.
                                 </p>
@@ -714,7 +701,7 @@ function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }
                     </Button>
                   )}
                 </div>
-                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs text-default-500 lg:col-start-1">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
+                <p className="rounded-lg bg-default-50 px-3 py-2 text-xs leading-5 text-default-500 lg:col-span-2">Draft ini belum menjadi transaksi. Gunakan data ini sebagai awal proses survey dan quotation.</p>
               </CardBody>
             </Card>
           ))}

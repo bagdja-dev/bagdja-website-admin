@@ -9,10 +9,9 @@ import {
   DropdownTrigger,
   Chip,
 } from '@heroui/react';
-import { useState } from 'react';
 import { useWebsiteContext } from '../context/website-context';
 import { useAuth } from '../hooks/use-auth';
-import { useRealtime } from './realtime-provider';
+import { NotificationBell } from './notification-bell';
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -21,9 +20,6 @@ interface TopbarProps {
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const { user } = useAuth();
   const { websites, activeWebsite, switchWebsite } = useWebsiteContext();
-  const { unreadCount, lastEvent, clearUnread } = useRealtime();
-  const [showNotifications, setShowNotifications] = useState(false);
-
   const displayName = user?.username ?? user?.email ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();
 
@@ -55,51 +51,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            aria-label="Notifikasi website"
-            onClick={() => {
-              setShowNotifications((prev) => !prev);
-              if (unreadCount > 0) clearUnread();
-            }}
-            className="relative rounded-full p-2 text-default-600 transition hover:bg-default-100"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 1-5.714 0M6.75 17.25h10.5a2.25 2.25 0 0 0 1.892-3.526L17.2 11.2A4.2 4.2 0 0 1 16.5 8.25V7.5A4.5 4.5 0 0 0 12 3a4.5 4.5 0 0 0-4.5 4.5v.75a4.2 4.2 0 0 1-.7 2.95l-1.942 2.524A2.25 2.25 0 0 0 6.75 17.25Z" />
-            </svg>
-            {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="absolute right-0 top-12 w-80 rounded-xl border border-default-200 bg-white p-3 shadow-xl shadow-default-200">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">Notifikasi</p>
-                {unreadCount > 0 && (
-                  <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">
-                    {unreadCount} baru
-                  </span>
-                )}
-              </div>
-
-              {lastEvent ? (
-                <div className="space-y-2">
-                  <div className="rounded-lg bg-default-50 p-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-default-500">{lastEvent.eventName}</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{lastEvent.title}</p>
-                    <p className="mt-1 text-xs text-default-500">{lastEvent.message}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-default-500">Tidak ada notifikasi baru saat ini.</p>
-              )}
-            </div>
-          )}
-        </div>
+        <NotificationBell />
 
         <Dropdown
           placement="bottom-end"

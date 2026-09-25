@@ -14,6 +14,8 @@ export interface Website {
   social_links?: Record<string, unknown>;
   opening_hours?: Record<string, unknown>;
   theme?: Record<string, unknown>;
+  notification_sound_enabled?: boolean;
+  notification_sound_url?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

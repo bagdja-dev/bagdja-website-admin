@@ -4,6 +4,7 @@ import { Button, Card, CardBody, CardHeader } from '@heroui/react';
 import { useEffect, useState } from 'react';
 
 import { FormInput, FormSwitch, FormTextarea } from '../../components/form-field';
+import { AudioUpload } from '../../components/audio-upload';
 import { ThemeCustomizer } from '../../components/theme-customizer';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { LogoUpload } from '../../components/logo-upload';
@@ -106,6 +107,11 @@ export default function SettingsPage() {
   const [facebook, setFacebook] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [openingHoursNote, setOpeningHoursNote] = useState('');
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
+  const [notificationSoundUrl, setNotificationSoundUrl] = useState('');
+  const [savingSound, setSavingSound] = useState(false);
+  const [soundMessage, setSoundMessage] = useState('');
+  const [soundError, setSoundError] = useState('');
   const [theme, setTheme] = useState<WebsiteTheme>({});
   const [templateDefaultTheme, setTemplateDefaultTheme] = useState<WebsiteTheme>({});
   const [saving, setSaving] = useState(false);
@@ -149,6 +155,8 @@ export default function SettingsPage() {
       setFacebook(getSocialLink(w.social_links, 'facebook'));
       setTiktok(getSocialLink(w.social_links, 'tiktok'));
       setOpeningHoursNote(getOpeningHoursNote(w.opening_hours));
+      setNotificationSoundEnabled(w.notification_sound_enabled !== false);
+      setNotificationSoundUrl(w.notification_sound_url ?? '');
       setTheme(sanitizeWebsiteTheme(w.theme));
     }
   }, [activeWebsite]);
@@ -220,6 +228,28 @@ export default function SettingsPage() {
       setBrandError(err instanceof Error ? err.message : 'Gagal menyimpan profil');
     } finally {
       setSavingBrand(false);
+    }
+  };
+
+  const handleSaveSound = async () => {
+    if (!websiteId) return;
+    setSavingSound(true);
+    setSoundError('');
+    setSoundMessage('');
+    try {
+      await apiClient<Website>(`/api/websites/${websiteId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          notification_sound_enabled: notificationSoundEnabled,
+          notification_sound_url: notificationSoundUrl.trim() || null,
+        }),
+      });
+      setSoundMessage('Pengaturan suara notifikasi berhasil disimpan');
+      await refresh();
+    } catch (err) {
+      setSoundError(err instanceof Error ? err.message : 'Gagal menyimpan suara notifikasi');
+    } finally {
+      setSavingSound(false);
     }
   };
 
@@ -459,6 +489,47 @@ export default function SettingsPage() {
             <div className="pt-1">
               <Button color="primary" isLoading={savingBrand} onPress={handleSaveBrand}>
                 Simpan Profil Brand
+              </Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card className="border border-default-200 shadow-sm">
+        <CardHeader className="flex flex-col items-start gap-1 border-b border-default-100 px-6 py-4">
+          <h2 className="text-lg font-semibold">Notifikasi</h2>
+          <p className="text-sm font-normal text-default-500">
+            Toast tetap muncul. Suara bisa dimatikan atau diganti file sendiri.
+          </p>
+        </CardHeader>
+        <CardBody className="flex flex-col gap-5 px-6 py-5">
+          <FormSwitch
+            label="Putar suara saat notifikasi masuk"
+            description="Berlaku di dashboard admin dan situs pembeli yang login."
+            checked={notificationSoundEnabled}
+            onChange={setNotificationSoundEnabled}
+            disabled={!canEdit}
+          />
+          <AudioUpload
+            value={notificationSoundUrl}
+            onChange={setNotificationSoundUrl}
+            websiteId={websiteId ?? undefined}
+            disabled={!canEdit}
+          />
+          {soundMessage && (
+            <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success">
+              {soundMessage}
+            </div>
+          )}
+          {soundError && (
+            <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
+              {soundError}
+            </div>
+          )}
+          {canEdit && (
+            <div className="pt-1">
+              <Button color="primary" isLoading={savingSound} onPress={handleSaveSound}>
+                Simpan Notifikasi
               </Button>
             </div>
           )}

@@ -40,7 +40,7 @@ export function FormInput({
 }: FormInputProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-foreground">
+      <label className="block text-sm font-medium leading-5 text-foreground">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
       </label>
@@ -79,7 +79,7 @@ export function FormTextarea({
 }: FormTextareaProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-foreground">
+      <label className="block text-sm font-medium leading-5 text-foreground">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
       </label>
@@ -393,7 +393,7 @@ export function FormCheckboxGroup({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-foreground">
+      <label className="block text-sm font-medium leading-5 text-foreground">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
       </label>

@@ -3,7 +3,7 @@
 import { Button, Card, CardBody, Textarea } from '@heroui/react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRealtime } from '../../../components/realtime-provider';
 import { LoadingSpinner } from '../../../components/loading-spinner';
@@ -53,6 +53,7 @@ export default function ChatDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const messagesPaneRef = useRef<HTMLDivElement | null>(null);
 
   const refreshThread = useCallback(async () => {
     if (!websiteId || !threadId) return;
@@ -84,6 +85,7 @@ export default function ChatDetailPage() {
     const markRead = async () => {
       try {
         await apiClient(`/api/chat/${websiteId}/threads/${threadId}/read`, { method: 'POST' });
+        window.dispatchEvent(new CustomEvent('website-notifications-refresh'));
       } catch {
         // No-op: unread state is best-effort on open.
       }
@@ -119,6 +121,14 @@ export default function ChatDetailPage() {
     () => [...messages].sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()),
     [messages],
   );
+
+  useEffect(() => {
+    const pane = messagesPaneRef.current;
+    if (!pane) return;
+    requestAnimationFrame(() => {
+      pane.scrollTop = pane.scrollHeight;
+    });
+  }, [sortedMessages, loading]);
 
   const sendMessage = useCallback(async () => {
     if (!websiteId || !threadId || !draft.trim()) return;
@@ -169,7 +179,7 @@ export default function ChatDetailPage() {
         <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
           <Card className="border-0 shadow-md ring-1 ring-default-100">
             <CardBody className="space-y-4 p-4">
-              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
+              <div ref={messagesPaneRef} className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
                 {sortedMessages.length === 0 ? (
                   <p className="py-8 text-center text-sm text-default-500">Belum ada pesan. Mulai percakapan sekarang.</p>
                 ) : (

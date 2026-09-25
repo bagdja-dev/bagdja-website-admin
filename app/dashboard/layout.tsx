@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Sidebar } from '../components/sidebar';
+import { NotificationToaster } from '../components/notification-toaster';
 import { RealtimeProvider } from '../components/realtime-provider';
 import { Topbar } from '../components/topbar';
 import { WebsiteProvider } from '../context/website-context';
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6 lg:p-8">
               {children}
             </main>
+            <NotificationToaster />
           </div>
         </div>
       </RealtimeProvider>
