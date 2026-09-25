@@ -55,10 +55,23 @@ function shortChatRef(id?: string | null): string {
   return compact.slice(0, 8) || '----';
 }
 
+function isAdminDmThread(thread: { channel_type?: string | null }): boolean {
+  const type = thread.channel_type ?? '';
+  return type === 'support' || type === 'dm';
+}
+
+function customerDisplayName(thread: {
+  customer_name?: string | null;
+  customer_email?: string | null;
+}): string {
+  return thread.customer_name?.trim() || thread.customer_email?.trim() || 'Pelanggan';
+}
+
 export function getThreadHeadline(thread: {
   channel_label?: string | null;
   channel_type?: string | null;
   customer_name?: string | null;
+  customer_email?: string | null;
   product_id?: string | null;
   order_id?: string | null;
   id?: string | null;
@@ -66,8 +79,8 @@ export function getThreadHeadline(thread: {
   const type = thread.channel_type ?? '';
   const label = thread.channel_label?.trim() ?? '';
 
+  if (isAdminDmThread(thread)) return customerDisplayName(thread);
   if (type === 'product') return label || 'Produk';
-  if (type === 'support') return label || 'Admin';
   if (type === 'transaction' || /^TRX\b/i.test(label)) {
     const raw = label.replace(/^TRX\s*#?/i, '').trim();
     return `TRX ${raw || shortChatRef(thread.order_id ?? thread.id)}`;
@@ -96,10 +109,12 @@ export function formatLastChatPreview(body?: string | null): string {
 }
 
 export function getThreadSubtitle(thread: {
+  channel_type?: string | null;
   last_message_preview?: string | null;
   customer_name?: string | null;
 }): string {
   const preview = formatLastChatPreview(thread.last_message_preview);
+  if (isAdminDmThread(thread)) return preview;
   const name = thread.customer_name?.trim();
   return name ? `${name} · ${preview}` : preview;
 }

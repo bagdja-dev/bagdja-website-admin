@@ -55,10 +55,9 @@ const STATUS_TONE: Record<string, ChipTone> = {
 };
 
 const CHANNEL_FILTERS = [
-  { key: 'all', label: 'DM' },
+  { key: 'support', label: 'DM' },
   { key: 'product', label: 'Product' },
   { key: 'order', label: 'Order' },
-  { key: 'support', label: 'Ticket' },
 ] as const;
 
 const STATUS_FILTERS = [
@@ -76,7 +75,7 @@ export default function ChatsPage() {
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [channelFilter, setChannelFilter] = useState<(typeof CHANNEL_FILTERS)[number]['key']>('all');
+  const [channelFilter, setChannelFilter] = useState<(typeof CHANNEL_FILTERS)[number]['key']>('support');
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]['key']>('all');
   const [search, setSearch] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -96,7 +95,7 @@ export default function ChatsPage() {
       setLoading(true);
 
       const params = new URLSearchParams();
-      if (channelFilter !== 'all') params.set('channel_type', channelFilter);
+      params.set('channel_type', channelFilter);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (search.trim()) params.set('search', search.trim());
 
@@ -182,13 +181,10 @@ export default function ChatsPage() {
   if (!websiteId) return <NoWebsiteState />;
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Inbox</h1>
-        <p className="mt-1 text-sm text-default-500">Kelola percakapan customer dari satu tempat.</p>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
+        <h1 className="text-xl font-bold tracking-tight">Inbox</h1>
+        <div className="flex flex-wrap gap-1.5">
           {CHANNEL_FILTERS.map((filter) => {
             const active = channelFilter === filter.key;
             return (
@@ -196,7 +192,7 @@ export default function ChatsPage() {
                 key={filter.key}
                 type="button"
                 onClick={() => setChannelFilter(filter.key)}
-                className={`rounded-xl border px-5 py-2 text-sm font-semibold transition ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
                   active ? 'bg-primary text-white' : 'bg-default-100 text-default-600 hover:bg-default-200'
                 }`}
               >
@@ -204,24 +200,33 @@ export default function ChatsPage() {
               </button>
             );
           })}
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari percakapan..." className="w-full rounded-xl border border-default-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof STATUS_FILTERS)[number]['key'])} className="rounded-xl border border-default-200 bg-white px-3 py-2 text-sm text-default-700 outline-none focus:border-primary">
-          {STATUS_FILTERS.map((filter) => <option key={filter.key} value={filter.key}>{filter.label}</option>)}
-        </select>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:justify-end">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Cari percakapan..."
+            className="w-full rounded-lg border border-default-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-primary sm:max-w-64"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as (typeof STATUS_FILTERS)[number]['key'])}
+            className="rounded-lg border border-default-200 bg-white px-3 py-1.5 text-sm text-default-700 outline-none focus:border-primary"
+          >
+            {STATUS_FILTERS.map((filter) => <option key={filter.key} value={filter.key}>{filter.label}</option>)}
+          </select>
+        </div>
       </div>
 
       {loading ? (
-        <LoadingSpinner className="h-56" />
+        <LoadingSpinner className="min-h-0 flex-1" />
       ) : error ? (
-        <Card className="border-0 shadow-md ring-1 ring-default-100">
-          <CardBody className="py-10 text-center text-sm text-danger">{error}</CardBody>
+        <Card className="min-h-0 flex-1 border-0 shadow-md ring-1 ring-default-100">
+          <CardBody className="flex h-full items-center justify-center text-sm text-danger">{error}</CardBody>
         </Card>
       ) : threads.length === 0 ? (
-        <Card className="overflow-hidden border-0 shadow-md ring-1 ring-default-100">
-          <CardBody className="flex flex-col items-center gap-3 py-16 text-center">
+        <Card className="min-h-0 flex-1 overflow-hidden border-0 shadow-md ring-1 ring-default-100">
+          <CardBody className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-100 to-blue-100 text-3xl ring-4 ring-cyan-50">
               💬
             </div>
@@ -233,44 +238,101 @@ export default function ChatsPage() {
         </Card>
       ) : (
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-default-200 bg-white shadow-sm">
-          <aside className={`w-full shrink-0 overflow-y-auto border-default-200 sm:block sm:w-72 sm:border-r ${selectedThreadId ? 'hidden' : 'block'}`}>
-            <div className="border-b border-default-200 px-4 py-3"><p className="text-sm font-semibold">Percakapan</p><p className="text-xs text-default-500">Pesan pelanggan</p></div>
-            {threads.length === 0 ? <p className="p-4 text-sm text-default-500">Belum ada percakapan.</p> : <ul className="divide-y divide-default-200">{threads.map((thread) => <li key={thread.id}><button type="button" onClick={() => setSelectedThreadId(thread.id)} className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-default-50 ${selectedThreadId === thread.id ? 'bg-default-100' : ''}`}><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">A</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{getThreadHeadline(thread)}</span><span className="mt-1 block truncate text-xs text-default-500">{getThreadSubtitle(thread)}</span></span>{Number(thread.unread_count ?? 0) > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">{thread.unread_count}</span>}</button></li>)}</ul>}
+          <aside className={`min-h-0 w-full shrink-0 overflow-y-auto border-default-200 sm:block sm:w-72 sm:border-r ${selectedThreadId ? 'hidden' : 'block'}`}>
+            <ul className="divide-y divide-default-200">
+              {threads.map((thread) => (
+                <li key={thread.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedThreadId(thread.id)}
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-default-50 ${selectedThreadId === thread.id ? 'bg-default-100' : ''}`}
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                      {(getThreadHeadline(thread).charAt(0) || 'P').toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{getThreadHeadline(thread)}</span>
+                      <span className="mt-1 block truncate text-xs text-default-500">{getThreadSubtitle(thread)}</span>
+                    </span>
+                    {Number(thread.unread_count ?? 0) > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+                        {thread.unread_count}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </aside>
-          <section className={`min-w-0 flex-1 flex-col ${selectedThreadId ? 'flex' : 'hidden sm:flex'}`}>
-            {!selectedThread ? <div className="flex flex-1 items-center justify-center text-sm text-default-500">Pilih percakapan di sebelah kiri.</div> : <>
-              <div className="flex shrink-0 items-center gap-3 border-b border-default-200 px-4 py-3"><button type="button" onClick={() => setSelectedThreadId(null)} className="text-xl text-default-500 sm:hidden">←</button><span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">{(getThreadHeadline(selectedThread).charAt(0) || 'C').toUpperCase()}</span><div><p className="text-sm font-semibold">{getThreadHeadline(selectedThread)}</p><p className="truncate text-xs text-default-500">{getThreadSubtitle(selectedThread)}</p></div></div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {messagesLoading ? (
-                  <p className="py-8 text-center text-sm text-default-500">Memuat pesan...</p>
-                ) : messages.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-default-500">Belum ada pesan.</p>
-                ) : (
-                  messages.map((message) => {
-                    const isAdmin = message.senderUserId === selectedThread.merchant_id;
-                    const reference = parseChatReference(message.body);
-                    return (
-                      <div key={message.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground'}`}>
-                          <p className="text-[10px] font-semibold uppercase opacity-70">
-                            {message.senderDisplayName ?? (isAdmin ? 'Admin' : selectedThread.customer_name ?? 'Customer')}
-                          </p>
-                          {reference ? (
-                            <AdminChatReferenceCard reference={reference} websiteSlug={websiteSlug} />
-                          ) : (
-                            <p className="mt-1 whitespace-pre-wrap">{message.body}</p>
-                          )}
-                          <p className={`mt-1 text-[10px] ${isAdmin ? 'text-white/70' : 'text-default-500'}`}>
-                            {formatChatTime(message.createdAt)}
-                          </p>
+          <section className={`min-h-0 min-w-0 flex-1 flex-col ${selectedThreadId ? 'flex' : 'hidden sm:flex'}`}>
+            {!selectedThread ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-default-500">Pilih percakapan di sebelah kiri.</div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-3 border-b border-default-200 px-4 py-2.5">
+                  <button type="button" onClick={() => setSelectedThreadId(null)} className="text-xl text-default-500 sm:hidden">←</button>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                    {(getThreadHeadline(selectedThread).charAt(0) || 'C').toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{getThreadHeadline(selectedThread)}</p>
+                    <p className="truncate text-xs text-default-500">{getThreadSubtitle(selectedThread)}</p>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+                  {messagesLoading ? (
+                    <p className="py-8 text-center text-sm text-default-500">Memuat pesan...</p>
+                  ) : messages.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-default-500">Belum ada pesan.</p>
+                  ) : (
+                    messages.map((message) => {
+                      const isAdmin = message.senderUserId === selectedThread.merchant_id;
+                      const reference = parseChatReference(message.body);
+                      return (
+                        <div key={message.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground'}`}>
+                            <p className="text-[10px] font-semibold uppercase opacity-70">
+                              {message.senderDisplayName ?? (isAdmin ? 'Admin' : selectedThread.customer_name ?? 'Customer')}
+                            </p>
+                            {reference ? (
+                              <AdminChatReferenceCard reference={reference} websiteSlug={websiteSlug} />
+                            ) : (
+                              <p className="mt-1 whitespace-pre-wrap">{message.body}</p>
+                            )}
+                            <p className={`mt-1 text-[10px] ${isAdmin ? 'text-white/70' : 'text-default-500'}`}>
+                              {formatChatTime(message.createdAt)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
+                <div className="flex shrink-0 items-end gap-2 border-t border-default-200 p-3">
+                  <Textarea
+                    value={draft}
+                    onValueChange={setDraft}
+                    minRows={1}
+                    maxRows={4}
+                    placeholder="Tulis balasan..."
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendMessage();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void sendMessage()}
+                    disabled={sending || !draft.trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40"
+                  >
+                    {sending ? '...' : '↑'}
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 items-end gap-2 border-t border-default-200 p-3"><Textarea value={draft} onValueChange={setDraft} minRows={1} maxRows={4} placeholder="Tulis balasan..." onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} /><button type="button" onClick={() => void sendMessage()} disabled={sending || !draft.trim()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40">{sending ? '...' : '↑'}</button></div>
-            </>}
+            )}
           </section>
         </div>
       )}
