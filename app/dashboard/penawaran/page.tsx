@@ -2,7 +2,8 @@
 
 import { Button, Card, CardBody, Chip, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@heroui/react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 
 import { FormInput, FormSwitch } from '../../components/form-field';
 import { FulfillmentFieldInput } from '../../components/fulfillment-field-input';
@@ -129,7 +130,7 @@ function FillRemainingIcon() {
 }
 
 /** Tab "Aktif" — inbox draft praorder (belum dibatalkan), termasuk widget "Harga Final"/"Atur Termin". */
-function PraorderAktifTab() {
+function PraorderAktifTab({ initialOrderId }: { initialOrderId?: string | null }) {
   const { alert, dialog: alertDialog } = useAlertDialog();
   const { websiteId, role } = useWebsiteContext();
   const canEdit = role ? hasMinRole(role, 'editor') : false;
@@ -178,10 +179,15 @@ function PraorderAktifTab() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    if (initialOrderId) setSelectedDraftId(initialOrderId);
+  }, [initialOrderId]);
+
+  useEffect(() => {
+    if (loading) return;
     if (selectedDraftId && !drafts.some((draft) => draft.id === selectedDraftId)) {
       setSelectedDraftId(null);
     }
-  }, [drafts, selectedDraftId]);
+  }, [drafts, selectedDraftId, loading]);
 
   const saveQuote = async (draft: DraftOrder) => {
     if (!websiteId) return;
@@ -861,6 +867,16 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 ];
 
 export default function PenawaranPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <PenawaranPageInner />
+    </Suspense>
+  );
+}
+
+function PenawaranPageInner() {
+  const searchParams = useSearchParams();
+  const orderFromQuery = searchParams.get('order');
   const { websiteId, loading: ctxLoading } = useWebsiteContext();
   const [tab, setTab] = useState<TabKey>('aktif');
   const [tabCounts, setTabCounts] = useState<Record<TabKey, number>>({ aktif: 0, dibatalkan: 0 });
@@ -911,7 +927,7 @@ export default function PenawaranPage() {
         })}
       </div>
 
-      {tab === 'aktif' ? <PraorderAktifTab /> : <PraorderDibatalkanTab />}
+      {tab === 'aktif' ? <PraorderAktifTab initialOrderId={orderFromQuery} /> : <PraorderDibatalkanTab />}
     </div>
   );
 }

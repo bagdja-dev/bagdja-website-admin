@@ -2,7 +2,7 @@
 
 import { Button, Card, CardBody, CardHeader, Chip, Divider } from '@heroui/react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useAlertDialog } from '../../../components/alert-dialog';
@@ -148,6 +148,7 @@ function formatDate(value: string): string {
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { websiteId, role, loading: ctxLoading } = useWebsiteContext();
   const { confirm, dialog } = useConfirmDialog();
   const { alert, dialog: alertDialog } = useAlertDialog();
@@ -191,23 +192,40 @@ export default function OrderDetailPage() {
       setCancelledPreorder(null);
     } catch (err) {
       try {
-        const cancelled = await apiClient<CancelledPreorderDetail[]>(
-          `/api/websites/${websiteId}/orders/preorders/cancelled`,
+        const order = await apiClient<CancelledPreorderDetail & { status?: string; transaction_id?: string | null }>(
+          `/api/websites/${websiteId}/orders/${params.id}`,
         );
-        const found = cancelled.find((order) => order.id === params.id) ?? null;
-        if (found) {
-          setCancelledPreorder(found);
-          setTransaction(null);
+        if (order.transaction_id) {
+          router.replace(`/dashboard/orders/${order.transaction_id}`);
           return;
         }
+        if (order.status === 'PENDING') {
+          router.replace(`/dashboard/penawaran?order=${encodeURIComponent(order.id)}`);
+          return;
+        }
+        setCancelledPreorder(order);
+        setTransaction(null);
+        return;
       } catch {
-        // Keep the original transaction error when the fallback also fails.
+        try {
+          const cancelled = await apiClient<CancelledPreorderDetail[]>(
+            `/api/websites/${websiteId}/orders/preorders/cancelled`,
+          );
+          const found = cancelled.find((order) => order.id === params.id) ?? null;
+          if (found) {
+            setCancelledPreorder(found);
+            setTransaction(null);
+            return;
+          }
+        } catch {
+          // Keep the original transaction error when the fallback also fails.
+        }
       }
       setError(err instanceof Error ? err.message : 'Gagal memuat detail pesanan');
     } finally {
       setLoading(false);
     }
-  }, [websiteId, params.id]);
+  }, [websiteId, params.id, router]);
 
   useEffect(() => {
     void load();

@@ -61,6 +61,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Inbox Chat',
+    href: '/dashboard/chats',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9.75h7.5M8.25 13.5h5.25M8.25 3.75h7.5A3.75 3.75 0 0 1 19.5 7.5v7.5A3.75 3.75 0 0 1 15.75 18.75H10.5l-4.5 3v-3H8.25A3.75 3.75 0 0 1 4.5 15V7.5A3.75 3.75 0 0 1 8.25 3.75Z" />
+      </svg>
+    ),
+  },
+  {
     label: 'Tagihan',
     href: '/dashboard/tagihan',
     icon: (

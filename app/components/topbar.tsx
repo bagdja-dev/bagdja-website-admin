@@ -9,9 +9,10 @@ import {
   DropdownTrigger,
   Chip,
 } from '@heroui/react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useWebsiteContext } from '../context/website-context';
 import { useAuth } from '../hooks/use-auth';
+import { useRealtime } from './realtime-provider';
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -20,6 +21,8 @@ interface TopbarProps {
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const { user } = useAuth();
   const { websites, activeWebsite, switchWebsite } = useWebsiteContext();
+  const { unreadCount, lastEvent, clearUnread } = useRealtime();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const displayName = user?.username ?? user?.email ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();
@@ -33,7 +36,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-default-200 bg-background/80 px-4 backdrop-blur-md">
-      {/* Left: hamburger + current website */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
@@ -52,125 +54,172 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
         )}
       </div>
 
-      {/* Right: profile dropdown with website switcher */}
-      <Dropdown
-        placement="bottom-end"
-        classNames={{
-          content:
-            'min-w-[16rem] rounded-xl border border-default-200 bg-white p-1 shadow-xl shadow-black/10',
-        }}
-      >
-        <DropdownTrigger>
-          <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-default-100">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight">{displayName}</p>
-              {activeWebsite && (
-                <p className="text-xs text-default-400">
-                  {activeWebsite.role} &middot; {activeWebsite.website.slug}
-                </p>
-              )}
-            </div>
-            <Avatar
-              name={initials}
-              size="sm"
-              className="h-8 w-8 text-xs"
-              color="primary"
-            />
-          </button>
-        </DropdownTrigger>
-
-        <DropdownMenu
-          aria-label="Profile menu"
-          className="w-64 bg-white"
-          itemClasses={{
-            base: 'rounded-lg data-[hover=true]:bg-default-100',
-            title: 'text-foreground',
-            description: 'text-default-500',
-          }}
-          classNames={{
-            base: 'bg-white',
-            list: 'bg-white',
-          }}
-          onAction={(key) => {
-            const keyStr = String(key);
-            if (keyStr === 'logout') return;
-            const isWebsite = websiteItems.some((w) => w.key === keyStr);
-            if (isWebsite) switchWebsite(keyStr);
-          }}
-        >
-          <DropdownSection
-            title="Akun"
-            showDivider
-            classNames={{
-              base: 'bg-white',
-              heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
-              group: 'bg-white',
-              divider: 'bg-default-200',
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Notifikasi website"
+            onClick={() => {
+              setShowNotifications((prev) => !prev);
+              if (unreadCount > 0) clearUnread();
             }}
+            className="relative rounded-full p-2 text-default-600 transition hover:bg-default-100"
           >
-            <DropdownItem
-              key="profile"
-              isReadOnly
-              className="cursor-default bg-default-50 opacity-100"
-              textValue={displayName}
-            >
-              <div className="py-0.5">
-                <p className="text-sm font-semibold text-foreground">{displayName}</p>
-                {user?.email && (
-                  <p className="text-xs text-default-500">{user.email}</p>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 1-5.714 0M6.75 17.25h10.5a2.25 2.25 0 0 0 1.892-3.526L17.2 11.2A4.2 4.2 0 0 1 16.5 8.25V7.5A4.5 4.5 0 0 0 12 3a4.5 4.5 0 0 0-4.5 4.5v.75a4.2 4.2 0 0 1-.7 2.95l-1.942 2.524A2.25 2.25 0 0 0 6.75 17.25Z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 top-12 w-80 rounded-xl border border-default-200 bg-white p-3 shadow-xl shadow-default-200">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">Notifikasi</p>
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">
+                    {unreadCount} baru
+                  </span>
                 )}
               </div>
-            </DropdownItem>
-          </DropdownSection>
 
-          <DropdownSection
-            title="Website"
-            showDivider
+              {lastEvent ? (
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-default-50 p-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-default-500">{lastEvent.eventName}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{lastEvent.title}</p>
+                    <p className="mt-1 text-xs text-default-500">{lastEvent.message}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-default-500">Tidak ada notifikasi baru saat ini.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Dropdown
+          placement="bottom-end"
+          classNames={{
+            content:
+              'min-w-[16rem] rounded-xl border border-default-200 bg-white p-1 shadow-xl shadow-black/10',
+          }}
+        >
+          <DropdownTrigger>
+            <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-default-100">
+              <div className="hidden text-right sm:block">
+                <p className="text-sm font-medium leading-tight">{displayName}</p>
+                {activeWebsite && (
+                  <p className="text-xs text-default-400">
+                    {activeWebsite.role} &middot; {activeWebsite.website.slug}
+                  </p>
+                )}
+              </div>
+              <Avatar
+                name={initials}
+                size="sm"
+                className="h-8 w-8 text-xs"
+                color="primary"
+              />
+            </button>
+          </DropdownTrigger>
+
+          <DropdownMenu
+            aria-label="Profile menu"
+            className="w-64 bg-white"
+            itemClasses={{
+              base: 'rounded-lg data-[hover=true]:bg-default-100',
+              title: 'text-foreground',
+              description: 'text-default-500',
+            }}
             classNames={{
               base: 'bg-white',
-              heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
-              group: 'bg-white',
-              divider: 'bg-default-200',
+              list: 'bg-white',
+            }}
+            onAction={(key) => {
+              const keyStr = String(key);
+              if (keyStr === 'logout') return;
+              const isWebsite = websiteItems.some((w) => w.key === keyStr);
+              if (isWebsite) switchWebsite(keyStr);
             }}
           >
-            {websiteItems.map((w) => (
+            <DropdownSection
+              title="Akun"
+              showDivider
+              classNames={{
+                base: 'bg-white',
+                heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
+                group: 'bg-white',
+                divider: 'bg-default-200',
+              }}
+            >
               <DropdownItem
-                key={w.key}
-                textValue={w.name}
-                endContent={
-                  w.isActive ? (
-                    <svg className="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                    </svg>
-                  ) : undefined
-                }
+                key="profile"
+                isReadOnly
+                className="cursor-default bg-default-50 opacity-100"
+                textValue={displayName}
               >
-                <div>
-                  <p className="text-sm">{w.name}</p>
-                  <p className="text-xs text-default-400">{w.role}</p>
+                <div className="py-0.5">
+                  <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                  {user?.email && (
+                    <p className="text-xs text-default-500">{user.email}</p>
+                  )}
                 </div>
               </DropdownItem>
-            ))}
-          </DropdownSection>
+            </DropdownSection>
 
-          <DropdownSection
-            classNames={{
-              base: 'bg-white',
-              group: 'bg-white',
-            }}
-          >
-            <DropdownItem
-              key="logout"
-              color="danger"
-              href="/auth/logout"
-              textValue="Keluar"
-              className="text-danger"
+            <DropdownSection
+              title="Website"
+              showDivider
+              classNames={{
+                base: 'bg-white',
+                heading: 'px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-default-500',
+                group: 'bg-white',
+                divider: 'bg-default-200',
+              }}
             >
-              Keluar
-            </DropdownItem>
-          </DropdownSection>
-        </DropdownMenu>
-      </Dropdown>
+              {websiteItems.map((w) => (
+                <DropdownItem
+                  key={w.key}
+                  textValue={w.name}
+                  endContent={
+                    w.isActive ? (
+                      <svg className="h-4 w-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                      </svg>
+                    ) : undefined
+                  }
+                >
+                  <div>
+                    <p className="text-sm">{w.name}</p>
+                    <p className="text-xs text-default-400">{w.role}</p>
+                  </div>
+                </DropdownItem>
+              ))}
+            </DropdownSection>
+
+            <DropdownSection
+              classNames={{
+                base: 'bg-white',
+                group: 'bg-white',
+              }}
+            >
+              <DropdownItem
+                key="logout"
+                color="danger"
+                href="/auth/logout"
+                textValue="Keluar"
+                className="text-danger"
+              >
+                Keluar
+              </DropdownItem>
+            </DropdownSection>
+          </DropdownMenu>
+        </Dropdown>
+      </div>
     </header>
   );
 }

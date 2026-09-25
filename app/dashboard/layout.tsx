@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Sidebar } from '../components/sidebar';
+import { RealtimeProvider } from '../components/realtime-provider';
 import { Topbar } from '../components/topbar';
 import { WebsiteProvider } from '../context/website-context';
 
@@ -10,17 +11,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <WebsiteProvider>
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <RealtimeProvider>
+        <div className="flex h-screen overflow-hidden bg-background">
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Topbar onMenuToggle={() => setSidebarOpen((v) => !v)} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Topbar onMenuToggle={() => setSidebarOpen((v) => !v)} />
 
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-            {children}
-          </main>
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </RealtimeProvider>
     </WebsiteProvider>
   );
 }
