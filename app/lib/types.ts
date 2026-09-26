@@ -212,6 +212,8 @@ export interface WebsiteBlogPost {
   excerpt?: string | null;
   content?: string | null;
   cover_image?: string | null;
+  related_product_ids?: string[];
+  related_products?: Array<Pick<WebsiteProduct, 'id' | 'name' | 'slug' | 'price' | 'images' | 'is_active'>>;
   is_published: boolean;
   published_at?: string | null;
   created_at: string;

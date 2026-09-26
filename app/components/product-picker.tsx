@@ -12,6 +12,7 @@ interface ProductPickerProps {
   onChange: (ids: string[]) => void;
   websiteId?: string;
   disabled?: boolean;
+  maxSelected?: number;
   /** true = radio (maks. 1 dipilih), false = checkbox (multi). Default true. */
   single?: boolean;
 }
@@ -23,6 +24,7 @@ export function ProductPicker({
   onChange,
   websiteId,
   disabled = false,
+  maxSelected,
   single = true,
 }: ProductPickerProps) {
   const [products, setProducts] = useState<WebsiteProduct[]>([]);
@@ -79,7 +81,7 @@ export function ProductPicker({
                 name={single ? 'product-picker' : undefined}
                 checked={value.includes(product.id)}
                 onChange={() => toggle(product.id)}
-                disabled={disabled}
+                disabled={disabled || (!value.includes(product.id) && maxSelected !== undefined && value.length >= maxSelected)}
                 className="h-4 w-4 shrink-0 border-default-300"
               />
               {product.images?.[0] ? (

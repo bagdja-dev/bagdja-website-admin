@@ -12,7 +12,7 @@ import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { RichTextEditor } from '../../components/rich-text-editor';
 import { apiClient, slugify } from '../../lib/api-client';
-import { hasMinRole, type WebsiteBlogPost } from '../../lib/types';
+import { hasMinRole, type WebsiteBlogPost, type WebsiteProduct } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 
 const STATUS_TABS = [
@@ -104,12 +104,16 @@ export default function BlogManagement() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [editPost, setEditPost] = useState<WebsiteBlogPost | null>(null);
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [relatedProductIds, setRelatedProductIds] = useState<string[]>([]);
+  const [products, setProducts] = useState<WebsiteProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -130,6 +134,18 @@ export default function BlogManagement() {
     }
   }, [websiteId]);
 
+  const loadProducts = useCallback(async () => {
+    if (!websiteId) return;
+    setProductsLoading(true);
+    try {
+      setProducts(await apiClient<WebsiteProduct[]>(`/api/websites/${websiteId}/products`));
+    } catch {
+      setProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [websiteId]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -147,23 +163,28 @@ export default function BlogManagement() {
 
   const openCreate = () => {
     setEditPost(null);
+    setProductPickerOpen(false);
     setTitle('');
     setSlug('');
     setExcerpt('');
     setContent('');
     setCoverImage('');
+    setRelatedProductIds([]);
     setIsPublished(false);
     setError('');
     setModalOpen(true);
   };
 
   const openEdit = (post: WebsiteBlogPost) => {
+    void loadProducts();
     setEditPost(post);
+    setProductPickerOpen(false);
     setTitle(post.title);
     setSlug(post.slug);
     setExcerpt(post.excerpt ?? '');
     setContent(post.content ?? '');
     setCoverImage(post.cover_image ?? '');
+    setRelatedProductIds(post.related_product_ids ?? post.related_products?.map((product) => product.id) ?? []);
     setIsPublished(post.is_published);
     setError('');
     setModalOpen(true);
@@ -183,6 +204,7 @@ export default function BlogManagement() {
         excerpt: excerpt.trim() || undefined,
         content: content.trim() || undefined,
         cover_image: coverImage.trim() || undefined,
+        related_product_ids: relatedProductIds,
         is_published: isPublished,
       };
       if (editPost) {
@@ -203,6 +225,24 @@ export default function BlogManagement() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const moveRelatedProduct = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= relatedProductIds.length) return;
+    setRelatedProductIds((current) => {
+      const next = current.slice();
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  };
+
+  const toggleRelatedProduct = (productId: string) => {
+    setRelatedProductIds((current) => {
+      if (current.includes(productId)) return current.filter((id) => id !== productId);
+      if (current.length >= 3) return current;
+      return [...current, productId];
+    });
   };
 
   const handleDelete = async (postId: string) => {
@@ -308,16 +348,63 @@ export default function BlogManagement() {
 
       <AppModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editPost ? 'Edit Artikel' : 'Artikel Baru'}
+        onClose={() => {
+          setModalOpen(false);
+          setProductPickerOpen(false);
+        }}
+        title={productPickerOpen ? 'Pilih Produk Terkait' : editPost ? 'Edit Artikel' : 'Artikel Baru'}
         size="xl"
         footer={
-          <>
-            <Button variant="light" onPress={() => setModalOpen(false)}>Batal</Button>
-            <Button color="primary" isLoading={saving} onPress={handleSave}>Simpan</Button>
-          </>
+          productPickerOpen ? (
+            <Button color="primary" onPress={() => setProductPickerOpen(false)}>Selesai</Button>
+          ) : (
+            <>
+              <Button variant="light" onPress={() => setModalOpen(false)}>Batal</Button>
+              <Button color="primary" isLoading={saving} onPress={handleSave}>Simpan</Button>
+            </>
+          )
         }
       >
+        {productPickerOpen ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-default-500">Pilih maksimal 3 produk. Produk terpilih ditambahkan mengikuti urutan pilihan.</p>
+              <span className="shrink-0 text-xs font-semibold text-default-500">{relatedProductIds.length}/3</span>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-default-200">
+              {productsLoading ? (
+                <p className="p-5 text-sm text-default-400">Memuat produk...</p>
+              ) : products.length === 0 ? (
+                <p className="p-5 text-sm text-default-400">Belum ada produk atau layanan.</p>
+              ) : products.map((product) => {
+                const selected = relatedProductIds.includes(product.id);
+                const limitReached = relatedProductIds.length >= 3;
+                return (
+                  <label key={product.id} className="flex cursor-pointer items-center gap-3 border-b border-default-100 px-3 py-3 last:border-b-0 hover:bg-default-50">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      disabled={!selected && limitReached}
+                      onChange={() => toggleRelatedProduct(product.id)}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    {product.images?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={product.images[0]} alt="" className="h-11 w-14 shrink-0 rounded-md object-cover" />
+                    ) : (
+                      <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-md bg-default-100 text-lg">🛍️</span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">{product.name}</span>
+                      <span className="text-xs text-default-500">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(product.price)}</span>
+                    </span>
+                    {!product.is_active && <span className="text-xs text-default-400">Nonaktif</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col gap-5">
           <FormInput
             label="Judul"
@@ -349,6 +436,58 @@ export default function BlogManagement() {
             websiteId={websiteId ?? undefined}
             uploadFolder="blog"
           />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Produk Terkait</p>
+                <p className="text-xs text-default-500">Urutkan produk yang akan menjadi CTA di artikel.</p>
+              </div>
+              <Button
+                size="sm"
+                variant="flat"
+                color="primary"
+                isDisabled={relatedProductIds.length >= 3}
+                onPress={() => {
+                  void loadProducts();
+                  setProductPickerOpen(true);
+                }}
+              >
+                + Tambah Produk
+              </Button>
+            </div>
+            {relatedProductIds.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-default-300 px-4 py-6 text-center text-sm text-default-400">Belum ada produk terkait.</div>
+            ) : (
+              <ul className="divide-y divide-default-100 overflow-hidden rounded-xl border border-default-200">
+                {relatedProductIds.map((productId, index) => {
+                  const product = products.find((item) => item.id === productId);
+                  return (
+                    <li key={productId} className="flex items-center gap-3 px-3 py-2.5">
+                      {product?.images?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={product.images[0]} alt="" className="h-10 w-14 shrink-0 rounded-md object-cover" />
+                      ) : (
+                        <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-default-100 text-lg">🛍️</span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{product?.name ?? 'Produk tidak tersedia'}</span>
+                      <span className="text-xs text-default-400">{index + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <Button isIconOnly size="sm" variant="light" aria-label="Naikkan posisi" isDisabled={index === 0} onPress={() => moveRelatedProduct(index, -1)}>
+                          <span aria-hidden="true">↑</span>
+                        </Button>
+                        <Button isIconOnly size="sm" variant="light" aria-label="Turunkan posisi" isDisabled={index === relatedProductIds.length - 1} onPress={() => moveRelatedProduct(index, 1)}>
+                          <span aria-hidden="true">↓</span>
+                        </Button>
+                        <Button isIconOnly size="sm" variant="light" color="danger" aria-label="Hapus produk terkait" onPress={() => toggleRelatedProduct(productId)}>
+                          <span aria-hidden="true">×</span>
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
           <FormSwitch label="Terbitkan" checked={isPublished} onChange={setIsPublished} />
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
@@ -356,6 +495,7 @@ export default function BlogManagement() {
             </div>
           )}
         </div>
+        )}
       </AppModal>
 
       {canEdit && <MobileFloatingActionBar label="Artikel Baru" onClick={openCreate} />}

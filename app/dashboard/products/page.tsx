@@ -618,7 +618,7 @@ export default function ProductsManagement() {
       const body = {
         type,
         category_id: categoryId || undefined,
-        parent_product_id: isVariant && parentProductId ? parentProductId : undefined,
+        parent_product_id: isVariant && parentProductId ? parentProductId : null,
         name: name.trim(),
         slug: slug.trim(),
         // Kalau "pakai deskripsi induk" dicentang, kosongkan field lokal
