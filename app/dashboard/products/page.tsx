@@ -10,7 +10,6 @@ import { useConfirmDialog } from '../../components/confirm-dialog';
 import { GalleryEditor } from '../../components/gallery-editor';
 import { ManageCategoriesModal } from '../../components/manage-categories-modal';
 import { ManageProductTypeFlowsModal } from '../../components/manage-product-type-flows-modal';
-import { PaymentMetaEditor } from '../../components/payment-meta-editor';
 import { ProductParentSelect, type ProductOption } from '../../components/product-parent-select';
 import { RichTextEditor } from '../../components/rich-text-editor';
 import { VideoUpload } from '../../components/video-upload';
@@ -23,7 +22,6 @@ import {
   hasMinRole,
   PRODUCT_TYPE_LABELS,
   type FulfillmentFlow,
-  type PaymentMetaEntry,
   type ProductType,
   type WebsiteCategory,
   type WebsiteLocation,
@@ -374,7 +372,6 @@ export default function ProductsManagement() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [videoUrl, setVideoUrl] = useState('');
   const [model3dUrl, setModel3dUrl] = useState('');
-  const [paymentMeta, setPaymentMeta] = useState<PaymentMetaEntry[]>([]);
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [fulfillmentFlowId, setFulfillmentFlowId] = useState('');
   const [finalReleaseGuarantyDays, setFinalReleaseGuarantyDays] = useState('');
@@ -505,7 +502,6 @@ export default function ProductsManagement() {
     setUomId('');
     setQuotable(false);
     setIsActive(true);
-    setPaymentMeta([]);
     setSelectedLocationIds([]);
     setFulfillmentFlowId('');
     // Standar masa garansi konfirmasi penerimaan = 3 hari (opt-out — kosongkan
@@ -563,7 +559,6 @@ export default function ProductsManagement() {
     setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
     setVideoUrl(product.video_url ?? '');
     setModel3dUrl(product.model3d_url ?? '');
-    setPaymentMeta(product.payment_meta ?? []);
     setSelectedLocationIds(product.location_ids ?? []);
     setFulfillmentFlowId(product.fulfillment_flow_id ?? '');
     setFinalReleaseGuarantyDays(
@@ -636,7 +631,6 @@ export default function ProductsManagement() {
         metadata,
         specifications,
         estimation,
-        payment_meta: paymentMeta,
         location_ids: selectedLocationIds,
         fulfillment_flow_id: fulfillmentFlowId || null,
         final_release_guaranty_days: finalReleaseGuarantyDays ? parseInt(finalReleaseGuarantyDays, 10) : null,
@@ -1281,8 +1275,6 @@ export default function ProductsManagement() {
             placeholder="Kosongkan untuk menonaktifkan"
             description="Kalau buyer tidak klik 'Selesai — Terima Barang' setelah sekian hari sejak pesanan siap dikonfirmasi, Anda bisa force-complete transaksi lewat halaman Pesanan. Kosongkan kalau tidak mau mengaktifkan opsi ini untuk produk ini — transaksi yang mengandung produk tanpa pengaturan ini tidak bisa di-force-complete sama sekali."
           />
-
-          <PaymentMetaEditor value={paymentMeta} onChange={setPaymentMeta} />
 
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
