@@ -128,6 +128,7 @@ export interface WebsiteProduct {
   sort_order: number;
   is_active: boolean;
   quotable?: boolean;
+  download_link_ttl_minutes?: number;
   uom_id?: string | null;
   uom?: ProductUom | null;
   /** Order Handling Phase 3 — SOP pengiriman kustom (null = tidak butuh tracking). */
@@ -146,6 +147,35 @@ export interface WebsiteProduct {
   requires_shipping?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface WebsiteAsset {
+  id: string;
+  website_id: string;
+  storage_file_id: string;
+  name: string;
+  description: string;
+  asset_type: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  is_public: boolean;
+  public_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WebsiteProductAssetRole = 'download' | 'attachment' | 'preview';
+
+export interface WebsiteProductAsset {
+  id: string;
+  website_id: string;
+  product_id: string;
+  asset_id: string;
+  role: WebsiteProductAssetRole;
+  sort_order: number;
+  is_active: boolean;
+  asset: WebsiteAsset;
 }
 
 export interface ProductUom {

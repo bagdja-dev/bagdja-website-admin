@@ -42,6 +42,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Digital Asset',
+    href: '/dashboard/assets',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h6l1.5 1.5h9v9.75a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 13.5h7.5m-7.5 3h4.5" />
+      </svg>
+    ),
+  },
+  {
     label: 'Penawaran',
     href: '/dashboard/penawaran',
     icon: (

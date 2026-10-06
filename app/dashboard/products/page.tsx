@@ -23,9 +23,11 @@ import {
   PRODUCT_TYPE_LABELS,
   type FulfillmentFlow,
   type ProductType,
+  type WebsiteAsset,
   type WebsiteCategory,
   type WebsiteLocation,
   type WebsiteProduct,
+  type WebsiteProductAsset,
   type ProductUom,
 } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
@@ -87,15 +89,12 @@ function buildMetadata(
   sku: string,
   stock: string,
   durationMinutes: string,
-  isBookable: boolean,
-  downloadUrl: string,
   itemsIncluded: string,
 ): Record<string, unknown> {
   if (type === 'service') {
     const meta: Record<string, unknown> = {};
     const dur = parseInt(durationMinutes, 10);
     if (!Number.isNaN(dur) && dur > 0) meta.duration_minutes = dur;
-    meta.is_bookable = isBookable;
     return meta;
   }
   if (type === 'product') {
@@ -106,7 +105,7 @@ function buildMetadata(
     return meta;
   }
   if (type === 'digital') {
-    return downloadUrl.trim() ? { download_url: downloadUrl.trim() } : {};
+    return {};
   }
   if (type === 'package') {
     return itemsIncluded.trim() ? { items_included: itemsIncluded.trim() } : {};
@@ -120,8 +119,6 @@ function loadMetadataFields(product: WebsiteProduct | null) {
     sku: typeof meta.sku === 'string' ? meta.sku : '',
     stock: meta.stock != null ? String(meta.stock) : '',
     durationMinutes: meta.duration_minutes != null ? String(meta.duration_minutes) : '',
-    isBookable: meta.is_bookable === true,
-    downloadUrl: typeof meta.download_url === 'string' ? meta.download_url : '',
     itemsIncluded: typeof meta.items_included === 'string' ? meta.items_included : '',
   };
 }
@@ -176,7 +173,7 @@ function getMetaHint(product: WebsiteProduct): string | null {
     if (meta.stock != null) parts.push(`Stok: ${meta.stock}`);
     return parts.length ? parts.join(' · ') : null;
   }
-  if (product.type === 'digital' && meta.download_url) return 'Download tersedia';
+  if (product.type === 'digital') return 'File dikelola di Asset';
   if (product.type === 'package' && meta.items_included) return 'Paket bundling';
   return null;
 }
@@ -230,11 +227,6 @@ function ProductCard({ product, categoryLabel, variantCount, parentLabel, canEdi
                 {product.quotable && (
                   <Chip size="sm" variant="flat" className="border border-amber-200/50 bg-amber-400/20 backdrop-blur-sm" classNames={{ content: 'font-semibold text-[10px] text-amber-50' }}>
                     Quotation
-                  </Chip>
-                )}
-                {product.type === 'service' && product.metadata?.is_bookable === true && (
-                  <Chip size="sm" variant="flat" className="border border-sky-200/50 bg-sky-400/20 backdrop-blur-sm" classNames={{ content: 'font-semibold text-[10px] text-sky-50' }}>
-                    Booking
                   </Chip>
                 )}
                 {product.requires_shipping && (
@@ -335,6 +327,10 @@ export default function ProductsManagement() {
   const [categories, setCategories] = useState<WebsiteCategory[]>([]);
   const [fulfillmentFlows, setFulfillmentFlows] = useState<FulfillmentFlow[]>([]);
   const [uoms, setUoms] = useState<ProductUom[]>([]);
+  const [digitalAssets, setDigitalAssets] = useState<WebsiteAsset[]>([]);
+  const [selectedDigitalAssetIds, setSelectedDigitalAssetIds] = useState<string[]>([]);
+  const [digitalAssetPickerOpen, setDigitalAssetPickerOpen] = useState(false);
+  const [digitalAssetSearch, setDigitalAssetSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
@@ -360,8 +356,7 @@ export default function ProductsManagement() {
   const [sku, setSku] = useState('');
   const [stock, setStock] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
-  const [isBookable, setIsBookable] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState('');
+  const [downloadLinkTtlMinutes, setDownloadLinkTtlMinutes] = useState('4320');
   const [itemsIncluded, setItemsIncluded] = useState('');
   const [specificationsRows, setSpecificationsRows] = useState<{ key: string; value: string }[]>([
     { key: '', value: '' },
@@ -410,6 +405,29 @@ export default function ProductsManagement() {
     }
   }, [websiteId, typeFilter]);
 
+  const loadDigitalAssets = useCallback(async () => {
+    if (!websiteId) return;
+    try {
+      const assets = await apiClient<WebsiteAsset[]>(`/api/websites/${websiteId}/assets`);
+      setDigitalAssets(assets.filter((asset) => !asset.is_public));
+    } catch {
+      setDigitalAssets([]);
+    }
+  }, [websiteId]);
+
+  const loadSelectedDigitalAssets = useCallback(async (productId: string) => {
+    if (!websiteId || !productId) {
+      setSelectedDigitalAssetIds([]);
+      return;
+    }
+    try {
+      const links = await apiClient<WebsiteProductAsset[]>(`/api/websites/${websiteId}/assets/products/${productId}`);
+      setSelectedDigitalAssetIds(links.map((link) => link.asset_id));
+    } catch {
+      setSelectedDigitalAssetIds([]);
+    }
+  }, [websiteId]);
+
   const fulfillmentFlowOptions = useMemo(() => {
     return [
       { value: '', label: 'Tanpa tracking' },
@@ -418,6 +436,18 @@ export default function ProductsManagement() {
         .map((f) => ({ value: f.id, label: f.name })),
     ];
   }, [fulfillmentFlows, fulfillmentFlowId]);
+
+  const filteredDigitalAssets = digitalAssets.filter((asset) => {
+    const query = digitalAssetSearch.trim().toLowerCase();
+    return !query || `${asset.name} ${asset.filename} ${asset.description ?? ''}`.toLowerCase().includes(query);
+  });
+
+  const selectedDigitalAssets = digitalAssets.filter((asset) => selectedDigitalAssetIds.includes(asset.id));
+
+  const openDigitalAssetPicker = () => {
+    setDigitalAssetSearch('');
+    setDigitalAssetPickerOpen(true);
+  };
 
   const categoryLabelById = useMemo(() => {
     const map = new Map<string, string>();
@@ -453,6 +483,11 @@ export default function ProductsManagement() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!websiteId || !modalOpen) return;
+    void loadDigitalAssets();
+  }, [websiteId, modalOpen, loadDigitalAssets]);
+
   const stats = useMemo(() => {
     const active = products.filter((p) => p.is_active).length;
     return { total: products.length, active };
@@ -462,8 +497,6 @@ export default function ProductsManagement() {
     setSku('');
     setStock('');
     setDurationMinutes('');
-    setIsBookable(false);
-    setDownloadUrl('');
     setItemsIncluded('');
     setSpecificationsRows([{ key: '', value: '' }]);
     setEstimationRows([{ label: '', price: '' }]);
@@ -481,8 +514,10 @@ export default function ProductsManagement() {
 
   const openCreate = () => {
     setEditProduct(null);
+    setSelectedDigitalAssetIds([]);
     const initialType = typeFilter !== 'all' ? (typeFilter as ProductType) : 'product';
     setType(initialType);
+    setDownloadLinkTtlMinutes('4320');
     // Default requires_shipping dari type (bisa diubah manual di form) —
     // konsisten dgn default yang diturunkan ProductsService.create() kalau
     // field ini tidak dikirim (fulfillment-praorder-plan.md §2.6, Q10).
@@ -516,10 +551,11 @@ export default function ProductsManagement() {
     setModalOpen(true);
   };
 
-  const openEdit = (product: WebsiteProduct) => {
+  const openEdit = async (product: WebsiteProduct) => {
     const fields = loadMetadataFields(product);
     setEditProduct(product);
     setType((product.type as ProductType) || 'product');
+    await loadSelectedDigitalAssets(product.id);
     setCategoryId(product.category_id ?? '');
     setCategoryLabel(product.category_id ? categoryLabelById.get(product.category_id) ?? '' : '');
     setIsVariant(Boolean(product.parent_product_id));
@@ -543,8 +579,7 @@ export default function ProductsManagement() {
     setSku(fields.sku);
     setStock(fields.stock);
     setDurationMinutes(fields.durationMinutes);
-    setIsBookable(fields.isBookable);
-    setDownloadUrl(fields.downloadUrl);
+    setDownloadLinkTtlMinutes(String(product.download_link_ttl_minutes ?? 4320));
     setItemsIncluded(fields.itemsIncluded);
     setSpecificationsRows(
       Object.entries(product.specifications ?? {}).length > 0
@@ -598,13 +633,10 @@ export default function ProductsManagement() {
         throw new Error('Estimasi harga mengandung nilai tidak valid. Pastikan semua harga angka non-negatif.');
       }
 
-      const metadata = buildMetadata(type, sku, stock, durationMinutes, isBookable, downloadUrl, itemsIncluded);
+      const metadata = buildMetadata(type, sku, stock, durationMinutes, itemsIncluded);
       if (isVariant && parentProductId) {
         metadata.inherit_description = inheritDescription;
       }
-      // Atribut varian selalu disimpan kalau diisi — tidak digantung ke status
-      // isVariant/hasOwnVariants (produk bisa diisi atributnya duluan sebelum
-      // punya hubungan varian apa pun).
       const attrs = Object.fromEntries(
         variantAttributes.filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value.trim()]),
       );
@@ -616,14 +648,11 @@ export default function ProductsManagement() {
         parent_product_id: isVariant && parentProductId ? parentProductId : null,
         name: name.trim(),
         slug: slug.trim(),
-        // Kalau "pakai deskripsi induk" dicentang, kosongkan field lokal
-        // secara eksplisit ('' bukan undefined, biar benar-benar ke-PATCH
-        // jadi kosong, bukan cuma diabaikan) — resolusi tampil diambil live
-        // dari induk (lihat PublicService.resolveInheritedText).
         description: willInherit ? '' : description.trim() || undefined,
         detail: willInherit ? '' : detail.trim() || undefined,
         price: parseCurrencyInput(price),
-        quotable,
+        quotable: type === 'digital' ? false : quotable,
+        download_link_ttl_minutes: type === 'digital' ? Number(downloadLinkTtlMinutes) || 4320 : undefined,
         uom_id: uomId || null,
         images: images.map((img) => img.url).filter(Boolean),
         video_url: videoUrl.trim() || null,
@@ -631,9 +660,11 @@ export default function ProductsManagement() {
         metadata,
         specifications,
         estimation,
-        location_ids: selectedLocationIds,
-        fulfillment_flow_id: fulfillmentFlowId || null,
-        final_release_guaranty_days: finalReleaseGuarantyDays ? parseInt(finalReleaseGuarantyDays, 10) : null,
+        location_ids: type === 'digital' ? [] : selectedLocationIds,
+        fulfillment_flow_id: type === 'digital' ? null : fulfillmentFlowId || null,
+        final_release_guaranty_days: type !== 'digital' && finalReleaseGuarantyDays
+          ? parseInt(finalReleaseGuarantyDays, 10)
+          : null,
         weight_grams: weightGrams ? parseInt(weightGrams, 10) : null,
         length_cm: lengthCm ? parseInt(lengthCm, 10) : null,
         width_cm: widthCm ? parseInt(widthCm, 10) : null,
@@ -641,17 +672,45 @@ export default function ProductsManagement() {
         requires_shipping: requiresShipping,
         is_active: isActive,
       };
+
+      let savedProductId = editProduct?.id ?? '';
       if (editProduct) {
         await apiClient(`/api/websites/${websiteId}/products/${editProduct.id}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
+        savedProductId = editProduct.id;
       } else {
-        await apiClient(`/api/websites/${websiteId}/products`, {
+        const created = await apiClient<WebsiteProduct>(`/api/websites/${websiteId}/products`, {
           method: 'POST',
           body: JSON.stringify(body),
         });
+        savedProductId = created.id;
       }
+
+      if (type === 'digital') {
+        const existingLinks = await apiClient<WebsiteProductAsset[]>(`/api/websites/${websiteId}/assets/products/${savedProductId}`);
+        const existingIds = new Set(existingLinks.map((link) => link.asset_id));
+        const nextIds = new Set(selectedDigitalAssetIds);
+
+        for (const assetId of existingIds) {
+          if (!nextIds.has(assetId)) {
+            await apiClient(`/api/websites/${websiteId}/assets/${assetId}/products/${savedProductId}`, {
+              method: 'DELETE',
+            });
+          }
+        }
+
+        for (const assetId of nextIds) {
+          if (!existingIds.has(assetId)) {
+            await apiClient(`/api/websites/${websiteId}/assets/${assetId}/products/${savedProductId}`, {
+              method: 'POST',
+              body: JSON.stringify({ role: 'download' }),
+            });
+          }
+        }
+      }
+
       setModalOpen(false);
       await load();
     } catch (err) {
@@ -976,14 +1035,13 @@ export default function ProductsManagement() {
               <p className="text-sm font-semibold text-foreground">Pengaturan Operasional</p>
               <p className="mt-1 text-xs text-default-500">Atur cara produk ini dipesan, dibayar, dan dipenuhi.</p>
             </div>
-            <FormSwitch
-              label="Memerlukan quotation seller"
-              description="Buyer mengisi deskripsi pesanan terlebih dahulu sebelum seller menetapkan harga final."
-              checked={quotable}
-              onChange={setQuotable}
-            />
-            {type === 'service' && (
-              <FormSwitch label="Dapat dibooking" checked={isBookable} onChange={setIsBookable} />
+            {type !== 'digital' && (
+              <FormSwitch
+                label="Memerlukan quotation seller"
+                description="Buyer mengisi deskripsi pesanan terlebih dahulu sebelum seller menetapkan harga final."
+                checked={quotable}
+                onChange={setQuotable}
+              />
             )}
             {type !== 'digital' && (
               <FormSwitch
@@ -1154,7 +1212,52 @@ export default function ProductsManagement() {
           )}
 
           {type === 'digital' && (
-            <FormInput label="URL Download" value={downloadUrl} onChange={setDownloadUrl} />
+            <div className="space-y-3 rounded-xl border border-default-200 bg-default-50/50 p-4">
+              <FormInput
+                label="Masa berlaku link download (menit)"
+                type="number"
+                min={1}
+                max={10080}
+                value={downloadLinkTtlMinutes}
+                onChange={setDownloadLinkTtlMinutes}
+              />
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Asset digital</p>
+                    <p className="text-xs text-default-500">Pilih file privat untuk dikirim kepada pembeli setelah pembayaran.</p>
+                  </div>
+                  <Button size="sm" variant="flat" color="primary" onPress={openDigitalAssetPicker}>Pilih asset</Button>
+                </div>
+                {selectedDigitalAssets.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-default-300 bg-white px-3 py-4 text-center text-xs text-default-500">
+                    Belum ada asset dipilih.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedDigitalAssets.map((asset) => (
+                      <div key={asset.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-default-200 bg-white px-3 py-2">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-default-100 text-[10px] font-bold uppercase text-default-600">
+                          {asset.filename.split('.').pop()?.slice(0, 5) ?? 'FILE'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{asset.name}</p>
+                          <p className="truncate text-xs text-default-500">{asset.filename}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDigitalAssetIds((prev) => prev.filter((id) => id !== asset.id))}
+                          className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-danger hover:bg-danger-50"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-default-500">Default 4320 menit (3 hari). File dikelola dan ditautkan melalui menu Asset.</p>
+            </div>
           )}
 
           {type === 'package' && (
@@ -1218,63 +1321,67 @@ export default function ProductsManagement() {
             </div>
           )}
 
-          <div className="rounded-xl border border-default-200 bg-default-50/50 p-4">
-            <p className="text-sm font-medium text-foreground">Lokasi Tersedia</p>
-            <p className="mt-1 text-xs text-default-500">
-              Kosongkan semua untuk menandakan produk tersedia di seluruh lokasi website. Pilih lokasi tertentu kalau produk hanya berlaku di area tertentu.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {locations.length === 0 ? (
-                <span className="text-xs text-default-400">Belum ada lokasi yang dibuat.</span>
-              ) : (
-                locations.map((location) => {
-                  const checked = selectedLocationIds.includes(location.id);
-                  return (
-                    <label
-                      key={location.id}
-                      className={
-                        'inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ' +
-                        (checked
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-default-200 bg-white text-default-600 hover:bg-default-50')
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary"
-                        checked={checked}
-                        onChange={(e) => {
-                          setSelectedLocationIds((prev) =>
-                            e.target.checked ? [...prev, location.id] : prev.filter((id) => id !== location.id),
-                          );
-                        }}
-                      />
-                      {location.name}
-                    </label>
-                  );
-                })
-              )}
-            </div>
-          </div>
+          {type !== 'digital' && (
+            <>
+              <div className="rounded-xl border border-default-200 bg-default-50/50 p-4">
+                <p className="text-sm font-medium text-foreground">Lokasi Tersedia</p>
+                <p className="mt-1 text-xs text-default-500">
+                  Kosongkan semua untuk menandakan produk tersedia di seluruh lokasi website. Pilih lokasi tertentu kalau produk hanya berlaku di area tertentu.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {locations.length === 0 ? (
+                    <span className="text-xs text-default-400">Belum ada lokasi yang dibuat.</span>
+                  ) : (
+                    locations.map((location) => {
+                      const checked = selectedLocationIds.includes(location.id);
+                      return (
+                        <label
+                          key={location.id}
+                          className={
+                            'inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ' +
+                            (checked
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-default-200 bg-white text-default-600 hover:bg-default-50')
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedLocationIds((prev) =>
+                                e.target.checked ? [...prev, location.id] : prev.filter((id) => id !== location.id),
+                              );
+                            }}
+                          />
+                          {location.name}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
 
-          <FormSelect
-            label="Flow Pengiriman"
-            value={fulfillmentFlowId}
-            onChange={setFulfillmentFlowId}
-            options={fulfillmentFlowOptions}
-            placeholder="Tanpa tracking (mis. produk digital)"
-            description="SOP pengiriman/pemenuhan bertahap yang harus dilewati penjual sampai barang dianggap terkirim. Kelola di menu Master Flow."
-          />
+              <FormSelect
+                label="Flow Pengiriman"
+                value={fulfillmentFlowId}
+                onChange={setFulfillmentFlowId}
+                options={fulfillmentFlowOptions}
+                placeholder="Tanpa tracking"
+                description="SOP pengiriman/pemenuhan bertahap yang harus dilewati penjual sampai barang dianggap terkirim. Kelola di menu Master Flow."
+              />
 
-          <FormInput
-            label="Masa Garansi Konfirmasi Penerimaan (hari)"
-            type="number"
-            min={1}
-            value={finalReleaseGuarantyDays}
-            onChange={setFinalReleaseGuarantyDays}
-            placeholder="Kosongkan untuk menonaktifkan"
-            description="Kalau buyer tidak klik 'Selesai — Terima Barang' setelah sekian hari sejak pesanan siap dikonfirmasi, Anda bisa force-complete transaksi lewat halaman Pesanan. Kosongkan kalau tidak mau mengaktifkan opsi ini untuk produk ini — transaksi yang mengandung produk tanpa pengaturan ini tidak bisa di-force-complete sama sekali."
-          />
+              <FormInput
+                label="Masa Garansi Konfirmasi Penerimaan (hari)"
+                type="number"
+                min={1}
+                value={finalReleaseGuarantyDays}
+                onChange={setFinalReleaseGuarantyDays}
+                placeholder="Kosongkan untuk menonaktifkan"
+                description="Kalau buyer tidak klik 'Selesai — Terima Barang' setelah sekian hari sejak pesanan siap dikonfirmasi, Anda bisa force-complete transaksi lewat halaman Pesanan. Kosongkan kalau tidak mau mengaktifkan opsi ini untuk produk ini — transaksi yang mengandung produk tanpa pengaturan ini tidak bisa di-force-complete sama sekali."
+              />
+            </>
+          )}
 
           {error && (
             <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
@@ -1283,6 +1390,94 @@ export default function ProductsManagement() {
           )}
         </div>
       </AppModal>
+
+      {digitalAssetPickerOpen && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDigitalAssetPickerOpen(false);
+          }}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="digital-asset-picker-title"
+            className="relative z-10 flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-default-200 bg-white shadow-2xl"
+            onKeyDownCapture={(event) => {
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                setDigitalAssetPickerOpen(false);
+              }
+            }}
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-default-200 px-5 py-4 sm:px-6">
+              <div>
+                <h2 id="digital-asset-picker-title" className="text-lg font-semibold text-foreground">Pilih asset digital</h2>
+                <p className="mt-1 text-sm text-default-500">Cari asset yang sudah diunggah. Pilih satu atau lebih file.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDigitalAssetPickerOpen(false)}
+                aria-label="Tutup pencarian asset"
+                className="rounded-lg p-1.5 text-default-400 transition-colors hover:bg-default-100 hover:text-foreground"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </header>
+            <div className="border-b border-default-100 px-5 py-4 sm:px-6">
+              <input
+                autoFocus
+                type="search"
+                value={digitalAssetSearch}
+                onChange={(event) => setDigitalAssetSearch(event.target.value)}
+                placeholder="Cari nama asset atau file…"
+                className="w-full rounded-xl border border-default-300 bg-white px-3.5 py-2.5 text-sm text-foreground shadow-sm transition-all placeholder:text-default-400 hover:border-default-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="mt-2 text-xs text-default-500">{selectedDigitalAssetIds.length} asset dipilih</p>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4 sm:px-6">
+              {digitalAssets.length === 0 ? (
+                <p className="py-8 text-center text-sm text-default-500">Belum ada asset privat. Unggah asset terlebih dahulu dari halaman Digital Asset.</p>
+              ) : filteredDigitalAssets.length === 0 ? (
+                <p className="py-8 text-center text-sm text-default-500">Tidak ada asset yang cocok dengan pencarian.</p>
+              ) : (
+                filteredDigitalAssets.map((asset) => {
+                  const checked = selectedDigitalAssetIds.includes(asset.id);
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      aria-pressed={checked}
+                      onClick={() => setSelectedDigitalAssetIds((prev) =>
+                        checked ? prev.filter((id) => id !== asset.id) : [...prev, asset.id],
+                      )}
+                      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${checked ? 'border-primary bg-primary-50/60' : 'border-default-200 hover:bg-default-50'}`}
+                    >
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[10px] font-bold uppercase ${checked ? 'bg-primary text-white' : 'bg-default-100 text-default-600'}`}>
+                        {asset.filename.split('.').pop()?.slice(0, 5) ?? 'FILE'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">{asset.name}</span>
+                        <span className="mt-0.5 block truncate text-xs text-default-500">{asset.filename}</span>
+                      </span>
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs ${checked ? 'border-primary bg-primary text-white' : 'border-default-300 bg-white'}`} aria-hidden="true">
+                        {checked ? '✓' : ''}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <footer className="flex justify-end border-t border-default-200 px-5 py-4 sm:px-6">
+              <Button color="primary" onPress={() => setDigitalAssetPickerOpen(false)}>Selesai</Button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {canEdit && <MobileFloatingActionBar label="Item Baru" onClick={openCreate} />}
       {dialog}
