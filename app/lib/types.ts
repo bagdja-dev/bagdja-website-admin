@@ -318,19 +318,12 @@ export interface TransactionItem {
   } | null;
 }
 
-export interface EscrowMilestoneSummary {
-  id: string;
-  sequence: number;
-  status: string;
-}
-
 export interface EscrowSummary {
   id: string;
   status: string;
   amount_held: number;
   amount_released: number;
   remaining_hold: number;
-  milestones: EscrowMilestoneSummary[];
 }
 
 /** Tersimpan di `transaction.metadata.shipping` — hanya ada kalau checkout lewat flow baru (search-select + cek ongkir real, bukan tombol label statis). */
