@@ -27,6 +27,7 @@ import {
   type WebsiteCategory,
   type WebsiteLocation,
   type WebsiteProduct,
+  type WebsiteEventProductOption,
   type WebsiteProductAsset,
   type ProductUom,
 } from '../../lib/types';
@@ -39,6 +40,7 @@ const TYPE_TABS = [
   { key: 'service', label: 'Layanan' },
   { key: 'package', label: 'Paket' },
   { key: 'digital', label: 'Digital' },
+  { key: 'gathering', label: 'Gathering' },
 ] as const;
 
 const TYPE_OPTIONS = Object.entries(PRODUCT_TYPE_LABELS).map(([value, label]) => ({
@@ -78,6 +80,13 @@ const TYPE_THEME: Record<
     ring: 'ring-fuchsia-100',
     chipColor: 'success',
   },
+  gathering: {
+    gradient: 'from-rose-500 to-orange-500',
+    glow: 'bg-rose-300/25',
+    icon: '🎟️',
+    ring: 'ring-rose-100',
+    chipColor: 'warning',
+  },
 };
 
 function getTypeTheme(type: string) {
@@ -90,6 +99,9 @@ function buildMetadata(
   stock: string,
   durationMinutes: string,
   itemsIncluded: string,
+  minAttendees: string,
+  maxAttendees: string,
+  cancellationPolicy: string,
 ): Record<string, unknown> {
   if (type === 'service') {
     const meta: Record<string, unknown> = {};
@@ -110,16 +122,49 @@ function buildMetadata(
   if (type === 'package') {
     return itemsIncluded.trim() ? { items_included: itemsIncluded.trim() } : {};
   }
+  if (type === 'gathering') {
+    const meta: Record<string, unknown> = {};
+    const minGuests = parseInt(minAttendees, 10);
+    if (!Number.isNaN(minGuests) && minGuests >= 0) meta.min_attendees = minGuests;
+    const maxGuests = parseInt(maxAttendees, 10);
+    if (!Number.isNaN(maxGuests) && maxGuests >= 0) meta.max_attendees = maxGuests;
+    if (cancellationPolicy.trim()) meta.cancellation_policy = cancellationPolicy.trim();
+    return meta;
+  }
   return {};
 }
 
 function loadMetadataFields(product: WebsiteProduct | null) {
   const meta = product?.metadata ?? {};
+  const cancellationPolicy = meta.cancellation_policy && typeof meta.cancellation_policy === 'object'
+    ? meta.cancellation_policy as Record<string, unknown>
+    : {};
+  const optionGroupsRaw = Array.isArray(meta.option_groups)
+    ? meta.option_groups.join('\n')
+    : typeof meta.option_groups === 'string'
+      ? meta.option_groups
+      : '';
+
   return {
     sku: typeof meta.sku === 'string' ? meta.sku : '',
     stock: meta.stock != null ? String(meta.stock) : '',
     durationMinutes: meta.duration_minutes != null ? String(meta.duration_minutes) : '',
     itemsIncluded: typeof meta.items_included === 'string' ? meta.items_included : '',
+    minAttendees: meta.min_attendees != null ? String(meta.min_attendees) : '',
+    maxAttendees: meta.max_attendees != null ? String(meta.max_attendees) : '',
+    optionGroups: optionGroupsRaw,
+    cancellationPolicy: typeof meta.cancellation_policy === 'string'
+      ? meta.cancellation_policy
+      : typeof cancellationPolicy.summary === 'string' ? cancellationPolicy.summary : '',
+    cancellationCutoffDays: cancellationPolicy.cutoff_days_before_event != null
+      ? String(cancellationPolicy.cutoff_days_before_event)
+      : '0',
+    cancellationPenaltyType: typeof cancellationPolicy.penalty_type === 'string'
+      ? cancellationPolicy.penalty_type
+      : 'NONE',
+    cancellationPenaltyValue: cancellationPolicy.penalty_value != null
+      ? String(cancellationPolicy.penalty_value)
+      : '0',
   };
 }
 
@@ -175,6 +220,16 @@ function getMetaHint(product: WebsiteProduct): string | null {
   }
   if (product.type === 'digital') return 'File dikelola di Asset';
   if (product.type === 'package' && meta.items_included) return 'Paket bundling';
+  if (product.type === 'gathering') {
+    const parts: string[] = [];
+    if (meta.min_attendees != null || meta.max_attendees != null) {
+      const min = typeof meta.min_attendees === 'number' ? meta.min_attendees : Number(meta.min_attendees ?? 0);
+      const max = typeof meta.max_attendees === 'number' ? meta.max_attendees : Number(meta.max_attendees ?? 0);
+      if (Number.isFinite(min) && min > 0) parts.push(`Min ${min}`);
+      if (Number.isFinite(max) && max > 0) parts.push(`Maks ${max}`);
+    }
+    return parts.length ? parts.join(' · ') : 'Event / gathering';
+  }
   return null;
 }
 
@@ -358,6 +413,23 @@ export default function ProductsManagement() {
   const [durationMinutes, setDurationMinutes] = useState('');
   const [downloadLinkTtlMinutes, setDownloadLinkTtlMinutes] = useState('4320');
   const [itemsIncluded, setItemsIncluded] = useState('');
+  const [minAttendees, setMinAttendees] = useState('');
+  const [maxAttendees, setMaxAttendees] = useState('');
+  const [gatheringOptions, setGatheringOptions] = useState<Array<{
+    id?: string;
+    optionGroupKey: string;
+    optionKey?: string;
+    label: string;
+    description: string;
+    availabilityNote?: string;
+    venueLocation?: string;
+    benefits?: string;
+  }>>([]);
+  const [gatheringOptionsLoadFailed, setGatheringOptionsLoadFailed] = useState(false);
+  const [gatheringCancellationPolicy, setGatheringCancellationPolicy] = useState('');
+  const [gatheringCancellationCutoffDays, setGatheringCancellationCutoffDays] = useState('0');
+  const [gatheringCancellationPenaltyType, setGatheringCancellationPenaltyType] = useState('NONE');
+  const [gatheringCancellationPenaltyValue, setGatheringCancellationPenaltyValue] = useState('0');
   const [specificationsRows, setSpecificationsRows] = useState<{ key: string; value: string }[]>([
     { key: '', value: '' },
   ]);
@@ -498,6 +570,14 @@ export default function ProductsManagement() {
     setStock('');
     setDurationMinutes('');
     setItemsIncluded('');
+    setMinAttendees('');
+    setMaxAttendees('');
+    setGatheringOptions([]);
+    setGatheringOptionsLoadFailed(false);
+    setGatheringCancellationPolicy('');
+    setGatheringCancellationCutoffDays('0');
+    setGatheringCancellationPenaltyType('NONE');
+    setGatheringCancellationPenaltyValue('0');
     setSpecificationsRows([{ key: '', value: '' }]);
     setEstimationRows([{ label: '', price: '' }]);
     setImages([]);
@@ -555,6 +635,45 @@ export default function ProductsManagement() {
     const fields = loadMetadataFields(product);
     setEditProduct(product);
     setType((product.type as ProductType) || 'product');
+    setMinAttendees(fields.minAttendees);
+    setMaxAttendees(fields.maxAttendees);
+    setGatheringCancellationPolicy(fields.cancellationPolicy);
+    setGatheringCancellationCutoffDays(fields.cancellationCutoffDays);
+    setGatheringCancellationPenaltyType(fields.cancellationPenaltyType);
+    setGatheringCancellationPenaltyValue(fields.cancellationPenaltyValue);
+    if (product.type === 'gathering') {
+      setGatheringOptionsLoadFailed(false);
+      const legacyOptions = fields.optionGroups.split(/\n|;/).filter(Boolean).map((legacyOption) => {
+        const [group, ...labelParts] = legacyOption.split(':');
+        return {
+          optionGroupKey: group.trim() || 'Pilihan',
+          label: labelParts.join(':').trim() || legacyOption,
+          description: '',
+        };
+      });
+      try {
+        const options = await apiClient<WebsiteEventProductOption[]>(
+          `/api/websites/${websiteId}/products/${product.id}/gathering-options`,
+        );
+        const activeOptions = options.filter((option) => option.is_active).map((option) => ({
+          id: option.id,
+          optionGroupKey: option.option_group_key,
+          optionKey: option.option_key,
+          label: option.label,
+          description: option.description ?? '',
+          availabilityNote: typeof option.availability_window?.note === 'string' ? option.availability_window.note : '',
+          venueLocation: option.venue_location ?? '',
+          benefits: option.benefits.filter((benefit): benefit is string => typeof benefit === 'string').join('\n'),
+        }));
+        setGatheringOptions(activeOptions.length ? activeOptions : legacyOptions);
+      } catch {
+        setGatheringOptionsLoadFailed(true);
+        setGatheringOptions(legacyOptions);
+        setError('Pilihan gathering gagal dimuat. Simpan dinonaktifkan agar data yang ada tidak terhapus; coba buka kembali setelah koneksi pulih.');
+      }
+    } else {
+      setGatheringOptions([]);
+    }
     await loadSelectedDigitalAssets(product.id);
     setCategoryId(product.category_id ?? '');
     setCategoryLabel(product.category_id ? categoryLabelById.get(product.category_id) ?? '' : '');
@@ -591,7 +710,19 @@ export default function ProductsManagement() {
         ? (product.estimation ?? []).map((entry) => ({ label: entry.label, price: String(entry.price) }))
         : [{ label: '', price: '' }],
     );
-    setImages((product.images ?? []).map((url) => ({ url, alt: '', caption: '' })));
+    const savedGalleryImages = Array.isArray(product.metadata?.gallery_images)
+      ? product.metadata.gallery_images.filter((entry): entry is Record<string, unknown> =>
+          Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry),
+        )
+      : [];
+    setImages((product.images ?? []).map((url, index) => {
+      const saved = savedGalleryImages.find((entry) => entry.url === url) ?? savedGalleryImages[index];
+      return {
+        url,
+        alt: typeof saved?.alt === 'string' ? saved.alt : '',
+        caption: typeof saved?.caption === 'string' ? saved.caption : '',
+      };
+    }));
     setVideoUrl(product.video_url ?? '');
     setModel3dUrl(product.model3d_url ?? '');
     setSelectedLocationIds(product.location_ids ?? []);
@@ -609,6 +740,10 @@ export default function ProductsManagement() {
   };
 
   const handleSave = async () => {
+    if (type === 'gathering' && gatheringOptionsLoadFailed) {
+      setError('Pilihan gathering belum berhasil dimuat. Tutup lalu buka kembali sebelum menyimpan.');
+      return;
+    }
     if (!websiteId || !name.trim() || !slug.trim()) {
       setError('Nama dan slug wajib diisi');
       return;
@@ -616,7 +751,7 @@ export default function ProductsManagement() {
     setSaving(true);
     setError('');
     try {
-      const willInherit = isVariant && inheritDescription;
+      const willInherit = type !== 'gathering' && isVariant && inheritDescription;
       const specifications = Object.fromEntries(
         specificationsRows
           .filter((row) => row.key.trim() && row.value.trim())
@@ -633,45 +768,112 @@ export default function ProductsManagement() {
         throw new Error('Estimasi harga mengandung nilai tidak valid. Pastikan semua harga angka non-negatif.');
       }
 
-      const metadata = buildMetadata(type, sku, stock, durationMinutes, itemsIncluded);
-      if (isVariant && parentProductId) {
+      const metadata = buildMetadata(
+        type,
+        sku,
+        stock,
+        durationMinutes,
+        itemsIncluded,
+        minAttendees,
+        maxAttendees,
+        gatheringCancellationPolicy,
+      );
+      metadata.gallery_images = images
+        .filter((image) => image.url)
+        .map((image) => ({
+          url: image.url,
+          alt: image.alt?.trim() ?? '',
+          caption: image.caption?.trim() ?? '',
+        }));
+      if (type !== 'gathering' && isVariant && parentProductId) {
         metadata.inherit_description = inheritDescription;
       }
       const attrs = Object.fromEntries(
-        variantAttributes.filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value.trim()]),
+        (type !== 'gathering' ? variantAttributes : []).filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value.trim()]),
       );
       if (Object.keys(attrs).length > 0) metadata.variant_attributes = attrs;
 
       const body = {
         type,
         category_id: categoryId || undefined,
-        parent_product_id: isVariant && parentProductId ? parentProductId : null,
+        parent_product_id: type !== 'gathering' && isVariant && parentProductId ? parentProductId : null,
         name: name.trim(),
         slug: slug.trim(),
         description: willInherit ? '' : description.trim() || undefined,
         detail: willInherit ? '' : detail.trim() || undefined,
         price: parseCurrencyInput(price),
-        quotable: type === 'digital' ? false : quotable,
+        quotable: type === 'digital' || type === 'gathering' ? false : quotable,
         download_link_ttl_minutes: type === 'digital' ? Number(downloadLinkTtlMinutes) || 4320 : undefined,
-        uom_id: uomId || null,
+        uom_id: type === 'gathering'
+          ? uoms.find((uom) => uom.code === 'ATTENDEE')?.id ?? null
+          : uomId || null,
         images: images.map((img) => img.url).filter(Boolean),
         video_url: videoUrl.trim() || null,
         model3d_url: model3dUrl.trim() || null,
         metadata,
         specifications,
         estimation,
-        location_ids: type === 'digital' ? [] : selectedLocationIds,
-        fulfillment_flow_id: type === 'digital' ? null : fulfillmentFlowId || null,
-        final_release_guaranty_days: type !== 'digital' && finalReleaseGuarantyDays
+        location_ids: type === 'digital' || type === 'gathering' ? [] : selectedLocationIds,
+        fulfillment_flow_id: type === 'digital' || type === 'gathering' ? null : fulfillmentFlowId || null,
+        final_release_guaranty_days: type !== 'digital' && type !== 'gathering' && finalReleaseGuarantyDays
           ? parseInt(finalReleaseGuarantyDays, 10)
           : null,
         weight_grams: weightGrams ? parseInt(weightGrams, 10) : null,
         length_cm: lengthCm ? parseInt(lengthCm, 10) : null,
         width_cm: widthCm ? parseInt(widthCm, 10) : null,
         height_cm: heightCm ? parseInt(heightCm, 10) : null,
-        requires_shipping: requiresShipping,
+        requires_shipping: type === 'gathering' ? false : requiresShipping,
         is_active: isActive,
       };
+
+      const optionDrafts = gatheringOptions.filter((option) =>
+        option.optionGroupKey.trim() || option.label.trim() || option.description.trim(),
+      );
+      let cancellationPolicySnapshot: Record<string, unknown> = {};
+      if (type === 'gathering') {
+        if (!uoms.some((uom) => uom.code === 'ATTENDEE')) {
+          throw new Error('Satuan Peserta belum tersedia. Terapkan migration UOM gathering lalu muat ulang halaman.');
+        }
+        const minimum = Number.parseInt(minAttendees, 10);
+        const maximum = Number.parseInt(maxAttendees, 10);
+        if (!Number.isInteger(minimum) || minimum < 0 || !Number.isInteger(maximum) || maximum < 1 || minimum > maximum) {
+          throw new Error('Minimum dan maksimum peserta tidak valid. Maksimum wajib lebih besar dari nol dan minimum tidak boleh melebihi maksimum.');
+        }
+        if (optionDrafts.some((option) => !option.optionGroupKey.trim() || !option.label.trim())) {
+          throw new Error('Setiap pilihan harus memiliki kelompok dan nama pilihan.');
+        }
+        const optionKeys = optionDrafts.map((option, index) => {
+          const groupKey = slugify(option.optionGroupKey) || `group-${index + 1}`;
+          const optionKey = option.optionKey || slugify(option.label) || `option-${index + 1}`;
+          return `${groupKey}:${optionKey}`;
+        });
+        if (new Set(optionKeys).size !== optionKeys.length) {
+          throw new Error('Nama pilihan dalam kelompok yang sama harus unik.');
+        }
+        const cutoffDays = Number.parseInt(gatheringCancellationCutoffDays, 10);
+        const penaltyValue = Number(gatheringCancellationPenaltyValue);
+        if (!Number.isInteger(cutoffDays) || cutoffDays < 0 || !Number.isFinite(penaltyValue) || penaltyValue < 0) {
+          throw new Error('Cutoff pembatalan dan nilai penalti harus berupa angka non-negatif yang valid.');
+        }
+        if (!['NONE', 'FIXED', 'PERCENTAGE'].includes(gatheringCancellationPenaltyType)) {
+          throw new Error('Tipe penalti pembatalan tidak valid.');
+        }
+        if (gatheringCancellationPenaltyType === 'PERCENTAGE' && penaltyValue > 100) {
+          throw new Error('Penalti persentase tidak boleh melebihi 100%.');
+        }
+        if (gatheringCancellationPenaltyType === 'NONE' && penaltyValue !== 0) {
+          throw new Error('Nilai penalti harus nol jika tipe penalti NONE.');
+        }
+        cancellationPolicySnapshot = {
+          version: 1,
+          cutoff_days_before_event: cutoffDays,
+          penalty_type: gatheringCancellationPenaltyType,
+          penalty_value: penaltyValue,
+          currency: 'IDR',
+          ...(gatheringCancellationPolicy.trim() ? { summary: gatheringCancellationPolicy.trim() } : {}),
+        };
+        metadata.cancellation_policy = cancellationPolicySnapshot;
+      }
 
       let savedProductId = editProduct?.id ?? '';
       if (editProduct) {
@@ -686,6 +888,33 @@ export default function ProductsManagement() {
           body: JSON.stringify(body),
         });
         savedProductId = created.id;
+        setEditProduct(created);
+      }
+
+      if (type === 'gathering') {
+        const minimum = Number.parseInt(minAttendees, 10);
+        const maximum = Number.parseInt(maxAttendees, 10);
+        await apiClient(`/api/websites/${websiteId}/products/${savedProductId}/gathering-options`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            options: optionDrafts.map((option, index) => ({
+              id: option.id,
+              option_group_key: slugify(option.optionGroupKey) || `group-${index + 1}`,
+              option_key: option.optionKey || slugify(option.label) || `option-${index + 1}`,
+              label: option.label.trim(),
+              description: option.description.trim() || undefined,
+              availability_window: option.availabilityNote?.trim() ? { note: option.availabilityNote.trim() } : {},
+              venue_location: option.venueLocation?.trim() || undefined,
+              benefits: (option.benefits ?? '').split('\n').map((benefit) => benefit.trim()).filter(Boolean),
+              price_per_seat: parseCurrencyInput(price),
+              currency: 'IDR',
+              min_attendees: minimum,
+              max_attendees: maximum,
+              cancellation_policy: cancellationPolicySnapshot,
+              sort_order: index,
+            })),
+          }),
+        });
       }
 
       if (type === 'digital') {
@@ -739,6 +968,9 @@ export default function ProductsManagement() {
     <div className={`space-y-6 ${canEdit ? mobileFabPagePadding : ''}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          availabilityNote: '',
+          venueLocation: '',
+          benefits: '',
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Produk & Layanan</h1>
           <p className="mt-1 text-default-500">Kelola katalog produk, layanan, paket, dan item digital.</p>
         </div>
@@ -857,7 +1089,7 @@ export default function ProductsManagement() {
             />
           )}
 
-          <FormSwitch
+          {type !== 'gathering' && <FormSwitch
             label="Ini varian dari produk lain"
             description={
               hasOwnVariants
@@ -874,9 +1106,9 @@ export default function ProductsManagement() {
               }
             }}
             disabled={hasOwnVariants}
-          />
+          />}
 
-          {isVariant && (
+          {type !== 'gathering' && isVariant && (
             <>
               <ProductParentSelect
                 label="Varian dari produk"
@@ -911,7 +1143,7 @@ export default function ProductsManagement() {
             </>
           )}
 
-          <div className="flex flex-col gap-2">
+          {type !== 'gathering' && <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-foreground">Atribut Varian</span>
               <p className="text-xs text-default-500">
                 Mis. Warna: Oil Green, Ukuran: 38 — dipakai untuk tampilkan pilihan warna/ukuran di halaman produk
@@ -969,7 +1201,7 @@ export default function ProductsManagement() {
                 <option value="Ukuran" />
                 <option value="Bahan" />
               </datalist>
-          </div>
+          </div>}
 
           <FormInput
             label="Nama"
@@ -1011,7 +1243,7 @@ export default function ProductsManagement() {
             </>
           )}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Harga (IDR)</label>
+            <label className="text-sm font-medium text-foreground">{type === 'gathering' ? 'Harga per peserta (IDR)' : 'Harga (IDR)'}</label>
             <input
               type="text"
               inputMode="numeric"
@@ -1022,20 +1254,31 @@ export default function ProductsManagement() {
             />
           </div>
 
-          <FormSelect
-            label="Satuan Produk (UOM)"
-            value={uomId}
-            onChange={setUomId}
-            options={[{ value: '', label: 'Tanpa satuan' }, ...uoms.map((uom) => ({ value: uom.id, label: `${uom.label} (${uom.symbol})` }))]}
-            description="Dipakai sebagai konteks quantity dan harga quotation, misalnya Rp350.000/m²."
-          />
+          {type === 'gathering' ? (
+            <div className="rounded-lg border border-default-200 bg-default-50 px-3 py-2.5">
+              <p className="text-sm font-medium text-foreground">Satuan Produk: Peserta</p>
+              <p className="mt-1 text-xs text-default-500">Satuan ditetapkan otomatis karena harga gathering dihitung per peserta.</p>
+            </div>
+          ) : (
+            <FormSelect
+              label="Satuan Produk (UOM)"
+              value={uomId}
+              onChange={setUomId}
+              options={[{ value: '', label: 'Tanpa satuan' }, ...uoms.map((uom) => ({ value: uom.id, label: `${uom.label} (${uom.symbol})` }))]}
+              description="Dipakai sebagai konteks quantity dan harga quotation, misalnya Rp350.000/m²."
+            />
+          )}
 
           <div className="flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50/50 p-4">
             <div>
               <p className="text-sm font-semibold text-foreground">Pengaturan Operasional</p>
-              <p className="mt-1 text-xs text-default-500">Atur cara produk ini dipesan, dibayar, dan dipenuhi.</p>
+              <p className="mt-1 text-xs text-default-500">
+                {type === 'gathering'
+                  ? 'Gathering memakai harga tetap per peserta dan dimulai lewat planning. Quotation dan pengiriman kurir tidak digunakan.'
+                  : 'Atur cara produk ini dipesan, dibayar, dan dipenuhi.'}
+              </p>
             </div>
-            {type !== 'digital' && (
+            {type !== 'digital' && type !== 'gathering' && (
               <FormSwitch
                 label="Memerlukan quotation seller"
                 description="Buyer mengisi deskripsi pesanan terlebih dahulu sebelum seller menetapkan harga final."
@@ -1043,7 +1286,7 @@ export default function ProductsManagement() {
                 onChange={setQuotable}
               />
             )}
-            {type !== 'digital' && (
+            {type !== 'digital' && type !== 'gathering' && (
               <FormSwitch
                 label="Perlu dikirim kurir (ongkir)"
                 checked={requiresShipping}
@@ -1269,6 +1512,127 @@ export default function ProductsManagement() {
             />
           )}
 
+          {type === 'gathering' && (
+            <div className="space-y-4 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
+              <div className="rounded-lg border border-rose-200 bg-white/70 px-3 py-2 text-xs text-rose-700">
+                Jadwal final acara, waktu, dan lokasi akan ditentukan saat initiator membuat occurrence setelah RSVP / voting selesai.
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormInput
+                  label="Minimum peserta"
+                  type="number"
+                  min={0}
+                  value={minAttendees}
+                  onChange={setMinAttendees}
+                />
+                <FormInput
+                  label="Maksimum kapasitas"
+                  type="number"
+                  min={0}
+                  value={maxAttendees}
+                  onChange={setMaxAttendees}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Kelompok dan pilihan</p>
+                  <p className="mt-1 text-xs text-default-500">Contoh kelompok: Resto. Tambahkan pilihan seperti Sate Padang atau Nasi Campur. Harga dan batas peserta berlaku sama untuk semua pilihan produk ini.</p>
+                </div>
+                {gatheringOptions.map((option, index) => (
+                  <div key={option.id ?? index} className="space-y-3 rounded-lg border border-default-200 bg-white p-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <FormInput
+                        label="Kelompok"
+                        value={option.optionGroupKey}
+                        onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, optionGroupKey: value } : item))}
+                      />
+                      <FormInput
+                        label="Nama pilihan"
+                        value={option.label}
+                        onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: value, optionKey: item.id ? item.optionKey : undefined } : item))}
+                      />
+                    </div>
+                    <FormInput
+                      label="Keterangan pilihan"
+                      value={option.description}
+                      onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, description: value } : item))}
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <FormInput
+                        label="Referensi lokasi pilihan"
+                        value={option.venueLocation ?? ''}
+                        onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, venueLocation: value } : item))}
+                      />
+                      <FormInput
+                        label="Catatan ketersediaan pilihan"
+                        value={option.availabilityNote ?? ''}
+                        onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, availabilityNote: value } : item))}
+                      />
+                    </div>
+                    <FormTextarea
+                      label="Benefit pilihan (satu per baris)"
+                      value={option.benefits ?? ''}
+                      onChange={(value) => setGatheringOptions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, benefits: value } : item))}
+                      rows={2}
+                    />
+                    <Button size="sm" variant="light" color="danger" onPress={() => setGatheringOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                      Hapus pilihan
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  onPress={() => setGatheringOptions((current) => [...current, { optionGroupKey: '', label: '', description: '' }])}
+                >
+                  Tambah pilihan
+                </Button>
+              </div>
+
+              <FormTextarea
+                label="Aturan pembatalan seluruh event oleh EO"
+                value={gatheringCancellationPolicy}
+                onChange={setGatheringCancellationPolicy}
+                rows={3}
+                description="Aturan ini berlaku jika pemilik bisnis membatalkan seluruh event, bukan jika peserta membatalkan seat."
+              />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <FormInput
+                  label="Batas terakhir membatalkan"
+                  type="number"
+                  min={0}
+                  value={gatheringCancellationCutoffDays}
+                  onChange={setGatheringCancellationCutoffDays}
+                  description="Pemilik bisnis dapat membatalkan seluruh event sampai batas ini. Setelah batas lewat, pembatalan normal tidak tersedia."
+                />
+                <FormSelect
+                  label="Mode Penalti per peserta"
+                  value={gatheringCancellationPenaltyType}
+                  onChange={setGatheringCancellationPenaltyType}
+                  options={[
+                    { value: 'NONE', label: 'Tanpa penalti' },
+                    { value: 'FIXED', label: 'Nominal tetap (IDR)' },
+                    { value: 'PERCENTAGE', label: 'Persentase' },
+                  ]}
+                />
+                <FormInput
+                  label="Penalti per peserta"
+                  type="number"
+                  min={0}
+                  max={gatheringCancellationPenaltyType === 'PERCENTAGE' ? 100 : undefined}
+                  value={gatheringCancellationPenaltyValue}
+                  onChange={setGatheringCancellationPenaltyValue}
+                  description={gatheringCancellationPenaltyType === 'PERCENTAGE'
+                    ? 'Persentase penalti per peserta jika pemilik bisnis membatalkan seluruh event.'
+                    : 'Nominal penalti per peserta jika pemilik bisnis membatalkan seluruh event.'}
+                />
+              </div>
+            </div>
+          )}
+
           {type !== 'digital' && (
             <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/50 p-4">
               <p className="text-xs text-default-500">
@@ -1321,7 +1685,7 @@ export default function ProductsManagement() {
             </div>
           )}
 
-          {type !== 'digital' && (
+          {type !== 'digital' && type !== 'gathering' && (
             <>
               <div className="rounded-xl border border-default-200 bg-default-50/50 p-4">
                 <p className="text-sm font-medium text-foreground">Lokasi Tersedia</p>

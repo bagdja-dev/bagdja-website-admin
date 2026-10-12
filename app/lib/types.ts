@@ -63,7 +63,7 @@ export interface WebsiteSection {
   updated_at: string;
 }
 
-export type ProductType = 'product' | 'service' | 'package' | 'digital';
+export type ProductType = 'product' | 'service' | 'package' | 'digital' | 'gathering';
 
 export interface WebsiteCategory {
   id: string;
@@ -145,6 +145,28 @@ export interface WebsiteProduct {
   height_cm?: number | null;
   /** Independen dari `type`/vendor-routing — perlu dihitung ongkir/kurir saat checkout (fulfillment-praorder-plan.md §2.6). */
   requires_shipping?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebsiteEventProductOption {
+  id: string;
+  website_id: string;
+  product_id: string;
+  option_group_key: string;
+  option_key: string;
+  label: string;
+  description?: string | null;
+  price_per_seat: number | string;
+  currency: string;
+  min_attendees: number;
+  max_attendees: number;
+  availability_window: Record<string, unknown>;
+  venue_location?: string | null;
+  benefits: unknown[];
+  cancellation_policy: Record<string, unknown>;
+  is_active: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -289,6 +311,7 @@ export const PRODUCT_TYPE_LABELS: Record<string, string> = {
   service: 'Layanan',
   package: 'Paket',
   digital: 'Digital',
+  gathering: 'Gathering',
 };
 
 /**
