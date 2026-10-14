@@ -9,6 +9,7 @@ import { ThemeCustomizer } from '../../components/theme-customizer';
 import { LoadingSpinner } from '../../components/loading-spinner';
 import { LogoUpload } from '../../components/logo-upload';
 import { NoWebsiteState } from '../../components/no-website-state';
+import { TemplatePreview, type PreviewViewport } from '../../components/template-preview';
 import { apiClient } from '../../lib/api-client';
 import type { Website, WebsiteTemplate } from '../../lib/types';
 import {
@@ -114,6 +115,13 @@ export default function SettingsPage() {
   const [soundError, setSoundError] = useState('');
   const [theme, setTheme] = useState<WebsiteTheme>({});
   const [templateDefaultTheme, setTemplateDefaultTheme] = useState<WebsiteTheme>({});
+  const [templates, setTemplates] = useState<WebsiteTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState('');
+  const [templateError, setTemplateError] = useState('');
+  const [templatePreviewViewport, setTemplatePreviewViewport] = useState<PreviewViewport>('desktop');
   const [saving, setSaving] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
@@ -158,8 +166,20 @@ export default function SettingsPage() {
       setNotificationSoundEnabled(w.notification_sound_enabled !== false);
       setNotificationSoundUrl(w.notification_sound_url ?? '');
       setTheme(sanitizeWebsiteTheme(w.theme));
+      setSelectedTemplateId(w.template_id ?? '');
     }
   }, [activeWebsite]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient<WebsiteTemplate[]>('/api/templates')
+      .then((data) => { if (!cancelled) setTemplates(data); })
+      .catch((err) => { if (!cancelled) setTemplateError(err instanceof Error ? err.message : 'Gagal memuat template.'); })
+      .finally(() => { if (!cancelled) setLoadingTemplates(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
 
   useEffect(() => {
     const templateId = activeWebsite?.website?.template_id;
@@ -269,6 +289,32 @@ export default function SettingsPage() {
       setThemeError(err instanceof Error ? err.message : 'Gagal menyimpan skema warna');
     } finally {
       setSavingTheme(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!websiteId || !selectedTemplateId || selectedTemplateId === activeWebsite?.website.template_id) return;
+    const ok = await confirm({
+      title: 'Ganti Template Website?',
+      message: 'Tampilan dan layout publik akan mengikuti template baru. Halaman, produk, dan data website yang sudah ada tetap disimpan.',
+      confirmLabel: 'Ya, Ganti Template',
+      tone: 'default',
+    });
+    if (!ok) return;
+    setSavingTemplate(true);
+    setTemplateError('');
+    setTemplateMessage('');
+    try {
+      await apiClient<Website>(`/api/websites/${websiteId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ template_id: selectedTemplateId }),
+      });
+      setTemplateMessage('Template website berhasil diganti.');
+      await refresh();
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : 'Gagal mengganti template.');
+    } finally {
+      setSavingTemplate(false);
     }
   };
 
@@ -530,6 +576,76 @@ export default function SettingsPage() {
             <div className="pt-1">
               <Button color="primary" isLoading={savingSound} onPress={handleSaveSound}>
                 Simpan Notifikasi
+              </Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card className="border border-default-200 shadow-sm">
+        <CardHeader className="flex flex-col items-start gap-1 border-b border-default-100 px-6 py-4">
+          <h2 className="text-lg font-semibold">Template Website</h2>
+          <p className="text-sm font-normal text-default-500">Ganti desain publik tanpa menghapus halaman dan data website.</p>
+        </CardHeader>
+        <CardBody className="flex flex-col gap-5 px-6 py-5">
+          {loadingTemplates ? <p className="text-sm text-default-500">Memuat template…</p> : templates.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {templates.map((template) => {
+                const selected = template.id === selectedTemplateId;
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => { setSelectedTemplateId(template.id); setTemplateMessage(''); setTemplateError(''); }}
+                    disabled={!canEdit}
+                    className={`overflow-hidden rounded-lg border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-default-200 hover:border-default-400'}`}
+                  >
+                    {template.preview_image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={template.preview_image} alt={`Preview ${template.name}`} className="h-28 w-full object-cover" />
+                    ) : <div className="flex h-28 items-center justify-center bg-default-100 text-2xl font-semibold text-default-500">{template.name.slice(0, 2)}</div>}
+                    <span className="block px-3 py-2.5">
+                      <span className="flex items-center justify-between gap-2 text-sm font-semibold">
+                        {template.name}
+                        {selected ? <span className="text-xs font-medium text-primary">Dipilih</span> : null}
+                      </span>
+                      {template.description ? <span className="mt-1 block line-clamp-2 text-xs font-normal text-default-500">{template.description}</span> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : <p className="text-sm text-default-500">Tidak ada template aktif yang tersedia.</p>}
+
+          {selectedTemplate ? (
+            <div>
+              <p className="mb-2 text-sm font-medium">Preview: {selectedTemplate.name}</p>
+              <TemplatePreview
+                template={selectedTemplate}
+                profile={{
+                  name: name || activeWebsite?.website.name,
+                  tagline,
+                  logo_url: logoUrl,
+                  whatsapp,
+                  phone,
+                  email,
+                  theme,
+                }}
+                viewport={templatePreviewViewport}
+                onViewportChange={setTemplatePreviewViewport}
+                showToolbar
+                interactive={false}
+              />
+            </div>
+          ) : null}
+
+          {templateMessage ? <p role="status" className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success">{templateMessage}</p> : null}
+          {templateError ? <p role="alert" className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">{templateError}</p> : null}
+          {canEdit && (
+            <div className="pt-1">
+              <Button color="primary" isLoading={savingTemplate} isDisabled={!selectedTemplateId || selectedTemplateId === activeWebsite?.website.template_id} onPress={handleSaveTemplate}>
+                Simpan Template
               </Button>
             </div>
           )}
