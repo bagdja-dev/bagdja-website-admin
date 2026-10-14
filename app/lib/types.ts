@@ -158,6 +158,7 @@ export interface WebsiteEventProductOption {
   label: string;
   description?: string | null;
   price_per_seat: number | string;
+  deposit_amount_per_seat: number | string;
   currency: string;
   min_attendees: number;
   max_attendees: number;

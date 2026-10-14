@@ -71,6 +71,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Kalender Acara',
+    href: '/dashboard/calendar',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25m10.5-2.25v2.25M3.75 8.25h16.5M5.25 4.5h13.5A1.5 1.5 0 0 1 20.25 6v13.5a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V6a1.5 1.5 0 0 1 1.5-1.5Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01" />
+      </svg>
+    ),
+  },
+  {
     label: 'Inbox Chat',
     href: '/dashboard/chats',
     icon: (
@@ -187,6 +197,12 @@ const BADGE_COUNT_LOADERS: Record<string, (websiteId: string) => Promise<number>
       `/api/websites/${websiteId}/transactions/termins/count?status=SCHEDULED`,
     );
     return result.count;
+  },
+  '/dashboard/calendar': async (websiteId) => {
+    const rows = await apiClient<Array<{ status: string; workflow_step: string }>>(
+      `/api/websites/${websiteId}/gatherings/calendar`,
+    );
+    return rows.filter((row) => row.status === 'PREORDER' && row.workflow_step === 'PLAN').length;
   },
 };
 

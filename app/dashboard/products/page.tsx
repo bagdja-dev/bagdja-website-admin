@@ -152,6 +152,7 @@ function loadMetadataFields(product: WebsiteProduct | null) {
     itemsIncluded: typeof meta.items_included === 'string' ? meta.items_included : '',
     minAttendees: meta.min_attendees != null ? String(meta.min_attendees) : '',
     maxAttendees: meta.max_attendees != null ? String(meta.max_attendees) : '',
+    depositAmountPerSeat: meta.deposit_amount_per_seat != null ? String(meta.deposit_amount_per_seat) : '0',
     optionGroups: optionGroupsRaw,
     cancellationPolicy: typeof meta.cancellation_policy === 'string'
       ? meta.cancellation_policy
@@ -159,6 +160,11 @@ function loadMetadataFields(product: WebsiteProduct | null) {
     cancellationCutoffDays: cancellationPolicy.cutoff_days_before_event != null
       ? String(cancellationPolicy.cutoff_days_before_event)
       : '0',
+    preparationDays: cancellationPolicy.prepare_days_before_event != null
+      ? String(cancellationPolicy.prepare_days_before_event)
+      : cancellationPolicy.cutoff_days_before_event != null
+        ? String(cancellationPolicy.cutoff_days_before_event)
+        : '0',
     cancellationPenaltyType: typeof cancellationPolicy.penalty_type === 'string'
       ? cancellationPolicy.penalty_type
       : 'NONE',
@@ -415,6 +421,7 @@ export default function ProductsManagement() {
   const [itemsIncluded, setItemsIncluded] = useState('');
   const [minAttendees, setMinAttendees] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
+  const [depositAmountPerSeat, setDepositAmountPerSeat] = useState('0');
   const [gatheringOptions, setGatheringOptions] = useState<Array<{
     id?: string;
     optionGroupKey: string;
@@ -427,6 +434,7 @@ export default function ProductsManagement() {
   }>>([]);
   const [gatheringOptionsLoadFailed, setGatheringOptionsLoadFailed] = useState(false);
   const [gatheringCancellationPolicy, setGatheringCancellationPolicy] = useState('');
+  const [gatheringPreparationDays, setGatheringPreparationDays] = useState('0');
   const [gatheringCancellationCutoffDays, setGatheringCancellationCutoffDays] = useState('0');
   const [gatheringCancellationPenaltyType, setGatheringCancellationPenaltyType] = useState('NONE');
   const [gatheringCancellationPenaltyValue, setGatheringCancellationPenaltyValue] = useState('0');
@@ -572,9 +580,11 @@ export default function ProductsManagement() {
     setItemsIncluded('');
     setMinAttendees('');
     setMaxAttendees('');
+    setDepositAmountPerSeat('0');
     setGatheringOptions([]);
     setGatheringOptionsLoadFailed(false);
     setGatheringCancellationPolicy('');
+    setGatheringPreparationDays('0');
     setGatheringCancellationCutoffDays('0');
     setGatheringCancellationPenaltyType('NONE');
     setGatheringCancellationPenaltyValue('0');
@@ -637,7 +647,9 @@ export default function ProductsManagement() {
     setType((product.type as ProductType) || 'product');
     setMinAttendees(fields.minAttendees);
     setMaxAttendees(fields.maxAttendees);
+    setDepositAmountPerSeat(formatCurrencyInput(fields.depositAmountPerSeat));
     setGatheringCancellationPolicy(fields.cancellationPolicy);
+    setGatheringPreparationDays(fields.preparationDays);
     setGatheringCancellationCutoffDays(fields.cancellationCutoffDays);
     setGatheringCancellationPenaltyType(fields.cancellationPenaltyType);
     setGatheringCancellationPenaltyValue(fields.cancellationPenaltyValue);
@@ -665,6 +677,7 @@ export default function ProductsManagement() {
           venueLocation: option.venue_location ?? '',
           benefits: option.benefits.filter((benefit): benefit is string => typeof benefit === 'string').join('\n'),
         }));
+        setDepositAmountPerSeat(activeOptions.length ? String(options.find((option) => option.is_active)?.deposit_amount_per_seat ?? 0) : '0');
         setGatheringOptions(activeOptions.length ? activeOptions : legacyOptions);
       } catch {
         setGatheringOptionsLoadFailed(true);
@@ -829,6 +842,7 @@ export default function ProductsManagement() {
       const optionDrafts = gatheringOptions.filter((option) =>
         option.optionGroupKey.trim() || option.label.trim() || option.description.trim(),
       );
+      const depositAmount = parseCurrencyInput(depositAmountPerSeat);
       let cancellationPolicySnapshot: Record<string, unknown> = {};
       if (type === 'gathering') {
         if (!uoms.some((uom) => uom.code === 'ATTENDEE')) {
@@ -838,6 +852,9 @@ export default function ProductsManagement() {
         const maximum = Number.parseInt(maxAttendees, 10);
         if (!Number.isInteger(minimum) || minimum < 0 || !Number.isInteger(maximum) || maximum < 1 || minimum > maximum) {
           throw new Error('Minimum dan maksimum peserta tidak valid. Maksimum wajib lebih besar dari nol dan minimum tidak boleh melebihi maksimum.');
+        }
+        if (!Number.isFinite(depositAmount) || depositAmount < 0 || depositAmount > parseCurrencyInput(price)) {
+          throw new Error('DP per peserta harus berupa nominal non-negatif dan tidak boleh melebihi harga seat.');
         }
         if (optionDrafts.some((option) => !option.optionGroupKey.trim() || !option.label.trim())) {
           throw new Error('Setiap pilihan harus memiliki kelompok dan nama pilihan.');
@@ -850,10 +867,11 @@ export default function ProductsManagement() {
         if (new Set(optionKeys).size !== optionKeys.length) {
           throw new Error('Nama pilihan dalam kelompok yang sama harus unik.');
         }
+        const preparationDays = Number.parseInt(gatheringPreparationDays, 10);
         const cutoffDays = Number.parseInt(gatheringCancellationCutoffDays, 10);
         const penaltyValue = Number(gatheringCancellationPenaltyValue);
-        if (!Number.isInteger(cutoffDays) || cutoffDays < 0 || !Number.isFinite(penaltyValue) || penaltyValue < 0) {
-          throw new Error('Cutoff pembatalan dan nilai penalti harus berupa angka non-negatif yang valid.');
+        if (!Number.isInteger(preparationDays) || preparationDays < 0 || !Number.isInteger(cutoffDays) || cutoffDays < 0 || preparationDays < cutoffDays || !Number.isFinite(penaltyValue) || penaltyValue < 0) {
+          throw new Error('Hari persiapan harus lebih besar atau sama dengan cutoff, dan nilai penalti harus berupa angka non-negatif yang valid.');
         }
         if (!['NONE', 'FIXED', 'PERCENTAGE'].includes(gatheringCancellationPenaltyType)) {
           throw new Error('Tipe penalti pembatalan tidak valid.');
@@ -866,6 +884,7 @@ export default function ProductsManagement() {
         }
         cancellationPolicySnapshot = {
           version: 1,
+          prepare_days_before_event: preparationDays,
           cutoff_days_before_event: cutoffDays,
           penalty_type: gatheringCancellationPenaltyType,
           penalty_value: penaltyValue,
@@ -873,6 +892,7 @@ export default function ProductsManagement() {
           ...(gatheringCancellationPolicy.trim() ? { summary: gatheringCancellationPolicy.trim() } : {}),
         };
         metadata.cancellation_policy = cancellationPolicySnapshot;
+        metadata.deposit_amount_per_seat = depositAmount;
       }
 
       let savedProductId = editProduct?.id ?? '';
@@ -907,6 +927,7 @@ export default function ProductsManagement() {
               venue_location: option.venueLocation?.trim() || undefined,
               benefits: (option.benefits ?? '').split('\n').map((benefit) => benefit.trim()).filter(Boolean),
               price_per_seat: parseCurrencyInput(price),
+              deposit_amount_per_seat: depositAmount,
               currency: 'IDR',
               min_attendees: minimum,
               max_attendees: maximum,
@@ -1535,6 +1556,15 @@ export default function ProductsManagement() {
                 />
               </div>
 
+              <FormInput
+                label="DP per peserta"
+                type="text"
+                inputMode="numeric"
+                value={depositAmountPerSeat}
+                onChange={(value) => setDepositAmountPerSeat(formatCurrencyInput(value))}
+                description="Nominal tetap per seat yang dapat dicairkan sebagai DP venue. Total DP mengikuti jumlah peserta yang membayar. Isi 0 jika tidak ada pencairan DP awal."
+              />
+
               <div className="space-y-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Kelompok dan pilihan</p>
@@ -1593,23 +1623,31 @@ export default function ProductsManagement() {
               </div>
 
               <FormTextarea
-                label="Aturan pembatalan seluruh event oleh EO"
+                label="Aturan pembatalan acara oleh initiator"
                 value={gatheringCancellationPolicy}
                 onChange={setGatheringCancellationPolicy}
                 rows={3}
-                description="Aturan ini berlaku jika pemilik bisnis membatalkan seluruh event, bukan jika peserta membatalkan seat."
+                description="Aturan berlaku jika initiator membatalkan acara; pembatalan peserta per seat mengikuti alur refund seat."
               />
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <FormInput
-                  label="Batas terakhir membatalkan"
+                  label="Persiapan dimulai (hari sebelum acara)"
+                  type="number"
+                  min={0}
+                  value={gatheringPreparationDays}
+                  onChange={setGatheringPreparationDays}
+                  description="Awal jendela penalti dan waktu admin mulai menyiapkan acara."
+                />
+                <FormInput
+                  label="Cutoff pembatalan (hari sebelum acara)"
                   type="number"
                   min={0}
                   value={gatheringCancellationCutoffDays}
                   onChange={setGatheringCancellationCutoffDays}
-                  description="Pemilik bisnis dapat membatalkan seluruh event sampai batas ini. Setelah batas lewat, pembatalan normal tidak tersedia."
+                  description="Hari terakhir initiator dapat membatalkan. Setelah cutoff, pembatalan tidak tersedia."
                 />
                 <FormSelect
-                  label="Mode Penalti per peserta"
+                  label="Mode penalti per peserta"
                   value={gatheringCancellationPenaltyType}
                   onChange={setGatheringCancellationPenaltyType}
                   options={[
@@ -1626,8 +1664,8 @@ export default function ProductsManagement() {
                   value={gatheringCancellationPenaltyValue}
                   onChange={setGatheringCancellationPenaltyValue}
                   description={gatheringCancellationPenaltyType === 'PERCENTAGE'
-                    ? 'Persentase penalti per peserta jika pemilik bisnis membatalkan seluruh event.'
-                    : 'Nominal penalti per peserta jika pemilik bisnis membatalkan seluruh event.'}
+                    ? 'Persentase penalti per seat berbayar jika initiator membatalkan pada jendela persiapan hingga cutoff.'
+                    : 'Nominal penalti per seat berbayar jika initiator membatalkan pada jendela persiapan hingga cutoff.'}
                 />
               </div>
             </div>
