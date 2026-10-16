@@ -989,9 +989,6 @@ export default function ProductsManagement() {
     <div className={`space-y-6 ${canEdit ? mobileFabPagePadding : ''}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          availabilityNote: '',
-          venueLocation: '',
-          benefits: '',
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Produk & Layanan</h1>
           <p className="mt-1 text-default-500">Kelola katalog produk, layanan, paket, dan item digital.</p>
         </div>

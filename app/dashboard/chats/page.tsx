@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardBody } from '@heroui/react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -110,7 +111,7 @@ const STATUS_FILTERS = [
   { key: 'closed', label: 'Ditutup' },
 ] as const;
 
-export default function ChatsPage() {
+function ChatsContent() {
   const { websiteId, loading: websiteLoading, activeWebsite } = useWebsiteContext();
   const websiteSlug = activeWebsite?.website.slug;
   const searchParams = useSearchParams();
@@ -521,5 +522,13 @@ export default function ChatsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ChatsPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <ChatsContent />
+    </Suspense>
   );
 }
