@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Card, CardBody, CardHeader, Chip } from '@heroui/react';
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LoadingSpinner } from '../../components/loading-spinner';
@@ -19,7 +20,10 @@ interface AndroidAppConfiguration {
   package_name_locked: boolean;
   has_release_keystore: boolean;
   keystore_alias: string | null;
+  icon_url: string | null;
+  splash_image_url: string | null;
   release_signing_cert_sha256: string[];
+  play_store_signing_cert_sha256: string[];
   retired_signing_cert_sha256: string[];
   target_url?: string;
 }
@@ -118,6 +122,9 @@ export default function AndroidAppPage() {
   const [alias, setAlias] = useState('');
   const [storePassword, setStorePassword] = useState('');
   const [keyPassword, setKeyPassword] = useState('');
+  const [playStoreFingerprintInput, setPlayStoreFingerprintInput] = useState('');
+  const [uploadingImage, setUploadingImage] = useState<'icon' | 'splash' | null>(null);
+  const [removingImage, setRemovingImage] = useState<'icon' | 'splash' | null>(null);
   const [pendingBuildRetry, setPendingBuildRetry] = useState<PendingBuildRetry | null>(null);
   const activeWebsiteId = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +151,9 @@ export default function AndroidAppPage() {
     setAlias('');
     setStorePassword('');
     setKeyPassword('');
+    setPlayStoreFingerprintInput('');
+    setUploadingImage(null);
+    setRemovingImage(null);
     setPendingBuildRetry(null);
 
     if (contextLoading) return;
@@ -341,6 +351,135 @@ export default function AndroidAppPage() {
     }
   };
 
+  const uploadImageAsset = async (assetType: 'icon' | 'splash', image: File) => {
+    if (!websiteId) return;
+    if (image.size > 5 * 1024 * 1024 || !['image/png', 'image/jpeg', 'image/webp'].includes(image.type)) {
+      setError('Pilih gambar PNG, JPEG, atau WebP dengan ukuran maksimal 5 MB.');
+      return;
+    }
+    if (assetType === 'icon') {
+      try {
+        const bitmap = await createImageBitmap(image);
+        const validDimensions = bitmap.width >= 512 && bitmap.height >= 512 && bitmap.width === bitmap.height;
+        bitmap.close();
+        if (!validDimensions) {
+          setError('App icon harus berbentuk persegi dan minimal berukuran 512 × 512 piksel.');
+          return;
+        }
+      } catch {
+        setError('Gambar app icon tidak dapat dibaca.');
+        return;
+      }
+    }
+
+    setUploadingImage(assetType);
+    setError('');
+    setMessage('');
+    const form = new FormData();
+    form.append('file', image);
+    try {
+      const response = await fetch(
+        `/api/android-apps/${encodeURIComponent(websiteId)}/assets/${assetType}`,
+        { method: 'POST', body: form },
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        throw new ApiError(
+          typeof body.message === 'string'
+            ? body.message
+            : typeof body.error === 'string'
+              ? body.error
+              : 'Gagal mengunggah gambar aplikasi.',
+          response.status,
+        );
+      }
+      if (activeWebsiteId.current !== websiteId) return;
+      setConfiguration((current) => ({
+        ...body as AndroidAppConfiguration,
+        target_url: current?.target_url,
+      }));
+      setMessage(assetType === 'icon' ? 'App icon berhasil diperbarui.' : 'Splash screen berhasil diperbarui.');
+    } catch (uploadError) {
+      setError(getErrorMessage(uploadError));
+    } finally {
+      setUploadingImage(null);
+    }
+  };
+
+  const removeImageAsset = async (assetType: 'icon' | 'splash') => {
+    if (!websiteId) return;
+    setRemovingImage(assetType);
+    setError('');
+    setMessage('');
+    try {
+      const response = await fetch(
+        `/api/android-apps/${encodeURIComponent(websiteId)}/assets/${assetType}`,
+        { method: 'DELETE' },
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        throw new ApiError(
+          typeof body.message === 'string'
+            ? body.message
+            : typeof body.error === 'string'
+              ? body.error
+              : 'Gagal menghapus gambar aplikasi.',
+          response.status,
+        );
+      }
+      if (activeWebsiteId.current !== websiteId) return;
+      setConfiguration((current) => ({
+        ...body as AndroidAppConfiguration,
+        target_url: current?.target_url,
+      }));
+      setMessage(assetType === 'icon' ? 'App icon dihapus.' : 'Splash screen dihapus.');
+    } catch (removeError) {
+      setError(getErrorMessage(removeError));
+    } finally {
+      setRemovingImage(null);
+    }
+  };
+
+  const addPlayStoreFingerprints = async () => {
+    if (!websiteId) return;
+    const fingerprints = playStoreFingerprintInput
+      .split(/\r?\n/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!fingerprints.length) {
+      setError('Masukkan minimal satu SHA-256 fingerprint Google Play App Signing.');
+      return;
+    }
+    if (fingerprints.some((fingerprint) => !/^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/i.test(fingerprint))) {
+      setError('Setiap baris harus berisi SHA-256 fingerprint dengan format AA:BB:... (32 byte).');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const updated = await apiClient<AndroidAppConfiguration>(
+        `/api/websites/${encodeURIComponent(websiteId)}/android-app/signing-fingerprints`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ fingerprints }),
+        },
+      );
+      if (activeWebsiteId.current !== websiteId) return;
+      setConfiguration((current) => ({
+        ...updated,
+        target_url: current?.target_url,
+      }));
+      setPlayStoreFingerprintInput('');
+      setMessage('Fingerprint Google Play App Signing disimpan dan ditambahkan ke Digital Asset Links.');
+    } catch (fingerprintError) {
+      setError(getErrorMessage(fingerprintError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submitBuild = async (retry?: PendingBuildRetry) => {
     if (!websiteId || !configuration) return;
     if (!retry) {
@@ -509,6 +648,41 @@ export default function AndroidAppPage() {
             <input maxLength={255} required pattern="[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+" value={packageName} disabled={configuration?.package_name_locked} onChange={(event) => setPackageName(event.target.value)} placeholder="com.example.website" className="rounded-xl border border-default-300 bg-white px-3.5 py-2.5 font-mono text-sm font-normal outline-none focus:border-primary disabled:bg-default-100" />
             {configuration?.package_name_locked && <span className="text-xs text-warning-700">Terkunci setelah release pertama.</span>}
           </label>
+          <div className="space-y-3 border-t border-default-200 pt-4">
+            <div>
+              <h3 className="text-sm font-semibold">SHA-256 certificate fingerprints</h3>
+              <p className="mt-1 text-xs text-default-500">
+                Fingerprint release ditambahkan otomatis setelah build berhasil. Tambahkan fingerprint Google Play App Signing dari Play Console agar instalasi Play Store juga terverifikasi.
+              </p>
+            </div>
+            {configuration?.play_store_signing_cert_sha256.map((fingerprint) => (
+              <div key={fingerprint} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-default-50 p-3">
+                <code className="break-all text-xs">{fingerprint}</code>
+                <Button size="sm" color="danger" variant="light" onPress={() => void retireFingerprint(fingerprint)}>
+                  Pensiunkan
+                </Button>
+              </div>
+            ))}
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Fingerprint Google Play App Signing (satu per baris)
+              <textarea
+                rows={3}
+                value={playStoreFingerprintInput}
+                onChange={(event) => setPlayStoreFingerprintInput(event.target.value)}
+                placeholder="AA:BB:CC:... (SHA-256, 32 byte)"
+                className="w-full rounded-xl border border-default-300 bg-white px-3.5 py-2.5 font-mono text-xs font-normal outline-none focus:border-primary"
+              />
+            </label>
+            <Button
+              color="primary"
+              variant="flat"
+              isLoading={saving}
+              isDisabled={!configurationExists || !playStoreFingerprintInput.trim()}
+              onPress={() => void addPlayStoreFingerprints()}
+            >
+              Tambahkan fingerprint Play Store
+            </Button>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm font-medium">
               Versi
@@ -541,6 +715,80 @@ export default function AndroidAppPage() {
 
       {configurationExists && (
         <>
+          <Card>
+            <CardHeader className="flex flex-col items-start gap-1 px-5 pt-5">
+              <h2 className="text-lg font-semibold">Icon &amp; splash screen</h2>
+              <p className="text-sm text-default-500">
+                Gambar khusus untuk aplikasi Android, terpisah dari logo website. File akan dapat diakses publik agar TWA Builder bisa mengambilnya.
+              </p>
+            </CardHeader>
+            <CardBody className="grid gap-6 px-5 pb-5 sm:grid-cols-2">
+              {([
+                {
+                  type: 'icon' as const,
+                  title: 'App icon',
+                  url: configuration.icon_url,
+                  hint: 'PNG, JPEG, atau WebP; persegi minimal 512 × 512 px; maks. 5 MB.',
+                  previewClass: 'h-24 w-24',
+                },
+                {
+                  type: 'splash' as const,
+                  title: 'Splash screen image',
+                  url: configuration.splash_image_url,
+                  hint: 'PNG, JPEG, atau WebP; transparan disarankan; maks. 5 MB.',
+                  previewClass: 'h-24 w-40',
+                },
+              ]).map((asset) => (
+                <div key={asset.type} className="space-y-3">
+                  <h3 className="text-sm font-medium">{asset.title}</h3>
+                  {asset.url ? (
+                    <Image
+                      src={asset.url}
+                      alt={asset.title}
+                      width={asset.type === 'icon' ? 96 : 160}
+                      height={96}
+                      unoptimized
+                      className={`${asset.previewClass} rounded-xl border border-default-200 bg-white object-contain p-2`}
+                    />
+                  ) : (
+                    <div className={`${asset.previewClass} flex items-center justify-center rounded-xl border border-dashed border-default-300 bg-default-50 text-xs text-default-400`}>
+                      Belum ada gambar
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center rounded-xl border border-default-300 px-3 py-2 text-sm hover:bg-default-50">
+                      {uploadingImage === asset.type ? 'Mengunggah…' : asset.url ? 'Ganti gambar' : 'Unggah gambar'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        disabled={uploadingImage !== null || removingImage !== null}
+                        onChange={(event) => {
+                          const selected = event.target.files?.[0];
+                          event.target.value = '';
+                          if (selected) void uploadImageAsset(asset.type, selected);
+                        }}
+                        className="sr-only"
+                      />
+                    </label>
+                    {asset.url && (
+                      <Button
+                        size="sm"
+                        color="danger"
+                        variant="light"
+                        isLoading={removingImage === asset.type}
+                        isDisabled={uploadingImage !== null}
+                        onPress={() => void removeImageAsset(asset.type)}
+                      >
+                        Hapus
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-default-500">{asset.hint}</p>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-col items-start gap-1 px-5 pt-5">
               <h2 className="text-lg font-semibold">Signing key release</h2>
