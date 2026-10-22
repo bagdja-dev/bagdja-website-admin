@@ -8,7 +8,7 @@ import { LoadingSpinner } from '../../components/loading-spinner';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { apiClient } from '../../lib/api-client';
 import { formatCurrency } from '../../lib/currency';
-import { transactionGridTotal, TRANSACTION_STATUS_LABELS, type WebsiteTransaction } from '../../lib/types';
+import { isPartiallyCompleted, transactionGridTotal, transactionStatusLabel, type WebsiteTransaction } from '../../lib/types';
 import { useWebsiteContext } from '../../context/website-context';
 
 interface VendorOption {
@@ -240,8 +240,8 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell>{vendorNamesFor(tx)}</TableCell>
                       <TableCell>
-                        <Chip size="sm" variant="flat" color={STATUS_TONE[tx.status] ?? 'default'}>
-                          {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
+                        <Chip size="sm" variant="flat" color={isPartiallyCompleted(tx) ? 'warning' : STATUS_TONE[tx.status] ?? 'default'}>
+                          {transactionStatusLabel(tx)}
                         </Chip>
                       </TableCell>
                       <TableCell>
@@ -284,10 +284,10 @@ export default function OrdersPage() {
                   <Chip
                     size="sm"
                     variant="flat"
-                    color={STATUS_TONE[tx.status] ?? 'default'}
+                    color={isPartiallyCompleted(tx) ? 'warning' : STATUS_TONE[tx.status] ?? 'default'}
                     className="shrink-0"
                   >
-                    {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
+                    {transactionStatusLabel(tx)}
                   </Chip>
                 </div>
                 <div className="mt-3 flex items-center justify-between">

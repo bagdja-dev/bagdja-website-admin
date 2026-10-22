@@ -395,6 +395,22 @@ export interface WebsiteTransaction {
   payment_request_id?: string | null;
   /** Escrow ID from Payment Service */
   escrow_id?: string | null;
+  /** Ringkasan tagihan (DP + Termin) — null kalau transaksi tanpa Termin. */
+  termin_summary?: TagihanSummary | null;
+}
+
+/**
+ * Mirror `TransactionTerminSummaryDto` (bagdja-website-api). Tagihan 1 = DP
+ * (transaksi checkout itu sendiri), Tagihan 2..N = Termin; CANCELLED tidak
+ * dihitung.
+ */
+export interface TagihanSummary {
+  total: number;
+  paid: number;
+  /** Sudah diterbitkan, menunggu dibayar buyer. */
+  issued: number;
+  /** Belum diterbitkan seller. */
+  scheduled: number;
 }
 
 /**
@@ -417,11 +433,26 @@ export function transactionGridTotal(tx: Pick<WebsiteTransaction, 'items' | 'tot
  * belum benar-benar tuntas. Cuma label tampilan — TIDAK mengubah `tx.status`
  * asli (yang masih dipakai logic lain: jendela dispute, force-complete, dst).
  */
-export function isPartiallyCompleted(tx: Pick<WebsiteTransaction, 'status' | 'fulfillment'>): boolean {
-  if (tx.status !== 'COMPLETED') return false;
-  return Object.values(tx.fulfillment ?? {})
-    .flatMap((f) => f.termins)
-    .some((t) => t.status !== 'PAID' && t.status !== 'CANCELLED');
+export function isPartiallyCompleted(tx: Pick<WebsiteTransaction, 'status' | 'termin_summary'>): boolean {
+  return tx.status === 'COMPLETED' && remainingTagihan(tx.termin_summary) > 0;
+}
+
+export function remainingTagihan(summary: TagihanSummary | null | undefined): number {
+  return summary ? Math.max(0, summary.total - summary.paid) : 0;
+}
+
+/** Label status transaksi — "Sisa X Tagihan" kalau checkout selesai tapi tagihan lanjutan belum lunas. */
+export function transactionStatusLabel(tx: Pick<WebsiteTransaction, 'status' | 'termin_summary'>): string {
+  if (isPartiallyCompleted(tx)) return `Sisa ${remainingTagihan(tx.termin_summary)} Tagihan`;
+  return TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status;
+}
+
+/** Rincian progres, mis. "Lunas 1 dari 3 tagihan · 1 perlu dibayar · 1 belum diterbitkan". */
+export function tagihanProgressText(summary: TagihanSummary): string {
+  const parts = [`Lunas ${summary.paid} dari ${summary.total} tagihan`];
+  if (summary.issued > 0) parts.push(`${summary.issued} perlu dibayar`);
+  if (summary.scheduled > 0) parts.push(`${summary.scheduled} belum diterbitkan`);
+  return parts.join(' · ');
 }
 
 /**

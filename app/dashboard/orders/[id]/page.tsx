@@ -17,8 +17,9 @@ import { formatCurrency } from '../../../lib/currency';
 import {
   hasMinRole,
   isPartiallyCompleted,
+  tagihanProgressText,
+  transactionStatusLabel,
   TERMIN_STATUS_LABELS,
-  TRANSACTION_STATUS_LABELS,
   type OrderFulfillmentStepProgress,
   type TerminSummary,
   type WebsiteTransaction,
@@ -729,8 +730,11 @@ export default function OrderDetailPage() {
             Mulai Chat
           </Button>
           <Chip size="lg" variant="flat" color={partiallyCompleted ? 'warning' : (STATUS_TONE[transaction.status] ?? 'default')}>
-            {partiallyCompleted ? 'Selesai Sebagian' : (TRANSACTION_STATUS_LABELS[transaction.status] ?? transaction.status)}
+            {transactionStatusLabel(transaction)}
           </Chip>
+          {transaction.termin_summary && (
+            <span className="text-xs text-default-500">{tagihanProgressText(transaction.termin_summary)}</span>
+          )}
         </div>
       </div>
 
