@@ -3,13 +3,40 @@
 import { Button, Card, CardBody, Chip, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@heroui/react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useAlertDialog } from '../../../components/alert-dialog';
+import { useConfirmDialog } from '../../../components/confirm-dialog';
 import { LoadingSpinner } from '../../../components/loading-spinner';
 import { NoWebsiteState } from '../../../components/no-website-state';
 import { useWebsiteContext } from '../../../context/website-context';
 import { apiClient } from '../../../lib/api-client';
 import { formatCurrency } from '../../../lib/currency';
+import { hasMinRole, TRANSACTION_STATUS_LABELS } from '../../../lib/types';
+
+interface GatheringSettlement {
+  stage: 'HOLD' | 'DEPOSIT' | 'FINAL';
+  seat_total: number;
+  deposit_target_total: number;
+  released_total: number;
+  outstanding_total: number;
+  transactions: Array<{
+    transaction_id: string;
+    transaction_status: string;
+    seat_count: number;
+    registration_ids: string[];
+    seat_total: number;
+    deposit_target: number;
+    released_amount: number;
+  }>;
+}
+
+interface GatheringReleaseOutcome {
+  stage: 'DEPOSIT' | 'FINAL';
+  released_total: number;
+  failed_count: number;
+  items: Array<{ transaction_id: string; status: 'RELEASED' | 'NOTHING_TO_RELEASE' | 'FAILED'; error?: string }>;
+}
 
 interface GatheringDetail {
   id: string;
@@ -52,15 +79,24 @@ interface GatheringDetail {
   };
   attendee_count: number;
   paid_seat_count: number;
+  settlement: GatheringSettlement;
   registrations: Array<{
     id: string;
     attendee_name: string;
     selected_options: Record<string, string>;
     registration_status: string;
     payment_status: string;
+    transaction_id: string | null;
+    transaction_status: string | null;
     created_at: string;
   }>;
 }
+
+const SETTLEMENT_STAGE_LABEL: Record<GatheringSettlement['stage'], string> = {
+  HOLD: 'Dana seat masih ditahan penuh di escrow sampai initiator mengonfirmasi acara.',
+  DEPOSIT: 'DP per seat dirilis saat acara dikonfirmasi. Sisa dana dirilis setelah acara ditandai selesai.',
+  FINAL: 'Acara selesai. Seluruh dana seat dirilis ke saldo bisnis.',
+};
 
 const STATUS_LABEL: Record<string, string> = {
   PREORDER: 'Perencanaan',
@@ -118,41 +154,120 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
+function TransactionCell({ registration }: { registration: GatheringDetail['registrations'][number] }) {
+  if (!registration.transaction_id) return <span className="text-default-400">—</span>;
+  return (
+    <div className="text-xs">
+      <Link href={`/dashboard/orders/${registration.transaction_id}`} className="font-medium text-primary hover:underline">
+        #{registration.transaction_id.slice(0, 8)}
+      </Link>
+      {registration.transaction_status ? (
+        <p className="text-default-500">{TRANSACTION_STATUS_LABELS[registration.transaction_status] ?? registration.transaction_status}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function GatheringDetailPage() {
   const params = useParams<{ groupId: string }>();
-  const { websiteId, loading: contextLoading } = useWebsiteContext();
+  const { websiteId, role, loading: contextLoading } = useWebsiteContext();
+  const { confirm, dialog } = useConfirmDialog();
+  const { alert, dialog: alertDialog } = useAlertDialog();
   const [detail, setDetail] = useState<GatheringDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [settlementBusy, setSettlementBusy] = useState<'complete' | 'release' | null>(null);
+  const canManageSettlement = role ? hasMinRole(role, 'admin') : false;
+  const detailPath = websiteId && params.groupId
+    ? `/api/websites/${websiteId}/gatherings/calendar/${encodeURIComponent(params.groupId)}`
+    : null;
+
+  const load = useCallback(async () => {
+    if (!detailPath) return;
+    try {
+      setDetail(await apiClient<GatheringDetail>(detailPath));
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Gagal memuat detail acara.');
+      setDetail(null);
+    }
+  }, [detailPath]);
 
   useEffect(() => {
-    if (!websiteId || !params.groupId) return;
-    let active = true;
+    if (!detailPath) return;
     setLoading(true);
-    setError('');
-    apiClient<GatheringDetail>(
-      `/api/websites/${websiteId}/gatherings/calendar/${encodeURIComponent(params.groupId)}`,
-    )
-      .then((data) => {
-        if (active) setDetail(data);
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          setError(cause instanceof Error ? cause.message : 'Gagal memuat detail acara.');
-          setDetail(null);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+    void load().finally(() => setLoading(false));
+  }, [detailPath, load]);
+
+  const reportRelease = async (outcome: GatheringReleaseOutcome, successTitle: string) => {
+    if (outcome.failed_count > 0) {
+      await alert({
+        title: 'Sebagian dana belum dirilis',
+        message: (
+          <>
+            {outcome.failed_count} transaksi gagal dirilis. Coba proses ulang beberapa saat lagi.
+            {outcome.items.filter((item) => item.status === 'FAILED').map((item) => (
+              <span key={item.transaction_id} className="mt-1 block text-xs">
+                #{item.transaction_id.slice(0, 8)}: {item.error ?? 'Gagal dirilis'}
+              </span>
+            ))}
+          </>
+        ),
       });
-    return () => { active = false; };
-  }, [websiteId, params.groupId]);
+    } else {
+      await alert({
+        title: successTitle,
+        message: `${formatCurrency(outcome.released_total, detail?.occurrence.currency ?? 'IDR')} dirilis ke saldo bisnis.`,
+      });
+    }
+  };
+
+  const completeEvent = async () => {
+    if (!detailPath || !detail) return;
+    const outstanding = detail.settlement.seat_total - detail.settlement.released_total;
+    const ok = await confirm({
+      title: 'Tandai acara selesai?',
+      message: `Status acara menjadi Selesai dan sisa dana seat (${formatCurrency(outstanding, detail.occurrence.currency)}) dirilis ke saldo bisnis. Tindakan ini tidak dapat dibatalkan.`,
+      confirmLabel: 'Ya, tandai selesai',
+    });
+    if (!ok) return;
+    setSettlementBusy('complete');
+    try {
+      const result = await apiClient<{ release: GatheringReleaseOutcome }>(`${detailPath}/complete`, { method: 'POST' });
+      await load();
+      await reportRelease(result.release, 'Acara selesai');
+    } catch (cause) {
+      await alert({ title: 'Gagal menandai selesai', message: cause instanceof Error ? cause.message : 'Gagal menandai acara selesai' });
+    } finally {
+      setSettlementBusy(null);
+    }
+  };
+
+  const retryRelease = async () => {
+    if (!detailPath) return;
+    setSettlementBusy('release');
+    try {
+      const outcome = await apiClient<GatheringReleaseOutcome>(`${detailPath}/release`, { method: 'POST' });
+      await load();
+      await reportRelease(outcome, 'Pencairan diproses');
+    } catch (cause) {
+      await alert({ title: 'Gagal memproses pencairan', message: cause instanceof Error ? cause.message : 'Gagal memproses pencairan' });
+    } finally {
+      setSettlementBusy(null);
+    }
+  };
+
+  const eventDateReached = Boolean(
+    detail?.occurrence.final_schedule && new Date(detail.occurrence.final_schedule).getTime() <= Date.now(),
+  );
 
   if (contextLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
 
   return (
     <div className="space-y-6">
+      {dialog}
+      {alertDialog}
       <div>
         <Button as={Link} href="/dashboard/calendar" variant="light" className="-ml-3 mb-2">
           ← Kembali ke kalender
@@ -237,6 +352,64 @@ export default function GatheringDetailPage() {
             </CardBody>
           </Card>
 
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">Pencairan dana</h2>
+              <p className="text-sm text-default-500">{SETTLEMENT_STAGE_LABEL[detail.settlement.stage]}</p>
+            </div>
+            <Card className="border-0 shadow-md ring-1 ring-default-100">
+              <CardBody className="gap-4 p-5">
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs font-medium text-default-500">Total dana seat lunas</p>
+                    <p className="mt-1 text-sm font-semibold">{formatCurrency(detail.settlement.seat_total, detail.occurrence.currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-default-500">Target DP</p>
+                    <p className="mt-1 text-sm font-semibold">{formatCurrency(detail.settlement.deposit_target_total, detail.occurrence.currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-default-500">Sudah dirilis</p>
+                    <p className="mt-1 text-sm font-semibold text-success">{formatCurrency(detail.settlement.released_total, detail.occurrence.currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-default-500">Masih ditahan</p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {formatCurrency(Math.max(0, detail.settlement.seat_total - detail.settlement.released_total), detail.occurrence.currency)}
+                    </p>
+                  </div>
+                </div>
+                {detail.settlement.outstanding_total > 0 ? (
+                  <p role="alert" className="rounded-lg bg-warning-50 px-3 py-2 text-sm text-warning-700">
+                    {formatCurrency(detail.settlement.outstanding_total, detail.occurrence.currency)} belum berhasil dirilis untuk tahap ini. Proses ulang pencairan untuk mencoba lagi.
+                  </p>
+                ) : null}
+                {canManageSettlement && (detail.status === 'CONFIRMED' || detail.settlement.outstanding_total > 0) ? (
+                  <div className="flex flex-col gap-2 border-t border-default-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                    {detail.status === 'CONFIRMED' && !eventDateReached ? (
+                      <p className="text-xs text-default-500 sm:mr-auto">Acara bisa ditandai selesai mulai {formatDate(detail.occurrence.final_schedule)}.</p>
+                    ) : null}
+                    {detail.settlement.outstanding_total > 0 ? (
+                      <Button variant="flat" onPress={retryRelease} isLoading={settlementBusy === 'release'} isDisabled={settlementBusy !== null}>
+                        Proses ulang pencairan
+                      </Button>
+                    ) : null}
+                    {detail.status === 'CONFIRMED' ? (
+                      <Button
+                        color="primary"
+                        onPress={completeEvent}
+                        isLoading={settlementBusy === 'complete'}
+                        isDisabled={settlementBusy !== null || !eventDateReached}
+                      >
+                        Tandai acara selesai
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </CardBody>
+            </Card>
+          </section>
+
           {detail.occurrence.option_groups.length > 0 ? (
             <section className="space-y-3">
               <div>
@@ -297,6 +470,7 @@ export default function GatheringDetailPage() {
                         <TableColumn>PILIHAN</TableColumn>
                         <TableColumn>PENDAFTARAN</TableColumn>
                         <TableColumn>PEMBAYARAN</TableColumn>
+                        <TableColumn>TRANSAKSI</TableColumn>
                         <TableColumn>TERDAFTAR</TableColumn>
                       </TableHeader>
                       <TableBody>
@@ -311,6 +485,7 @@ export default function GatheringDetailPage() {
                             </TableCell>
                             <TableCell><StatusChip status={registration.registration_status} /></TableCell>
                             <TableCell><StatusChip status={registration.payment_status} /></TableCell>
+                            <TableCell><TransactionCell registration={registration} /></TableCell>
                             <TableCell>{formatDate(registration.created_at)}</TableCell>
                           </TableRow>
                         ))}
@@ -330,6 +505,7 @@ export default function GatheringDetailPage() {
                           <span>{formatDate(registration.created_at)}</span>
                           <StatusChip status={registration.payment_status} />
                         </div>
+                        {registration.transaction_id ? <TransactionCell registration={registration} /> : null}
                         {Object.entries(registration.selected_options ?? {}).length > 0 ? (
                           <p className="border-t border-default-100 pt-2 text-sm">
                             {Object.entries(registration.selected_options).map(([group, optionId]) => {
