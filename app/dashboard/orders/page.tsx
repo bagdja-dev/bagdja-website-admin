@@ -226,7 +226,7 @@ export default function OrdersPage() {
                   <TableColumn>TOTAL</TableColumn>
                   <TableColumn>VENDOR</TableColumn>
                   <TableColumn>STATUS</TableColumn>
-                  <TableColumn>PAYMENT REF</TableColumn>
+                  <TableColumn>REF NUMBER</TableColumn>
                   <TableColumn> </TableColumn>
                 </TableHeader>
                 <TableBody>
@@ -278,7 +278,7 @@ export default function OrdersPage() {
                       <p className="mt-0.5 text-xs text-default-400">Vendor: {vendorNamesFor(tx)}</p>
                     )}
                     <p className="mt-0.5 text-xs text-default-400 font-mono">
-                      Ref: {tx.ref_number ?? '—'}
+                      Ref Number: {tx.ref_number ?? '—'}
                     </p>
                   </div>
                   <Chip
