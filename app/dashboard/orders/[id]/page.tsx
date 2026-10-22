@@ -1258,6 +1258,24 @@ export default function OrderDetailPage() {
                 <span className="text-default-500">Mode</span>
                 <span className="font-medium">{transaction.payment_mode === 'ESCROW' ? 'Escrow' : 'Checkout Bagdja'}</span>
               </div>
+              {transaction.ref_number && (
+                <div className="flex justify-between">
+                  <span className="text-default-500">Payment Ref</span>
+                  <span className="font-mono text-xs font-medium">{transaction.ref_number}</span>
+                </div>
+              )}
+              {transaction.payment_request_id && (
+                <div className="flex justify-between">
+                  <span className="text-default-500">Payment Request ID</span>
+                  <span className="font-mono text-xs font-medium text-default-500">{transaction.payment_request_id}</span>
+                </div>
+              )}
+              {transaction.escrow_id && (
+                <div className="flex justify-between">
+                  <span className="text-default-500">Escrow ID</span>
+                  <span className="font-mono text-xs font-medium text-default-500">{transaction.escrow_id}</span>
+                </div>
+              )}
               <Divider className="my-2" />
               <div className="flex justify-between">
                 <span className="text-default-500">Subtotal Produk</span>

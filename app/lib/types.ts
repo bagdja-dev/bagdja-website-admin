@@ -389,6 +389,12 @@ export interface WebsiteTransaction {
   /** `{ order_id: progress }` — hanya ada di response detail. */
   fulfillment?: Record<string, OrderFulfillmentProgress>;
   metadata?: { shipping?: TransactionShippingMetadata } | null;
+  /** Human-readable payment reference from Payment Service (payment_requests.external_id), e.g., INV-BAGDJADEV-PRODUCT-43A57B5A */
+  ref_number?: string | null;
+  /** Payment Service payment_requests.id (UUID) — internal reference for API calls */
+  payment_request_id?: string | null;
+  /** Escrow ID from Payment Service */
+  escrow_id?: string | null;
 }
 
 /**

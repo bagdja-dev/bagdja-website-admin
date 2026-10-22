@@ -226,6 +226,7 @@ export default function OrdersPage() {
                   <TableColumn>TOTAL</TableColumn>
                   <TableColumn>VENDOR</TableColumn>
                   <TableColumn>STATUS</TableColumn>
+                  <TableColumn>PAYMENT REF</TableColumn>
                   <TableColumn> </TableColumn>
                 </TableHeader>
                 <TableBody>
@@ -242,6 +243,9 @@ export default function OrdersPage() {
                         <Chip size="sm" variant="flat" color={STATUS_TONE[tx.status] ?? 'default'}>
                           {TRANSACTION_STATUS_LABELS[tx.status] ?? tx.status}
                         </Chip>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs font-mono text-default-600">{tx.ref_number ?? '—'}</code>
                       </TableCell>
                       <TableCell>
                         <Button as={Link} href={`/dashboard/orders/${tx.id}`} size="sm" variant="flat" color="primary">
@@ -273,6 +277,9 @@ export default function OrdersPage() {
                     {vendorNamesFor(tx) !== '—' && (
                       <p className="mt-0.5 text-xs text-default-400">Vendor: {vendorNamesFor(tx)}</p>
                     )}
+                    <p className="mt-0.5 text-xs text-default-400 font-mono">
+                      Ref: {tx.ref_number ?? '—'}
+                    </p>
                   </div>
                   <Chip
                     size="sm"
