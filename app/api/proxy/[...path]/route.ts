@@ -13,8 +13,12 @@ function buildPath(segments: string[], searchParams: URLSearchParams): string {
 async function proxyRequest(request: NextRequest, context: RouteContext) {
   const path = buildPath(context.params.path, request.nextUrl.searchParams);
   const method = request.method;
+  const idempotencyKey = request.headers.get('idempotency-key');
 
-  const options: RequestInit = { method };
+  const options: RequestInit = {
+    method,
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  };
 
   if (method !== 'GET' && method !== 'HEAD') {
     const body = await request.text();

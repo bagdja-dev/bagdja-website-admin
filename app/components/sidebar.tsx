@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { useWebsiteContext } from '../context/website-context';
 import { apiClient } from '../lib/api-client';
+import { hasMinRole } from '../lib/types';
 
 interface NavItem {
   label: string;
@@ -173,6 +174,15 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: 'Aplikasi Android',
+    href: '/dashboard/android-app',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9A2.25 2.25 0 0 1 18.75 10.5v7.125A2.625 2.625 0 0 1 16.125 20.25h-8.25A2.625 2.625 0 0 1 5.25 17.625V10.5A2.25 2.25 0 0 1 7.5 8.25Zm0 0L5.25 4.5m11.25 3.75L18.75 4.5M8.25 12v3m7.5-3v3M9 5.25h6a3 3 0 0 1 3 3H6a3 3 0 0 1 3-3Z" />
+      </svg>
+    ),
+  },
 ];
 
 interface SidebarProps {
@@ -208,7 +218,7 @@ const BADGE_COUNT_LOADERS: Record<string, (websiteId: string) => Promise<number>
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { websiteId } = useWebsiteContext();
+  const { websiteId, role } = useWebsiteContext();
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -272,36 +282,40 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="space-y-1">
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            {navItems
+              .filter((item) =>
+                item.href !== '/dashboard/android-app' || (role !== null && hasMinRole(role, 'admin')),
+              )
+              .map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={onClose}
-                    className={`
-                      flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
-                      ${
-                        isActive
-                          ? 'bg-primary-50 text-primary'
-                          : 'text-default-600 hover:bg-default-100 hover:text-foreground'
-                      }
-                    `}
-                  >
-                    {item.icon}
-                    <span className="flex-1">{item.label}</span>
-                    {Boolean(badgeCounts[item.href]) && (
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-xs font-semibold text-white">
-                        {badgeCounts[item.href]}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onClose}
+                      className={`
+                        flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                        ${
+                          isActive
+                            ? 'bg-primary-50 text-primary'
+                            : 'text-default-600 hover:bg-default-100 hover:text-foreground'
+                        }
+                      `}
+                    >
+                      {item.icon}
+                      <span className="flex-1">{item.label}</span>
+                      {Boolean(badgeCounts[item.href]) && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-xs font-semibold text-white">
+                          {badgeCounts[item.href]}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
           </ul>
         </nav>
 
