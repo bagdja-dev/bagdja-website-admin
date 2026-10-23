@@ -29,7 +29,7 @@ interface GatheringCalendarRow {
   paid_seat_count: number;
 }
 
-type CalendarTab = 'ALL' | 'PLANNING' | 'RSVP' | 'PAYMENT' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+type CalendarTab = 'ALL' | 'PLANNING' | 'RSVP' | 'PAYMENT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 const CALENDAR_TABS: Array<{ key: CalendarTab; label: string; matches: (row: GatheringCalendarRow) => boolean }> = [
   { key: 'ALL', label: 'Semua', matches: () => true },
@@ -37,6 +37,7 @@ const CALENDAR_TABS: Array<{ key: CalendarTab; label: string; matches: (row: Gat
   { key: 'RSVP', label: 'RSVP', matches: (row) => row.status === 'RSVP_OPEN' },
   { key: 'PAYMENT', label: 'Pembayaran', matches: (row) => row.status === 'PAYMENT_OPEN' },
   { key: 'CONFIRMED', label: 'Dikonfirmasi', matches: (row) => row.status === 'CONFIRMED' },
+  { key: 'IN_PROGRESS', label: 'Berlangsung', matches: (row) => row.status === 'IN_PROGRESS' },
   { key: 'COMPLETED', label: 'Selesai', matches: (row) => row.status === 'COMPLETED' },
   { key: 'CANCELLED', label: 'Dibatalkan', matches: (row) => row.status === 'CANCELLED' },
 ];
@@ -46,6 +47,7 @@ const STATUS_LABEL: Record<string, string> = {
   RSVP_OPEN: 'RSVP dibuka',
   PAYMENT_OPEN: 'Menunggu pembayaran',
   CONFIRMED: 'Terkonfirmasi',
+  IN_PROGRESS: 'Berlangsung',
   COMPLETED: 'Selesai',
   CANCELLED: 'Dibatalkan',
 };
@@ -55,6 +57,7 @@ type StatusTone = 'default' | 'primary' | 'success' | 'danger' | 'warning';
 const STATUS_TONE: Record<string, StatusTone> = {
   PREORDER: 'warning',
   RSVP_OPEN: 'primary',
+  IN_PROGRESS: 'primary',
   PAYMENT_OPEN: 'warning',
   CONFIRMED: 'success',
   COMPLETED: 'success',

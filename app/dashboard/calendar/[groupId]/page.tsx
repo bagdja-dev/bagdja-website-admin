@@ -80,6 +80,13 @@ interface GatheringDetail {
   attendee_count: number;
   paid_seat_count: number;
   settlement: GatheringSettlement;
+  started_at: string | null;
+  completed_at: string | null;
+  attendance: {
+    paid_count: number;
+    ticket_sent_count: number;
+    checked_in_count: number;
+  };
   registrations: Array<{
     id: string;
     attendee_name: string;
@@ -88,6 +95,9 @@ interface GatheringDetail {
     payment_status: string;
     transaction_id: string | null;
     transaction_status: string | null;
+    ticket_email_sent_at: string | null;
+    checked_in_at: string | null;
+    check_in_method: 'SCAN' | 'MANUAL' | null;
     created_at: string;
   }>;
 }
@@ -103,6 +113,7 @@ const STATUS_LABEL: Record<string, string> = {
   RSVP_OPEN: 'RSVP dibuka',
   PAYMENT_OPEN: 'Menunggu pembayaran',
   CONFIRMED: 'Terkonfirmasi',
+  IN_PROGRESS: 'Berlangsung',
   COMPLETED: 'Selesai',
   CANCELLED: 'Dibatalkan',
   RSVP_CONFIRMED: 'Terdaftar',
@@ -116,6 +127,7 @@ const STATUS_LABEL: Record<string, string> = {
 type StatusTone = 'default' | 'primary' | 'success' | 'danger' | 'warning';
 
 const STATUS_TONE: Record<string, StatusTone> = {
+  IN_PROGRESS: 'primary',
   PREORDER: 'warning',
   RSVP_OPEN: 'primary',
   PAYMENT_OPEN: 'warning',
@@ -154,6 +166,30 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
+/** Mulai acara dibuka sejak 24 jam sebelum jadwal — sama dengan START_WINDOW_MS di API. */
+const START_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function AttendanceCell({ registration }: { registration: GatheringDetail['registrations'][number] }) {
+  if (registration.payment_status !== 'PAID' || registration.registration_status !== 'RSVP_CONFIRMED') {
+    return <span className="text-default-400">—</span>;
+  }
+  return (
+    <div className="space-y-1 text-xs">
+      <p className={registration.ticket_email_sent_at ? 'text-default-600' : 'text-warning-700'}>
+        Tiket {registration.ticket_email_sent_at ? 'terkirim' : 'belum terkirim'}
+      </p>
+      {registration.checked_in_at ? (
+        <Chip size="sm" color="success" variant="flat">
+          Hadir {new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(new Date(registration.checked_in_at))}
+          {registration.check_in_method === 'MANUAL' ? ' · manual' : ''}
+        </Chip>
+      ) : (
+        <p className="text-default-400">Belum check-in</p>
+      )}
+    </div>
+  );
+}
+
 function TransactionCell({ registration }: { registration: GatheringDetail['registrations'][number] }) {
   if (!registration.transaction_id) return <span className="text-default-400">—</span>;
   return (
@@ -176,8 +212,9 @@ export default function GatheringDetailPage() {
   const [detail, setDetail] = useState<GatheringDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [settlementBusy, setSettlementBusy] = useState<'complete' | 'release' | null>(null);
+  const [settlementBusy, setSettlementBusy] = useState<'start' | 'tickets' | 'complete' | 'release' | null>(null);
   const canManageSettlement = role ? hasMinRole(role, 'admin') : false;
+  const canCheckIn = role ? hasMinRole(role, 'editor') : false;
   const detailPath = websiteId && params.groupId
     ? `/api/websites/${websiteId}/gatherings/calendar/${encodeURIComponent(params.groupId)}`
     : null;
@@ -243,6 +280,46 @@ export default function GatheringDetailPage() {
     }
   };
 
+  const startEvent = async () => {
+    if (!detailPath) return;
+    const ok = await confirm({
+      title: 'Mulai acara?',
+      message: 'Status acara menjadi Berlangsung dan halaman check-in dibuka untuk panitia. Acara yang sudah dimulai tidak bisa dibatalkan.',
+      confirmLabel: 'Ya, mulai acara',
+    });
+    if (!ok) return;
+    setSettlementBusy('start');
+    try {
+      await apiClient(`${detailPath}/start`, { method: 'POST' });
+      await load();
+    } catch (cause) {
+      await alert({ title: 'Gagal memulai acara', message: cause instanceof Error ? cause.message : 'Gagal memulai acara' });
+    } finally {
+      setSettlementBusy(null);
+    }
+  };
+
+  const sendTickets = async () => {
+    if (!detailPath) return;
+    setSettlementBusy('tickets');
+    try {
+      const result = await apiClient<{ status: string; total_count: number }>(`${detailPath}/tickets/send`, { method: 'POST' });
+      await alert({
+        title: result.status === 'FAILED' ? 'Tiket gagal diantrekan' : 'Tiket diproses',
+        message: result.status === 'FAILED'
+          ? 'Antrean email sedang tidak tersedia. Coba lagi beberapa saat lagi.'
+          : result.total_count > 0
+            ? `${result.total_count} email tiket diantrekan. Muat ulang halaman beberapa saat lagi untuk melihat statusnya.`
+            : 'Semua peserta lunas sudah menerima tiket.',
+      });
+      await load();
+    } catch (cause) {
+      await alert({ title: 'Gagal mengirim tiket', message: cause instanceof Error ? cause.message : 'Gagal mengirim tiket' });
+    } finally {
+      setSettlementBusy(null);
+    }
+  };
+
   const retryRelease = async () => {
     if (!detailPath) return;
     setSettlementBusy('release');
@@ -257,9 +334,10 @@ export default function GatheringDetailPage() {
     }
   };
 
-  const eventDateReached = Boolean(
-    detail?.occurrence.final_schedule && new Date(detail.occurrence.final_schedule).getTime() <= Date.now(),
+  const startWindowOpen = Boolean(
+    detail?.occurrence.final_schedule && new Date(detail.occurrence.final_schedule).getTime() - START_WINDOW_MS <= Date.now(),
   );
+  const pendingTickets = detail ? detail.attendance.paid_count - detail.attendance.ticket_sent_count : 0;
 
   if (contextLoading) return <LoadingSpinner />;
   if (!websiteId) return <NoWebsiteState />;
@@ -352,6 +430,73 @@ export default function GatheringDetailPage() {
             </CardBody>
           </Card>
 
+          {['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(detail.status) ? (
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-lg font-semibold">Operasional acara</h2>
+                <p className="text-sm text-default-500">Tiket QR dikirim ke peserta lunas saat acara dikonfirmasi. Mulai acara untuk membuka check-in, lalu tandai selesai untuk mencairkan sisa dana.</p>
+              </div>
+              <Card className="border-0 shadow-md ring-1 ring-default-100">
+                <CardBody className="gap-4 p-5">
+                  <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="Tahapan acara">
+                    {(['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as const).map((step, index, steps) => {
+                      const currentIndex = steps.indexOf(detail.status as typeof step);
+                      return (
+                        <li key={step} className="flex items-center gap-2">
+                          <Chip size="sm" variant={index <= currentIndex ? 'solid' : 'bordered'} color={index < currentIndex ? 'success' : index === currentIndex ? 'primary' : 'default'}>
+                            {index + 1}. {STATUS_LABEL[step]}
+                          </Chip>
+                          {index < steps.length - 1 ? <span aria-hidden className="text-default-300">→</span> : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  <div className="grid gap-5 sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs font-medium text-default-500">Tiket terkirim</p>
+                      <p className="mt-1 text-sm font-semibold">{detail.attendance.ticket_sent_count} dari {detail.attendance.paid_count} peserta lunas</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-default-500">Hadir</p>
+                      <p className="mt-1 text-sm font-semibold">{detail.attendance.checked_in_count} dari {detail.attendance.paid_count}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-default-500">{detail.completed_at ? 'Selesai' : 'Dimulai'}</p>
+                      <p className="mt-1 text-sm font-semibold">{formatDate(detail.completed_at ?? detail.started_at)}</p>
+                    </div>
+                  </div>
+                  {detail.status !== 'COMPLETED' && (canManageSettlement || canCheckIn) ? (
+                    <div className="flex flex-col gap-2 border-t border-default-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                      {detail.status === 'CONFIRMED' && !startWindowOpen ? (
+                        <p className="text-xs text-default-500 sm:mr-auto">Acara bisa dimulai sejak 24 jam sebelum {formatDate(detail.occurrence.final_schedule)}.</p>
+                      ) : null}
+                      {canManageSettlement ? (
+                        <Button variant="flat" onPress={sendTickets} isLoading={settlementBusy === 'tickets'} isDisabled={settlementBusy !== null || pendingTickets <= 0}>
+                          {pendingTickets > 0 ? `Kirim ${pendingTickets} tiket tertunda` : 'Semua tiket terkirim'}
+                        </Button>
+                      ) : null}
+                      {detail.status === 'CONFIRMED' && canManageSettlement ? (
+                        <Button color="primary" onPress={startEvent} isLoading={settlementBusy === 'start'} isDisabled={settlementBusy !== null || !startWindowOpen}>
+                          Mulai acara
+                        </Button>
+                      ) : null}
+                      {detail.status === 'IN_PROGRESS' && canCheckIn ? (
+                        <Button as={Link} href={`/dashboard/calendar/${encodeURIComponent(detail.id)}/check-in`} color="primary">
+                          Buka check-in
+                        </Button>
+                      ) : null}
+                      {detail.status === 'IN_PROGRESS' && canManageSettlement ? (
+                        <Button color="success" variant="flat" onPress={completeEvent} isLoading={settlementBusy === 'complete'} isDisabled={settlementBusy !== null}>
+                          Tandai acara selesai
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </CardBody>
+              </Card>
+            </section>
+          ) : null}
+
           <section className="space-y-3">
             <div>
               <h2 className="text-lg font-semibold">Pencairan dana</h2>
@@ -384,26 +529,11 @@ export default function GatheringDetailPage() {
                     {formatCurrency(detail.settlement.outstanding_total, detail.occurrence.currency)} belum berhasil dirilis untuk tahap ini. Proses ulang pencairan untuk mencoba lagi.
                   </p>
                 ) : null}
-                {canManageSettlement && (detail.status === 'CONFIRMED' || detail.settlement.outstanding_total > 0) ? (
+                {canManageSettlement && detail.settlement.outstanding_total > 0 ? (
                   <div className="flex flex-col gap-2 border-t border-default-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
-                    {detail.status === 'CONFIRMED' && !eventDateReached ? (
-                      <p className="text-xs text-default-500 sm:mr-auto">Acara bisa ditandai selesai mulai {formatDate(detail.occurrence.final_schedule)}.</p>
-                    ) : null}
-                    {detail.settlement.outstanding_total > 0 ? (
-                      <Button variant="flat" onPress={retryRelease} isLoading={settlementBusy === 'release'} isDisabled={settlementBusy !== null}>
-                        Proses ulang pencairan
-                      </Button>
-                    ) : null}
-                    {detail.status === 'CONFIRMED' ? (
-                      <Button
-                        color="primary"
-                        onPress={completeEvent}
-                        isLoading={settlementBusy === 'complete'}
-                        isDisabled={settlementBusy !== null || !eventDateReached}
-                      >
-                        Tandai acara selesai
-                      </Button>
-                    ) : null}
+                    <Button variant="flat" onPress={retryRelease} isLoading={settlementBusy === 'release'} isDisabled={settlementBusy !== null}>
+                      Proses ulang pencairan
+                    </Button>
                   </div>
                 ) : null}
               </CardBody>
@@ -471,6 +601,7 @@ export default function GatheringDetailPage() {
                         <TableColumn>PENDAFTARAN</TableColumn>
                         <TableColumn>PEMBAYARAN</TableColumn>
                         <TableColumn>TRANSAKSI</TableColumn>
+                        <TableColumn>TIKET & KEHADIRAN</TableColumn>
                         <TableColumn>TERDAFTAR</TableColumn>
                       </TableHeader>
                       <TableBody>
@@ -486,6 +617,7 @@ export default function GatheringDetailPage() {
                             <TableCell><StatusChip status={registration.registration_status} /></TableCell>
                             <TableCell><StatusChip status={registration.payment_status} /></TableCell>
                             <TableCell><TransactionCell registration={registration} /></TableCell>
+                            <TableCell><AttendanceCell registration={registration} /></TableCell>
                             <TableCell>{formatDate(registration.created_at)}</TableCell>
                           </TableRow>
                         ))}
@@ -506,6 +638,7 @@ export default function GatheringDetailPage() {
                           <StatusChip status={registration.payment_status} />
                         </div>
                         {registration.transaction_id ? <TransactionCell registration={registration} /> : null}
+                        {registration.payment_status === 'PAID' ? <AttendanceCell registration={registration} /> : null}
                         {Object.entries(registration.selected_options ?? {}).length > 0 ? (
                           <p className="border-t border-default-100 pt-2 text-sm">
                             {Object.entries(registration.selected_options).map(([group, optionId]) => {
