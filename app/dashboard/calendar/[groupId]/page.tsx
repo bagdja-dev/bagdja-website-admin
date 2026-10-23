@@ -476,7 +476,7 @@ export default function GatheringDetailPage() {
                         </Button>
                       ) : null}
                       {detail.status === 'CONFIRMED' && canManageSettlement ? (
-                        <Button color="primary" onPress={startEvent} isLoading={settlementBusy === 'start'} isDisabled={settlementBusy !== null || !startWindowOpen}>
+                        <Button color={startWindowOpen ? 'primary' : 'default'} onPress={startEvent} isLoading={settlementBusy === 'start'} isDisabled={settlementBusy !== null || !startWindowOpen}>
                           Mulai acara
                         </Button>
                       ) : null}
