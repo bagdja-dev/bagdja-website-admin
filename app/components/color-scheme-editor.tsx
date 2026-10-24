@@ -9,20 +9,24 @@ import {
   ACCENT_SWATCH,
   applyPresetToTheme,
   COLOR_FIELD_LABELS,
+  COMPONENT_GROUPS,
   FONT_OPTIONS,
   getContrastWarnings,
   getLuminance,
   resolveTheme,
   themeToCssVariables,
   updateThemeColor,
+  updateThemeComponentColor,
   type ThemeColors,
+  type ThemeComponentKey,
+  type ThemeComponentName,
   type ThemeTypography,
   type WebsiteTheme,
 } from '../lib/website-theme';
 
-export type ThemeEditorTab = 'quick' | 'colors' | 'typography';
+export type ThemeEditorTab = 'quick' | 'colors' | 'components' | 'typography';
 
-export const ALL_THEME_EDITOR_TABS: ThemeEditorTab[] = ['quick', 'colors', 'typography'];
+export const ALL_THEME_EDITOR_TABS: ThemeEditorTab[] = ['quick', 'colors', 'components', 'typography'];
 
 export interface ColorSchemeEditorProps {
   value: WebsiteTheme;
@@ -41,6 +45,7 @@ export interface ColorSchemeEditorProps {
 }
 
 const COLOR_KEYS = Object.keys(COLOR_FIELD_LABELS) as (keyof ThemeColors)[];
+const COMPONENT_NAMES = Object.keys(COMPONENT_GROUPS) as ThemeComponentName[];
 
 function ThemeMiniPreview({ templateDefault, value }: { templateDefault: WebsiteTheme; value: WebsiteTheme }) {
   const resolved = resolveTheme(templateDefault, value);
@@ -50,20 +55,20 @@ function ThemeMiniPreview({ templateDefault, value }: { templateDefault: Website
     <div className="overflow-hidden rounded-xl ring-1 ring-default-200" style={cssVars}>
       <div
         className="border-b px-4 py-3"
-        style={{ backgroundColor: 'var(--brand-bg)', borderColor: 'var(--brand-border)', fontFamily: 'var(--font-body)' }}
+        style={{ backgroundColor: 'var(--c-header-bg)', borderColor: 'var(--c-header-border)', fontFamily: 'var(--font-body)' }}
       >
         <div className="flex items-center justify-between gap-2">
           <span
             className="text-xs font-bold tracking-widest"
-            style={{ color: 'var(--brand-accent)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--font-heading-weight)' }}
+            style={{ color: 'var(--c-header-text)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--font-heading-weight)' }}
           >
             BRAND
           </span>
           <span
-            className="rounded-full border px-2 py-0.5 text-[10px] font-medium"
-            style={{ color: 'var(--brand-accent)', borderColor: 'var(--brand-accent-border)' }}
+            className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+            style={{ backgroundColor: 'var(--c-btn-primary-bg)', color: 'var(--c-btn-primary-text)' }}
           >
-            Menu
+            Masuk
           </span>
         </div>
       </div>
@@ -77,7 +82,7 @@ function ThemeMiniPreview({ templateDefault, value }: { templateDefault: Website
         <p
           className="mt-2 text-sm font-semibold"
           style={{
-            color: 'var(--brand-text)',
+            color: 'var(--brand-heading)',
             fontFamily: 'var(--font-heading)',
             fontWeight: 'var(--font-heading-weight)',
             fontSize: `calc(0.875rem * var(--heading-scale))`,
@@ -88,11 +93,19 @@ function ThemeMiniPreview({ templateDefault, value }: { templateDefault: Website
         <p className="mt-1 text-xs" style={{ color: 'var(--brand-muted)', fontWeight: 'var(--font-body-weight)' }}>
           Deskripsi singkat brand
         </p>
-        <div
-          className="mx-auto mt-4 inline-flex rounded-full px-4 py-2 text-xs font-semibold"
-          style={{ backgroundColor: 'var(--brand-accent)', color: 'var(--brand-on-accent)' }}
-        >
-          Hubungi Kami
+        <div className="mt-4 flex justify-center gap-2">
+          <div
+            className="inline-flex rounded-full px-4 py-2 text-xs font-semibold"
+            style={{ backgroundColor: 'var(--c-btn-primary-bg)', color: 'var(--c-btn-primary-text)' }}
+          >
+            Hubungi Kami
+          </div>
+          <div
+            className="inline-flex rounded-full border px-4 py-2 text-xs font-semibold"
+            style={{ borderColor: 'var(--c-btn-secondary-border)', color: 'var(--c-btn-secondary-text)' }}
+          >
+            Detail
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2 px-4 pb-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -106,6 +119,19 @@ function ThemeMiniPreview({ templateDefault, value }: { templateDefault: Website
             <div className="mt-2 h-1.5 w-6 rounded opacity-80" style={{ backgroundColor: 'var(--brand-accent)' }} />
           </div>
         ))}
+      </div>
+      <div
+        className="flex items-start justify-between gap-2 border-t px-4 py-3 text-[10px]"
+        style={{ backgroundColor: 'var(--c-footer-bg)', borderColor: 'var(--c-footer-border)', color: 'var(--c-footer-text)' }}
+      >
+        <div>
+          <p className="font-semibold uppercase tracking-wider" style={{ color: 'var(--c-footer-heading)' }}>Kontak</p>
+          <p className="mt-1">Jl. Contoh No. 1</p>
+        </div>
+        <div className="text-right">
+          <p className="font-semibold uppercase tracking-wider" style={{ color: 'var(--c-footer-heading)' }}>Halaman</p>
+          <p className="mt-1 underline" style={{ color: 'var(--c-footer-link)' }}>Tentang Kami</p>
+        </div>
       </div>
     </div>
   );
@@ -148,6 +174,14 @@ export function ColorSchemeEditor({
     onChange(updateThemeColor(value, key, hex));
   };
 
+  const setComponentColor = <C extends ThemeComponentName>(
+    component: C,
+    key: ThemeComponentKey<C>,
+    hex: string | null,
+  ) => {
+    onChange(updateThemeComponentColor(value, component, key, hex));
+  };
+
   const setTypography = (patch: Partial<ThemeTypography>) => {
     onChange({
       ...value,
@@ -161,6 +195,7 @@ export function ColorSchemeEditor({
   const tabLabels: Record<ThemeEditorTab, string> = {
     quick: 'Mode Cepat',
     colors: 'Warna',
+    components: 'Komponen',
     typography: 'Tipografi',
   };
 
@@ -254,6 +289,49 @@ export function ColorSchemeEditor({
               disabled={disabled}
             />
           ))}
+        </div>
+      )}
+
+      {tab === 'components' && (
+        <div className="space-y-4">
+          <p className="text-sm text-default-500">
+            Atur warna per bagian. Token yang tidak diubah otomatis mengikuti warna global di tab Warna.
+          </p>
+          {COMPONENT_NAMES.map((component) => {
+            const group = COMPONENT_GROUPS[component];
+            const overrides: Partial<Record<string, string>> = value.components?.[component] ?? {};
+            const resolvedGroup: Record<string, string> = resolved.components[component];
+            return (
+              <div key={component} className="rounded-xl border border-default-200 p-4">
+                <p className="text-sm font-semibold text-foreground">{group.label}</p>
+                <p className="mb-3 text-xs text-default-500">{group.description}</p>
+                <div className={`grid gap-4 ${colorsColumns === 2 ? 'sm:grid-cols-2' : ''}`}>
+                  {(Object.entries(group.fields) as [ThemeComponentKey<typeof component>, string][]).map(([key, label]) => (
+                    <div key={key} className="space-y-1">
+                      <ColorPickerField
+                        label={label}
+                        value={resolvedGroup[key]}
+                        onChange={(hex) => setComponentColor(component, key, hex)}
+                        disabled={disabled}
+                      />
+                      {overrides[key] ? (
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setComponentColor(component, key, null)}
+                          className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                        >
+                          Ikuti global
+                        </button>
+                      ) : (
+                        <p className="text-xs text-default-400">Mengikuti global</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -26,7 +26,7 @@ export function buildTemplatePreviewUrl(
   const templateTheme = extractTemplateTheme(template.structure);
   // Bump this when the renderer preview contract changes so an already-open
   // admin session cannot reuse a cached iframe document from an older deploy.
-  const params = new URLSearchParams({ preview: '1', preview_version: '3' });
+  const params = new URLSearchParams({ preview: '1', preview_version: '4' });
   if (profile.name?.trim()) params.set('name', profile.name.trim());
   if (profile.tagline?.trim()) params.set('tagline', profile.tagline.trim());
   if (profile.logo_url?.trim()) params.set('logo', profile.logo_url.trim());

@@ -30,7 +30,32 @@ export interface ThemeColors {
   accentHover?: string;
   border?: string;
   onAccent?: string;
+  heading?: string;
+  accentMuted?: string;
+  success?: string;
+  warning?: string;
+  danger?: string;
 }
+
+const COLOR_KEYS: (keyof ThemeColors)[] = [
+  'background', 'surface', 'text', 'textMuted', 'accent', 'accentHover', 'border', 'onAccent',
+  'heading', 'accentMuted', 'success', 'warning', 'danger',
+];
+/** Token global tambahan (di luar 8 token v2) — dikirim ke preview via param `theme_x` */
+const EXTENDED_COLOR_KEYS = ['heading', 'accentMuted', 'success', 'warning', 'danger'] as const;
+
+/** Token warna per komponen — semua opsional, fallback ke token global saat di-resolve. */
+export const THEME_COMPONENT_KEYS = {
+  header: ['background', 'text', 'border'],
+  footer: ['background', 'text', 'heading', 'link', 'border'],
+  button: ['primaryBackground', 'primaryText', 'secondaryText', 'secondaryBorder'],
+} as const;
+
+export type ThemeComponentName = keyof typeof THEME_COMPONENT_KEYS;
+export type ThemeComponentKey<C extends ThemeComponentName> = (typeof THEME_COMPONENT_KEYS)[C][number];
+export type ThemeComponentColors<C extends ThemeComponentName> = Record<ThemeComponentKey<C>, string>;
+export type ThemeComponents = { [C in ThemeComponentName]?: Partial<ThemeComponentColors<C>> };
+export type ResolvedThemeComponents = { [C in ThemeComponentName]: ThemeComponentColors<C> };
 
 export interface ThemeTypography {
   headingFont?: string;
@@ -47,11 +72,13 @@ export interface WebsiteTheme {
   font?: string;
   preset?: ThemePreset;
   colors?: ThemeColors;
+  components?: ThemeComponents;
   typography?: ThemeTypography;
 }
 
 export interface ResolvedTheme {
   colors: Required<ThemeColors>;
+  components: ResolvedThemeComponents;
   typography: Required<ThemeTypography>;
 }
 
@@ -75,6 +102,36 @@ export const COLOR_FIELD_LABELS: Record<keyof ThemeColors, string> = {
   accentHover: 'Aksen hover',
   border: 'Garis & border',
   onAccent: 'Teks di tombol',
+  heading: 'Judul',
+  accentMuted: 'Aksen lembut (label)',
+  success: 'Status sukses',
+  warning: 'Status peringatan',
+  danger: 'Status bahaya',
+};
+
+export const COMPONENT_GROUPS: {
+  [C in ThemeComponentName]: { label: string; description: string; fields: Record<ThemeComponentKey<C>, string> };
+} = {
+  header: {
+    label: 'Header',
+    description: 'Bar navigasi di bagian atas.',
+    fields: { background: 'Latar', text: 'Teks & menu', border: 'Garis bawah' },
+  },
+  footer: {
+    label: 'Footer',
+    description: 'Bagian bawah halaman.',
+    fields: { background: 'Latar', text: 'Teks', heading: 'Judul kolom', link: 'Link', border: 'Garis' },
+  },
+  button: {
+    label: 'Tombol',
+    description: 'Tombol utama (CTA) dan tombol outline.',
+    fields: {
+      primaryBackground: 'Utama — latar',
+      primaryText: 'Utama — teks',
+      secondaryText: 'Outline — teks',
+      secondaryBorder: 'Outline — garis',
+    },
+  },
 };
 
 export const ACCENT_SWATCH: Record<ThemeAccent, string> = {
@@ -118,6 +175,8 @@ const MODE_BASE: Record<ThemeMode, Pick<ThemeColors, 'background' | 'surface' | 
     border: '#e4e4e7',
   },
 };
+
+const STATUS_COLORS = { success: '#10b981', warning: '#f59e0b', danger: '#ef4444' } as const;
 
 const DEFAULT_TYPOGRAPHY: Required<ThemeTypography> = {
   headingFont: 'Inter',
@@ -198,6 +257,9 @@ export function paletteFromModeAccent(mode: ThemeMode, accent: ThemeAccent): Req
     accent: accentTokens.primary,
     accentHover: accentTokens.primaryHover,
     onAccent: accentTokens.onPrimary,
+    heading: base.text!,
+    accentMuted: accentTokens.primary,
+    ...STATUS_COLORS,
   };
 }
 
@@ -205,13 +267,27 @@ function sanitizeColors(input: unknown): ThemeColors {
   if (!input || typeof input !== 'object') return {};
   const raw = input as Record<string, unknown>;
   const colors: ThemeColors = {};
-  const keys: (keyof ThemeColors)[] = [
-    'background', 'surface', 'text', 'textMuted', 'accent', 'accentHover', 'border', 'onAccent',
-  ];
-  for (const key of keys) {
+  for (const key of COLOR_KEYS) {
     if (isValidHex(raw[key])) colors[key] = normalizeHex(raw[key] as string);
   }
   return colors;
+}
+
+function sanitizeComponents(input: unknown): ThemeComponents {
+  if (!input || typeof input !== 'object') return {};
+  const raw = input as Record<string, unknown>;
+  const components: Record<string, Record<string, string>> = {};
+  for (const [name, keys] of Object.entries(THEME_COMPONENT_KEYS)) {
+    const group = raw[name];
+    if (!group || typeof group !== 'object') continue;
+    const values: Record<string, string> = {};
+    for (const key of keys) {
+      const value = (group as Record<string, unknown>)[key];
+      if (isValidHex(value)) values[key] = normalizeHex(value);
+    }
+    if (Object.keys(values).length > 0) components[name] = values;
+  }
+  return components as ThemeComponents;
 }
 
 function sanitizeTypography(input: unknown): ThemeTypography {
@@ -250,6 +326,9 @@ export function sanitizeWebsiteTheme(input: unknown): WebsiteTheme {
   const colors = sanitizeColors(raw.colors);
   if (Object.keys(colors).length > 0) theme.colors = colors;
 
+  const components = sanitizeComponents(raw.components);
+  if (Object.keys(components).length > 0) theme.components = components;
+
   const typography = sanitizeTypography(raw.typography);
   if (Object.keys(typography).length > 0) theme.typography = typography;
 
@@ -269,11 +348,49 @@ function deriveColorsFromTheme(theme: WebsiteTheme): Required<ThemeColors> {
     const merged = { ...fallback, ...theme.colors };
     if (!merged.onAccent && merged.accent) merged.onAccent = pickOnAccent(merged.accent);
     if (!merged.accentHover && merged.accent) merged.accentHover = darkenHex(merged.accent);
+    // Token turunan ikut warna yang di-override, kecuali di-set eksplisit
+    if (!theme.colors.heading) merged.heading = merged.text;
+    if (!theme.colors.accentMuted) merged.accentMuted = merged.accent;
     return merged as Required<ThemeColors>;
   }
   const mode = theme.mode ?? 'dark';
   const accent = theme.accent ?? 'amber';
   return paletteFromModeAccent(mode, accent);
+}
+
+function resolveComponents(colors: Required<ThemeColors>, components: ThemeComponents = {}): ResolvedThemeComponents {
+  return {
+    header: {
+      background: colors.background,
+      text: colors.text,
+      border: colors.accent,
+      ...components.header,
+    },
+    footer: {
+      background: colors.background,
+      text: colors.textMuted,
+      heading: colors.accentMuted,
+      link: colors.textMuted,
+      border: colors.border,
+      ...components.footer,
+    },
+    button: {
+      primaryBackground: colors.accent,
+      primaryText: colors.onAccent,
+      secondaryText: colors.text,
+      secondaryBorder: colors.border,
+      ...components.button,
+    },
+  };
+}
+
+function mergeComponents(template: ThemeComponents = {}, website: ThemeComponents = {}): ThemeComponents {
+  const merged: Record<string, Record<string, string>> = {};
+  for (const name of Object.keys(THEME_COMPONENT_KEYS) as ThemeComponentName[]) {
+    const group = { ...template[name], ...website[name] };
+    if (Object.keys(group).length > 0) merged[name] = group;
+  }
+  return merged as ThemeComponents;
 }
 
 export function resolveTheme(
@@ -296,8 +413,10 @@ export function resolveTheme(
     headingFont: merged.typography?.headingFont ?? legacyFont ?? DEFAULT_TYPOGRAPHY.headingFont,
   };
 
+  const colors = deriveColorsFromTheme(merged);
   return {
-    colors: deriveColorsFromTheme(merged),
+    colors,
+    components: resolveComponents(colors, mergeComponents(templateTheme.components, websiteTheme.components)),
     typography,
   };
 }
@@ -319,7 +438,10 @@ export function applyPresetToTheme(
     THEME_ACCENTS.find((a) => ACCENT_SWATCH[a] === accentHex) ??
     current.accent ??
     'amber';
-  const colors = paletteFromModeAccent(preset, accentKey);
+  const colors: ThemeColors = paletteFromModeAccent(preset, accentKey);
+  // Biarkan turunan (tidak disimpan) supaya tetap ikut teks/aksen saat diubah di tab Warna
+  delete colors.heading;
+  delete colors.accentMuted;
   if (accentHex && isValidHex(accentHex)) {
     colors.accent = normalizeHex(accentHex);
     colors.accentHover = darkenHex(colors.accent);
@@ -351,6 +473,26 @@ export function updateThemeColor(
   return { ...theme, preset: 'custom', colors };
 }
 
+/** Set token komponen; `hex` null = hapus override (kembali ikut token global). */
+export function updateThemeComponentColor<C extends ThemeComponentName>(
+  theme: WebsiteTheme,
+  component: C,
+  key: ThemeComponentKey<C>,
+  hex: string | null,
+): WebsiteTheme {
+  if (hex !== null && !isValidHex(hex)) return theme;
+  const group: Record<string, string> = { ...theme.components?.[component] };
+  if (hex === null) delete group[key];
+  else group[key] = normalizeHex(hex);
+
+  const components: Record<string, unknown> = { ...theme.components, [component]: group };
+  if (Object.keys(group).length === 0) delete components[component];
+
+  const next: WebsiteTheme = { ...theme, preset: 'custom', components: components as ThemeComponents };
+  if (Object.keys(components).length === 0) delete next.components;
+  return next;
+}
+
 export function getContrastWarnings(resolved: ResolvedTheme): string[] {
   const warnings: string[] = [];
   const { colors } = resolved;
@@ -362,6 +504,17 @@ export function getContrastWarnings(resolved: ResolvedTheme): string[] {
   }
   if (contrastRatio(colors.onAccent, colors.accent) < 4.5) {
     warnings.push('Kontras teks tombol vs warna brand rendah (< 4.5:1).');
+  }
+  const { header, footer, button } = resolved.components;
+  if (contrastRatio(header.text, header.background) < 4.5) {
+    warnings.push('Kontras teks header vs latar header rendah (< 4.5:1).');
+  }
+  if (contrastRatio(footer.text, footer.background) < 3) {
+    warnings.push('Kontras teks footer vs latar footer rendah (< 3:1).');
+  }
+  const buttonOverridden = button.primaryText !== colors.onAccent || button.primaryBackground !== colors.accent;
+  if (buttonOverridden && contrastRatio(button.primaryText, button.primaryBackground) < 4.5) {
+    warnings.push('Kontras teks tombol utama vs latarnya rendah (< 4.5:1).');
   }
   return warnings;
 }
@@ -377,7 +530,7 @@ export function getGoogleFontsUrl(typography: ThemeTypography): string | null {
 }
 
 export function themeToCssVariables(resolved: ResolvedTheme): Record<string, string | number> {
-  const { colors, typography } = resolved;
+  const { colors, components, typography } = resolved;
   const scale = HEADING_SCALE_FACTOR[typography.headingScale ?? 'default'];
   return {
     '--brand-bg': colors.background,
@@ -387,9 +540,25 @@ export function themeToCssVariables(resolved: ResolvedTheme): Record<string, str
     '--brand-border': colors.border,
     '--brand-accent': colors.accent,
     '--brand-accent-hover': colors.accentHover,
-    '--brand-accent-muted': colors.accent,
+    '--brand-accent-muted': colors.accentMuted,
     '--brand-accent-border': `${colors.accent}66`,
     '--brand-on-accent': colors.onAccent,
+    '--brand-heading': colors.heading,
+    '--brand-success': colors.success,
+    '--brand-warning': colors.warning,
+    '--brand-danger': colors.danger,
+    '--c-header-bg': components.header.background,
+    '--c-header-text': components.header.text,
+    '--c-header-border': components.header.border,
+    '--c-footer-bg': components.footer.background,
+    '--c-footer-text': components.footer.text,
+    '--c-footer-heading': components.footer.heading,
+    '--c-footer-link': components.footer.link,
+    '--c-footer-border': components.footer.border,
+    '--c-btn-primary-bg': components.button.primaryBackground,
+    '--c-btn-primary-text': components.button.primaryText,
+    '--c-btn-secondary-text': components.button.secondaryText,
+    '--c-btn-secondary-border': components.button.secondaryBorder,
     '--font-heading': `'${typography.headingFont}', system-ui, sans-serif`,
     '--font-body': `'${typography.bodyFont}', system-ui, sans-serif`,
     '--font-heading-weight': typography.headingWeight,
@@ -398,7 +567,7 @@ export function themeToCssVariables(resolved: ResolvedTheme): Record<string, str
   };
 }
 
-const COLOR_PARAM_MAP: Record<keyof ThemeColors, string> = {
+const COLOR_PARAM_MAP: Partial<Record<keyof ThemeColors, string>> = {
   background: 'c_bg',
   surface: 'c_surface',
   text: 'c_text',
@@ -416,6 +585,14 @@ export function themeToSearchParams(templateTheme: WebsiteTheme, websiteTheme: W
   for (const [key, param] of Object.entries(COLOR_PARAM_MAP) as [keyof ThemeColors, string][]) {
     params[param] = resolved.colors[key].replace('#', '');
   }
+
+  // Token tambahan + override komponen dalam satu param JSON supaya URL tidak membengkak
+  const extendedColors: ThemeColors = {};
+  for (const key of EXTENDED_COLOR_KEYS) extendedColors[key] = resolved.colors[key];
+  const components = mergeComponents(templateTheme.components, websiteTheme.components);
+  params.theme_x = JSON.stringify(
+    Object.keys(components).length > 0 ? { colors: extendedColors, components } : { colors: extendedColors },
+  );
 
   params.tf_head = resolved.typography.headingFont.replace(/ /g, '+');
   params.tf_body = resolved.typography.bodyFont.replace(/ /g, '+');
@@ -436,6 +613,17 @@ export function parseThemeFromSearchParams(
     const raw = params[param];
     if (raw && /^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw)) {
       colors[key] = normalizeHex(raw.startsWith('#') ? raw : `#${raw}`);
+    }
+  }
+  if (params.theme_x) {
+    try {
+      const extended = sanitizeWebsiteTheme(JSON.parse(params.theme_x));
+      for (const key of EXTENDED_COLOR_KEYS) {
+        if (extended.colors?.[key]) colors[key] = extended.colors[key];
+      }
+      if (extended.components) theme.components = extended.components;
+    } catch {
+      // param rusak — abaikan, preview tetap jalan dengan token v2
     }
   }
   if (Object.keys(colors).length > 0) theme.colors = colors;
