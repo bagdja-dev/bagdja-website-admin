@@ -14,7 +14,7 @@ export interface Website {
   social_links?: Record<string, unknown>;
   opening_hours?: Record<string, unknown>;
   theme?: Record<string, unknown>;
-  footer_settings?: Record<string, unknown>;
+  footer_settings?: Partial<WebsiteFooterSettings>;
   notification_sound_enabled?: boolean;
   notification_sound_url?: string | null;
   is_active: boolean;
@@ -22,20 +22,19 @@ export interface Website {
   updated_at: string;
 }
 
+export const FOOTER_BLOCK_TYPES = ['brand', 'page_links', 'contact', 'social_links', 'text', 'copyright'] as const;
+export type FooterBlockType = (typeof FOOTER_BLOCK_TYPES)[number];
+
+/** Satu blok komponen footer global — sinkron dengan FooterBlockDto di API. */
+export interface FooterBlock {
+  id: string;
+  type: FooterBlockType;
+  content: Record<string, unknown>;
+}
+
+/** Isi `websites.footer_settings`. Tanpa blok = footer tidak dirender. */
 export interface WebsiteFooterSettings {
-  enabled?: boolean;
-  show_logo?: boolean;
-  show_business_name?: boolean;
-  show_tagline?: boolean;
-  show_social_links?: boolean;
-  show_pages?: boolean;
-  show_address?: boolean;
-  show_whatsapp?: boolean;
-  show_phone?: boolean;
-  show_email?: boolean;
-  contact_heading?: string;
-  pages_heading?: string;
-  copyright_text?: string;
+  blocks: FooterBlock[];
 }
 
 export interface UserWebsite {

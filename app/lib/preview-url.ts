@@ -13,7 +13,7 @@ export interface WebsitePreviewProfile {
   whatsapp?: string;
   phone?: string;
   email?: string;
-  footerSettings?: WebsiteFooterSettings;
+  footerSettings?: Partial<WebsiteFooterSettings>;
   theme?: WebsiteTheme;
 }
 

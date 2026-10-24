@@ -11,7 +11,7 @@ import { LogoUpload } from '../../components/logo-upload';
 import { NoWebsiteState } from '../../components/no-website-state';
 import { TemplatePreview, type PreviewViewport } from '../../components/template-preview';
 import { apiClient } from '../../lib/api-client';
-import type { Website, WebsiteFooterSettings, WebsiteTemplate } from '../../lib/types';
+import type { Website, WebsiteTemplate } from '../../lib/types';
 import {
   extractTemplateTheme,
   resolveTheme,
@@ -39,46 +39,6 @@ function getSocialLink(links: Record<string, unknown> | undefined, key: string):
 function getOpeningHoursNote(hours: Record<string, unknown> | undefined): string {
   const note = hours?.note;
   return typeof note === 'string' ? note : '';
-}
-
-const DEFAULT_FOOTER_SETTINGS: WebsiteFooterSettings = {
-  enabled: true,
-  show_logo: true,
-  show_business_name: true,
-  show_tagline: true,
-  show_social_links: true,
-  show_pages: true,
-  show_address: true,
-  show_whatsapp: true,
-  show_phone: true,
-  show_email: true,
-  contact_heading: 'Kontak',
-  pages_heading: 'Halaman',
-  copyright_text: '© Bagdja Website Builder',
-};
-
-function readFooterSettings(raw: Record<string, unknown> | undefined): WebsiteFooterSettings {
-  const settings = { ...DEFAULT_FOOTER_SETTINGS };
-  if (!raw) return settings;
-
-  for (const key of [
-    'enabled',
-    'show_logo',
-    'show_business_name',
-    'show_tagline',
-    'show_social_links',
-    'show_pages',
-    'show_address',
-    'show_whatsapp',
-    'show_phone',
-    'show_email',
-  ] as const) {
-    if (typeof raw[key] === 'boolean') settings[key] = raw[key];
-  }
-  for (const key of ['contact_heading', 'pages_heading', 'copyright_text'] as const) {
-    if (typeof raw[key] === 'string') settings[key] = raw[key];
-  }
-  return settings;
 }
 
 /**
@@ -148,7 +108,6 @@ export default function SettingsPage() {
   const [facebook, setFacebook] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [openingHoursNote, setOpeningHoursNote] = useState('');
-  const [footerSettings, setFooterSettings] = useState<WebsiteFooterSettings>(DEFAULT_FOOTER_SETTINGS);
   const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(true);
   const [notificationSoundUrl, setNotificationSoundUrl] = useState('');
   const [savingSound, setSavingSound] = useState(false);
@@ -165,16 +124,13 @@ export default function SettingsPage() {
   const [templatePreviewViewport, setTemplatePreviewViewport] = useState<PreviewViewport>('desktop');
   const [saving, setSaving] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
-  const [savingFooter, setSavingFooter] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
   const [brandMessage, setBrandMessage] = useState('');
-  const [footerMessage, setFooterMessage] = useState('');
   const [themeMessage, setThemeMessage] = useState('');
   const [error, setError] = useState('');
   const [brandError, setBrandError] = useState('');
-  const [footerError, setFooterError] = useState('');
   const [themeError, setThemeError] = useState('');
   const [verifyingDomain, setVerifyingDomain] = useState(false);
   const [checkingDomain, setCheckingDomain] = useState(false);
@@ -207,7 +163,6 @@ export default function SettingsPage() {
       setFacebook(getSocialLink(w.social_links, 'facebook'));
       setTiktok(getSocialLink(w.social_links, 'tiktok'));
       setOpeningHoursNote(getOpeningHoursNote(w.opening_hours));
-      setFooterSettings(readFooterSettings(w.footer_settings));
       setNotificationSoundEnabled(w.notification_sound_enabled !== false);
       setNotificationSoundUrl(w.notification_sound_url ?? '');
       setTheme(sanitizeWebsiteTheme(w.theme));
@@ -293,25 +248,6 @@ export default function SettingsPage() {
       setBrandError(err instanceof Error ? err.message : 'Gagal menyimpan profil');
     } finally {
       setSavingBrand(false);
-    }
-  };
-
-  const handleSaveFooter = async () => {
-    if (!websiteId) return;
-    setSavingFooter(true);
-    setFooterError('');
-    setFooterMessage('');
-    try {
-      await apiClient<Website>(`/api/websites/${websiteId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ footer_settings: footerSettings }),
-      });
-      setFooterMessage('Pengaturan footer berhasil disimpan');
-      await refresh();
-    } catch (err) {
-      setFooterError(err instanceof Error ? err.message : 'Gagal menyimpan footer');
-    } finally {
-      setSavingFooter(false);
     }
   };
 
@@ -607,117 +543,6 @@ export default function SettingsPage() {
 
       <Card className="border border-default-200 shadow-sm">
         <CardHeader className="flex flex-col items-start gap-1 border-b border-default-100 px-6 py-4">
-          <h2 className="text-lg font-semibold">Footer Store Classic</h2>
-          <p className="text-sm font-normal text-default-500">
-            Atur bagian footer secara global. Pengaturan ini berlaku di semua halaman saat template Store Classic digunakan.
-          </p>
-        </CardHeader>
-        <CardBody className="flex flex-col gap-5 px-6 py-5">
-          <FormSwitch
-            label="Tampilkan footer"
-            checked={footerSettings.enabled !== false}
-            onChange={(enabled) => setFooterSettings((current) => ({ ...current, enabled }))}
-            disabled={!canEdit}
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormSwitch
-              label="Logo"
-              checked={footerSettings.show_logo !== false}
-              onChange={(show_logo) => setFooterSettings((current) => ({ ...current, show_logo }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Nama website"
-              checked={footerSettings.show_business_name !== false}
-              onChange={(show_business_name) => setFooterSettings((current) => ({ ...current, show_business_name }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Tagline"
-              checked={footerSettings.show_tagline !== false}
-              onChange={(show_tagline) => setFooterSettings((current) => ({ ...current, show_tagline }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Media sosial"
-              checked={footerSettings.show_social_links !== false}
-              onChange={(show_social_links) => setFooterSettings((current) => ({ ...current, show_social_links }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Link halaman"
-              checked={footerSettings.show_pages !== false}
-              onChange={(show_pages) => setFooterSettings((current) => ({ ...current, show_pages }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Alamat lokasi utama"
-              checked={footerSettings.show_address !== false}
-              onChange={(show_address) => setFooterSettings((current) => ({ ...current, show_address }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="WhatsApp"
-              checked={footerSettings.show_whatsapp !== false}
-              onChange={(show_whatsapp) => setFooterSettings((current) => ({ ...current, show_whatsapp }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Telepon"
-              checked={footerSettings.show_phone !== false}
-              onChange={(show_phone) => setFooterSettings((current) => ({ ...current, show_phone }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormSwitch
-              label="Email"
-              checked={footerSettings.show_email !== false}
-              onChange={(show_email) => setFooterSettings((current) => ({ ...current, show_email }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <FormInput
-              label="Judul kontak"
-              value={footerSettings.contact_heading ?? ''}
-              onChange={(contact_heading) => setFooterSettings((current) => ({ ...current, contact_heading }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-            <FormInput
-              label="Judul link halaman"
-              value={footerSettings.pages_heading ?? ''}
-              onChange={(pages_heading) => setFooterSettings((current) => ({ ...current, pages_heading }))}
-              disabled={!canEdit || footerSettings.enabled === false}
-            />
-          </div>
-          <FormInput
-            label="Teks copyright"
-            value={footerSettings.copyright_text ?? ''}
-            onChange={(copyright_text) => setFooterSettings((current) => ({ ...current, copyright_text }))}
-            disabled={!canEdit || footerSettings.enabled === false}
-            description="Kosongkan untuk menyembunyikan baris copyright."
-          />
-          {footerMessage && (
-            <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success">
-              {footerMessage}
-            </div>
-          )}
-          {footerError && (
-            <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
-              {footerError}
-            </div>
-          )}
-          {canEdit && (
-            <div className="pt-1">
-              <Button color="primary" isLoading={savingFooter} onPress={handleSaveFooter}>
-                Simpan Footer
-              </Button>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card className="border border-default-200 shadow-sm">
-        <CardHeader className="flex flex-col items-start gap-1 border-b border-default-100 px-6 py-4">
           <h2 className="text-lg font-semibold">Notifikasi</h2>
           <p className="text-sm font-normal text-default-500">
             Toast tetap muncul. Suara bisa dimatikan atau diganti file sendiri.
@@ -805,7 +630,7 @@ export default function SettingsPage() {
                   whatsapp,
                   phone,
                   email,
-                  footerSettings,
+                  footerSettings: activeWebsite?.website.footer_settings,
                   theme,
                 }}
                 viewport={templatePreviewViewport}

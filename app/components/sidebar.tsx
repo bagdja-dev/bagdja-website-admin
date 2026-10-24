@@ -34,6 +34,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Footer',
+    href: '/dashboard/footer',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25A1.5 1.5 0 0 1 5.25 3.75h13.5a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V5.25ZM3.75 15h16.5M7.5 17.625h3m3 0h3" />
+      </svg>
+    ),
+  },
+  {
     label: 'Produk & Layanan',
     href: '/dashboard/products',
     icon: (
