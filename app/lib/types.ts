@@ -14,11 +14,28 @@ export interface Website {
   social_links?: Record<string, unknown>;
   opening_hours?: Record<string, unknown>;
   theme?: Record<string, unknown>;
+  footer_settings?: Record<string, unknown>;
   notification_sound_enabled?: boolean;
   notification_sound_url?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface WebsiteFooterSettings {
+  enabled?: boolean;
+  show_logo?: boolean;
+  show_business_name?: boolean;
+  show_tagline?: boolean;
+  show_social_links?: boolean;
+  show_pages?: boolean;
+  show_address?: boolean;
+  show_whatsapp?: boolean;
+  show_phone?: boolean;
+  show_email?: boolean;
+  contact_heading?: string;
+  pages_heading?: string;
+  copyright_text?: string;
 }
 
 export interface UserWebsite {

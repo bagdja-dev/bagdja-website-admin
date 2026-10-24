@@ -1,4 +1,4 @@
-import type { WebsiteTemplate } from './types';
+import type { WebsiteFooterSettings, WebsiteTemplate } from './types';
 import { extractTemplateTheme, themeToSearchParams, type WebsiteTheme } from './website-theme';
 
 const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:5005').replace(/\/+$/, '');
@@ -13,6 +13,7 @@ export interface WebsitePreviewProfile {
   whatsapp?: string;
   phone?: string;
   email?: string;
+  footerSettings?: WebsiteFooterSettings;
   theme?: WebsiteTheme;
 }
 
@@ -25,13 +26,14 @@ export function buildTemplatePreviewUrl(
   const templateTheme = extractTemplateTheme(template.structure);
   // Bump this when the renderer preview contract changes so an already-open
   // admin session cannot reuse a cached iframe document from an older deploy.
-  const params = new URLSearchParams({ preview: '1', preview_version: '2' });
+  const params = new URLSearchParams({ preview: '1', preview_version: '3' });
   if (profile.name?.trim()) params.set('name', profile.name.trim());
   if (profile.tagline?.trim()) params.set('tagline', profile.tagline.trim());
   if (profile.logo_url?.trim()) params.set('logo', profile.logo_url.trim());
   if (profile.whatsapp?.trim()) params.set('whatsapp', profile.whatsapp.trim());
   if (profile.phone?.trim()) params.set('phone', profile.phone.trim());
   if (profile.email?.trim()) params.set('email', profile.email.trim());
+  if (profile.footerSettings) params.set('footer_settings', JSON.stringify(profile.footerSettings));
 
   const themeParams = themeToSearchParams(templateTheme, profile.theme ?? {});
   Object.entries(themeParams).forEach(([k, v]) => params.set(k, v));
