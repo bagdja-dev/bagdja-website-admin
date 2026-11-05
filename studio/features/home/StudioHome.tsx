@@ -42,7 +42,7 @@ function HomeContent({ active }: { active: UserWebsiteDto }) {
         businessProfile,
         enabled: new Set(enabledModules),
         status: signals.status,
-        canEditWebsite: hasMinRole(role, 'admin'),
+        isOwner: hasMinRole(role, 'owner'),
       }),
     [businessProfile, enabledModules, role, signals.status, website],
   );

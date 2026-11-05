@@ -9,6 +9,7 @@ export interface WebsitePage {
   title: string;
   slug: string;
   is_home: boolean;
+  placement: 'regular' | 'header' | 'footer';
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -20,7 +21,9 @@ export interface CreatePageRequest {
   is_home?: boolean;
 }
 
-export interface UpdatePageRequest extends Partial<CreatePageRequest> {}
+export interface UpdatePageRequest extends Partial<CreatePageRequest> {
+  placement?: WebsitePage['placement'];
+}
 
 export interface ReorderPagesRequest {
   page_ids: string[];
@@ -55,8 +58,10 @@ export interface WebsitePageWithSections extends WebsitePage {
   sections: WebsiteSection[];
 }
 
-export function fetchPageAndSections(websiteId: string, pageId: string): Promise<{ page: WebsitePage; sections: WebsiteSection[] }> {
-  return studioRequest<{ page: WebsitePage; sections: WebsiteSection[] }>(`${pagesPath(websiteId)}/${encodeURIComponent(pageId)}`);
+/** API mengembalikan halaman dengan `sections` di dalamnya (sudah urut `order`); dipisah agar editor bisa memegang draft section sendiri. */
+export async function fetchPageAndSections(websiteId: string, pageId: string): Promise<{ page: WebsitePage; sections: WebsiteSection[] }> {
+  const { sections = [], ...page } = await studioRequest<WebsitePageWithSections>(`${pagesPath(websiteId)}/${encodeURIComponent(pageId)}`);
+  return { page, sections };
 }
 
 export function reorderPages(websiteId: string, pageIds: string[]): Promise<WebsitePage[]> {

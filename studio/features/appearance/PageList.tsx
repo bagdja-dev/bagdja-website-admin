@@ -129,29 +129,35 @@ export function usePageList() {
       minRole: 'editor',
       mobile: 'actions',
       render: (row, ctx) => (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-end gap-1.5">
           <button
             type="button"
             disabled={!ctx.canAct('editor')}
             onClick={() => void router.push(`/studio/appearance/pages/${row.id}?websiteId=${encodeURIComponent(websiteId!)}`)}
-            className="min-h-8 min-w-8 rounded-[8px] border border-default-300 bg-white px-2 text-[11px] text-default-600 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label={`Edit halaman: ${row.title}`}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-default-300 bg-white p-0 text-default-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 disabled:pointer-events-none disabled:opacity-50"
             title="Edit"
           >
-            <Icon name="edit" size={13} strokeWidth={1.5} />
+            <Icon name="edit" size={14} strokeWidth={1.7} />
           </button>
           {row.is_home ? (
-            <span className="min-h-8 min-w-8 rounded-[8px] border border-success-100 bg-success-50 px-2 text-[11px] text-success" title="Halaman utama">
-              <Icon name="home" size={13} strokeWidth={1.5} />
+            <span
+              aria-label="Halaman utama"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-success-100 bg-success-50 p-0 text-success"
+              title="Halaman utama"
+            >
+              <Icon name="home" size={14} strokeWidth={1.7} />
             </span>
           ) : (
             <button
               type="button"
               disabled={!ctx.canAct('admin')}
               onClick={() => void handleDeleteRow(row)}
-              className="min-h-8 min-w-8 rounded-[8px] border border-default-300 bg-white px-2 text-[11px] text-default-600 disabled:opacity-50 disabled:pointer-events-none"
+              aria-label={`Hapus halaman: ${row.title}`}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-default-300 bg-white p-0 text-default-600 transition-colors hover:border-danger-200 hover:bg-danger-50 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-300 disabled:pointer-events-none disabled:opacity-50"
               title="Hapus"
             >
-              <Icon name="trash" size={13} strokeWidth={1.5} />
+              <Icon name="trash" size={14} strokeWidth={1.7} />
             </button>
           )}
         </div>

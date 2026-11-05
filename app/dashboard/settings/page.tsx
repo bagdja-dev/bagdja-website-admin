@@ -146,6 +146,8 @@ export default function SettingsPage() {
 
   const canEdit = role ? hasMinRole(role, 'admin') : false;
   const canDelete = role === 'owner';
+  // Identitas (nama, tagline, logo, kontak, sosial, jam operasional) hanya boleh diubah owner (API: 403 untuk role lain).
+  const canEditIdentity = role === 'owner';
 
   useEffect(() => {
     const w = activeWebsite?.website;
@@ -204,7 +206,7 @@ export default function SettingsPage() {
       await apiClient<Website>(`/api/websites/${websiteId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          name: name.trim(),
+          ...(canEditIdentity ? { name: name.trim() } : {}),
           slug: slug.trim(),
           domain: domain.trim() || null,
           is_active: isActive,
@@ -220,7 +222,7 @@ export default function SettingsPage() {
   };
 
   const handleSaveBrand = async () => {
-    if (!websiteId) return;
+    if (!websiteId || !canEditIdentity) return;
     setSavingBrand(true);
     setBrandError('');
     setBrandMessage('');
@@ -450,18 +452,23 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold">Profil Brand</h2>
         </CardHeader>
         <CardBody className="flex flex-col gap-5 px-6 py-5">
+          {!canEditIdentity && (
+            <p className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-700">
+              Hanya owner website yang dapat mengubah identitas.
+            </p>
+          )}
           <FormInput
             label="Tagline"
             placeholder="Premium Barbershop sejak 2020"
             value={tagline}
             onChange={setTagline}
-            disabled={!canEdit}
+            disabled={!canEditIdentity}
           />
           <LogoUpload
             value={logoUrl}
             onChange={setLogoUrl}
             websiteId={websiteId ?? undefined}
-            disabled={!canEdit}
+            disabled={!canEditIdentity}
           />
           <div className="grid gap-5 sm:grid-cols-2">
             <FormInput
@@ -469,7 +476,7 @@ export default function SettingsPage() {
               placeholder="6281234567890"
               value={whatsapp}
               onChange={setWhatsapp}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
               description="Format internasional tanpa +"
             />
             <FormInput
@@ -477,7 +484,7 @@ export default function SettingsPage() {
               placeholder="+62 812 3456 7890"
               value={phone}
               onChange={setPhone}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
             />
           </div>
           <FormInput
@@ -486,14 +493,14 @@ export default function SettingsPage() {
             placeholder="hello@myshop.com"
             value={email}
             onChange={setEmail}
-            disabled={!canEdit}
+            disabled={!canEditIdentity}
           />
           <FormTextarea
             label="Jam Operasional"
             placeholder="Senin–Sabtu 09:00–21:00"
             value={openingHoursNote}
             onChange={setOpeningHoursNote}
-            disabled={!canEdit}
+            disabled={!canEditIdentity}
             rows={2}
           />
           <div className="grid gap-5 sm:grid-cols-3">
@@ -502,21 +509,21 @@ export default function SettingsPage() {
               placeholder="@myshop"
               value={instagram}
               onChange={setInstagram}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
             />
             <FormInput
               label="Facebook"
               placeholder="myshop"
               value={facebook}
               onChange={setFacebook}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
             />
             <FormInput
               label="TikTok"
               placeholder="@myshop"
               value={tiktok}
               onChange={setTiktok}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
             />
           </div>
 
@@ -531,7 +538,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {canEdit && (
+          {canEditIdentity && (
             <div className="pt-1">
               <Button color="primary" isLoading={savingBrand} onPress={handleSaveBrand}>
                 Simpan Profil Brand
@@ -703,7 +710,8 @@ export default function SettingsPage() {
               label="Nama Website"
               value={name}
               onChange={setName}
-              disabled={!canEdit}
+              disabled={!canEditIdentity}
+              description={canEditIdentity ? undefined : 'Hanya owner website yang dapat mengubah identitas.'}
               required
             />
             <FormInput

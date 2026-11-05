@@ -9,15 +9,19 @@ export interface LogoFieldProps {
   error: string | null;
   onPick: (file: File) => void;
   onRemove: () => void;
+  /** Pengaturan Studio: tanpa label "(opsional)"/ajakan melewati, dan bisa dikunci. */
+  variant?: 'onboarding' | 'settings';
+  disabled?: boolean;
 }
 
 /** Logo opsional (artboard Wizard-Identitas): kotak 72px garis putus, tombol 44px, keterangan. */
-export function LogoField({ logoUrl, uploading, error, onPick, onRemove }: LogoFieldProps) {
+export function LogoField({ logoUrl, uploading, error, onPick, onRemove, variant = 'onboarding', disabled = false }: LogoFieldProps) {
+  const settings = variant === 'settings';
   const inputRef = useRef<HTMLInputElement | null>(null);
   return (
     <div className="flex flex-col gap-2">
       <span id="logo-label" className="text-sm font-bold text-foreground">
-        Logo <span className="font-medium text-default-500">(opsional)</span>
+        Logo{!settings && <span className="font-medium text-default-500"> (opsional)</span>}
       </span>
       <div className="flex flex-wrap items-center gap-4">
         <span
@@ -42,19 +46,19 @@ export function LogoField({ logoUrl, uploading, error, onPick, onRemove }: LogoF
               type="button"
               aria-describedby="logo-label logo-hint"
               onClick={() => inputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || disabled}
               className="min-h-11 self-start rounded-[10px] border border-default-300 bg-white px-4 text-sm font-semibold text-foreground hover:bg-default-50 disabled:opacity-60"
             >
               {logoUrl ? 'Ganti logo' : 'Unggah logo'}
             </button>
-            {logoUrl && (
+            {logoUrl && !disabled && (
               <button type="button" onClick={onRemove} className="min-h-11 px-2 text-sm font-semibold text-default-600 hover:text-[#B91C1C]">
                 Hapus
               </button>
             )}
           </div>
           <span id="logo-hint" className="text-xs text-default-500">
-            PNG/JPG, persegi, maks. 2 MB. Belum punya? Lewati saja.
+            PNG/JPG, persegi, maks. 2 MB.{!settings && ' Belum punya? Lewati saja.'}
           </span>
         </div>
         <input

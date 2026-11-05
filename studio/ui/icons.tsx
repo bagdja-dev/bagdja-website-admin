@@ -58,7 +58,10 @@ export interface IconProps {
   strokeWidth?: number;
 }
 
-/** Dekoratif (`aria-hidden`); beri label di elemen interaktif pembungkusnya. */
+/**
+ * Dekoratif (`aria-hidden`); beri label di elemen interaktif pembungkusnya.
+ * Nama yang tidak dikenal (mis. `icon` dari skema section API) jatuh ke ikon `more`, bukan crash.
+ */
 export function Icon({ name, size = 20, className, strokeWidth = 1.5 }: IconProps) {
   return (
     <svg
@@ -72,7 +75,7 @@ export function Icon({ name, size = 20, className, strokeWidth = 1.5 }: IconProp
       aria-hidden="true"
       focusable="false"
     >
-      {ICON_PATHS[name].map((d) => (
+      {(ICON_PATHS[name] ?? ICON_PATHS.more).map((d) => (
         <path key={d} strokeLinecap="round" strokeLinejoin="round" d={d} />
       ))}
     </svg>

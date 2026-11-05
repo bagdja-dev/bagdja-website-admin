@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 
 import { errorMessage, isApiError } from '@/studio/api/client';
-import type { TenantRole, UserWebsiteDto } from '@/studio/api/types';
+import type { TenantRole, UserWebsiteDto, WebsiteDto } from '@/studio/api/types';
 import { fetchUserWebsites } from '@/studio/api/websites';
 import { ACTIVE_WEBSITE_STORAGE_KEY, readStorage, writeStorage } from '@/studio/lib/storage';
 
@@ -19,6 +19,7 @@ interface WebsiteState {
   activeWebsiteId: string | null;
   status: LoadStatus;
   errorMessage: string | null;
+  patchWebsite: (websiteId: string, patch: Partial<WebsiteDto>) => void;
   /** Muat sekali (dipanggil oleh bootstrap layout). */
   load: () => Promise<void>;
   refresh: (options?: RefreshWebsitesOptions) => Promise<void>;
@@ -44,6 +45,13 @@ export const useWebsiteStore = create<WebsiteState>()((set, get) => ({
   activeWebsiteId: null,
   status: 'idle',
   errorMessage: null,
+  patchWebsite: (websiteId, patch) => set((state) => ({
+    websites: state.websites.map((entry) => (
+      entry.website.id === websiteId
+        ? { ...entry, website: { ...entry.website, ...patch } }
+        : entry
+    )),
+  })),
 
   load: async () => {
     if (get().status !== 'idle') return;

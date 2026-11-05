@@ -128,6 +128,60 @@ export interface CreatedWebsiteDto {
   slug: string;
 }
 
+export type WebsiteFooterBlockType = 'brand' | 'page_links' | 'contact' | 'social_links' | 'text' | 'copyright';
+
+export interface WebsiteFooterBlockDto {
+  id: string;
+  type: WebsiteFooterBlockType;
+  content: Record<string, unknown>;
+}
+
+export interface WebsiteFooterSettingsDto {
+  blocks: WebsiteFooterBlockDto[];
+}
+
+export type ThemeModeDto = 'light' | 'dark';
+export type ThemeAccentDto = 'amber' | 'blue' | 'emerald' | 'rose' | 'violet' | 'indigo' | 'orange' | 'teal';
+export type ThemePresetDto = 'dark' | 'light' | 'custom';
+export type ThemeHeadingScaleDto = 'compact' | 'default' | 'large';
+export type ThemeHeadingWeightDto = '500' | '600' | '700';
+export type ThemeBodyWeightDto = '400' | '500';
+export type ThemeFontDto = 'Inter' | 'Poppins' | 'Roboto' | 'Open Sans' | 'Lato' | 'Montserrat' | 'Playfair Display' | 'Merriweather';
+
+export interface WebsiteThemeConfigDto {
+  mode?: ThemeModeDto;
+  accent?: ThemeAccentDto;
+  preset?: ThemePresetDto;
+  font?: string;
+  colors?: {
+    background?: string;
+    surface?: string;
+    text?: string;
+    textMuted?: string;
+    accent?: string;
+    accentHover?: string;
+    border?: string;
+    onAccent?: string;
+    heading?: string;
+    accentMuted?: string;
+    success?: string;
+    warning?: string;
+    danger?: string;
+  };
+  components?: {
+    header?: { background?: string; text?: string; border?: string };
+    footer?: { background?: string; text?: string; heading?: string; link?: string; border?: string };
+    button?: { primaryBackground?: string; primaryText?: string; secondaryText?: string; secondaryBorder?: string };
+  };
+  typography?: {
+    headingFont?: ThemeFontDto;
+    bodyFont?: ThemeFontDto;
+    headingWeight?: ThemeHeadingWeightDto;
+    bodyWeight?: ThemeBodyWeightDto;
+    headingScale?: ThemeHeadingScaleDto;
+  };
+}
+
 /** `GET /api/websites/slug-availability?slug=` */
 export interface WebsiteSlugAvailabilityDto {
   slug: string;
@@ -169,6 +223,12 @@ export interface WebsiteDto {
   whatsapp?: string | null;
   phone?: string | null;
   email?: string | null;
+  /** Peta platform → username/URL (mis. `instagram`, `facebook`, `tiktok`). */
+  social_links?: Record<string, unknown> | null;
+  /** Jam operasional; bentuk yang diedit UI: `{ note: string }` (kosong = `{}`). */
+  opening_hours?: Record<string, unknown> | null;
+  theme?: WebsiteThemeConfigDto | null;
+  footer_settings?: WebsiteFooterSettingsDto | null;
   notification_sound_enabled?: boolean;
   notification_sound_url?: string | null;
   /** Kontrak §1.3 — opsional selama API S1 belum rilis (dianggap `legacy`). */

@@ -93,10 +93,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: 'settings',
     label: 'Pengaturan',
     items: [
-      { id: 'settings', label: 'Pengaturan Website', icon: 'settings', module: 'settings', href: '/studio/settings' },
+      { id: 'settings', label: 'Pengaturan', icon: 'settings', module: 'settings', minRole: 'admin', href: '/studio/settings' },
       { id: 'team', label: 'Tim', icon: 'team', module: 'team', href: '/studio/team' },
       { id: 'features', label: 'Fitur', icon: 'features', href: '/studio/features' },
-      { id: 'android', label: 'Aplikasi Android', icon: 'android_app', module: 'android_app', minRole: 'admin', href: '/studio/android' },
     ],
   },
 ];

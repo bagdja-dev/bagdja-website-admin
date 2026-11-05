@@ -1,23 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { Button } from '@heroui/react';
-
+import { IdentityEditor } from './IdentityEditor';
 import { PageList } from './PageList';
-import { UnderConstructionState } from '@/studio/features/placeholders/UnderConstructionState';
+import { FooterEditor } from './FooterEditor';
+import { ThemeEditor } from './ThemeEditor';
+import { TemplateEditor } from './TemplateEditor';
 
-type AppearanceTab = 'pages' | 'footer' | 'theme' | 'template';
+type AppearanceTab = 'identity' | 'pages' | 'footer' | 'theme' | 'template';
 
 const TABS: { key: AppearanceTab; label: string; icon: string }[] = [
+  { key: 'identity', label: 'Identitas', icon: 'settings' },
   { key: 'pages', label: 'Halaman', icon: 'layout' },
   { key: 'footer', label: 'Footer', icon: 'layout' },
-  { key: 'theme', label: 'Tema &amp; Warna', icon: 'settings' },
+  { key: 'theme', label: 'Tema & Warna', icon: 'settings' },
   { key: 'template', label: 'Template', icon: 'layout' },
 ];
 
 export function AppearancePage() {
-  const [tab, setTab] = useState<AppearanceTab>('pages');
+  const [tab, setTab] = useState<AppearanceTab>('identity');
+
+  // Tautan dalam (mis. checklist Beranda) memilih tab lewat `?tab=…`.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    const match = TABS.find((t) => t.key === requested);
+    if (match) setTab(match.key);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -38,9 +47,7 @@ export function AppearancePage() {
         ))}
       </div>
       <div className="mt-4 flex-1">
-        {tab === 'pages' ? <PageList /> : (
-          <UnderConstructionState label={TABS.find((t) => t.key === tab)!.label} icon="settings" />
-        )}
+        {tab === 'identity' ? <IdentityEditor /> : tab === 'pages' ? <PageList /> : tab === 'footer' ? <FooterEditor /> : tab === 'theme' ? <ThemeEditor /> : <TemplateEditor />}
       </div>
     </div>
   );

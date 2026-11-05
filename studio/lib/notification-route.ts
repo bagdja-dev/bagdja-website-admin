@@ -22,7 +22,8 @@ const PATH_MAP: ReadonlyArray<readonly [from: string, to: string]> = [
   ['/vendors', '/studio/vendors'],
   ['/staff', '/studio/team'],
   ['/settings', '/studio/settings'],
-  ['/android-app', '/studio/android'],
+  // Build Android kini tab di Pengaturan; `rest` (mis. query) ditambahkan di toStudioPath.
+  ['/android-app', '/studio/settings?tab=android'],
   ['/orders', '/studio/orders'],
   ['/penawaran', '/studio/quotes'],
   ['/tagihan', '/studio/invoices'],
@@ -43,7 +44,11 @@ export function toStudioPath(actionUrl: string): string {
   if (sub === '' || sub === '/') return `/studio${rest}`;
 
   for (const [from, to] of PATH_MAP) {
-    if (sub === from || sub.startsWith(`${from}/`)) return `${to}${sub.slice(from.length)}${rest}`;
+    if (sub === from || sub.startsWith(`${from}/`)) {
+      // Tujuan berquery (mis. tab Pengaturan): sub-path dibuang, query asli digabung dengan `&`.
+      if (to.includes('?')) return rest.startsWith('?') ? `${to}&${rest.slice(1)}` : `${to}${rest}`;
+      return `${to}${sub.slice(from.length)}${rest}`;
+    }
   }
   return '/studio';
 }

@@ -50,7 +50,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setDrawerOpen(true)} />
-        <main className="w-full max-w-[1100px] flex-1 px-3 pb-8 pt-3 sm:px-8 sm:pt-5">
+        <main className="w-full min-w-0 flex-1 px-3 pb-8 pt-3 sm:px-8 sm:pt-5">
           {modulesError && <ModulesErrorBanner message={modulesError} onRetry={() => void retryModules()} />}
           <ModuleGate>{children}</ModuleGate>
         </main>

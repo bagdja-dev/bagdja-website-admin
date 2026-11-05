@@ -1,8 +1,10 @@
 'use client';
 
 import type { WebsiteTemplateDto } from '@/studio/api/types';
+import { ScaledFrame } from '@/studio/ui/primitives/ScaledFrame';
 import { buildTemplatePreviewUrl, displayHost, type TemplatePreviewProfile } from '@/studio/lib/template-preview';
 
+import { MOBILE_VIEWPORT } from './preview-constants';
 import { TemplateThumb } from './TemplateThumb';
 
 export type PreviewDevice = 'desktop' | 'mobile';
@@ -36,7 +38,7 @@ export function TemplatePreviewFrame({
     <div
       className={`w-full overflow-hidden bg-white ${
         compact
-          ? `rounded-xl shadow-[0_12px_32px_rgba(24,24,27,0.12)] ${device === 'mobile' ? 'max-w-[380px]' : 'max-w-[820px]'}`
+          ? `rounded-xl shadow-[0_12px_32px_rgba(24,24,27,0.12)] ${device === 'mobile' ? 'max-w-[390px]' : ''}`
           : 'rounded-[14px] border border-default-200 shadow-[0_12px_32px_rgba(24,24,27,0.08)]'
       }`}
     >
@@ -51,14 +53,18 @@ export function TemplatePreviewFrame({
         </span>
       </div>
       {url ? (
-        <iframe
-          key={url}
-          src={url}
-          title={`Pratinjau template ${template.name}`}
-          className="block w-full border-0 bg-white"
-          style={{ height: device === 'mobile' ? 680 : height }}
-          loading="lazy"
-        />
+        device === 'mobile' ? (
+          <iframe
+            key={url}
+            src={url}
+            title={`Pratinjau template ${template.name}`}
+            className="block w-full border-0 bg-white"
+            style={{ height: MOBILE_VIEWPORT.height }}
+            loading="lazy"
+          />
+        ) : (
+          <ScaledFrame src={url} title={`Pratinjau template ${template.name}`} height={height} />
+        )
       ) : (
         <div>
           <TemplateThumb template={template} height={height} />

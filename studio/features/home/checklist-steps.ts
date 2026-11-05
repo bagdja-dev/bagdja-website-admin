@@ -20,7 +20,8 @@ export interface ChecklistContext {
   enabled: ReadonlySet<ModuleKey>;
   /** `null` = status belum/ gagal dimuat → semua langkah dianggap belum selesai. */
   status: WebsiteOnboardingStatusDto | null;
-  canEditWebsite: boolean;
+  /** Identitas (termasuk logo) hanya boleh diubah owner; role lain diarahkan ke tab Identitas. */
+  isOwner: boolean;
 }
 
 /** Langkah "Siapkan website kamu" (artboard Beranda + plan §3.6) dari onboarding-status; hanya modul aktif. */
@@ -36,7 +37,9 @@ export function buildChecklist(ctx: ChecklistContext): ChecklistStep[] {
       hint: 'Logo tampil di header website dan aplikasi.',
       // website dari store langsung ter-update setelah unggah logo; status server sebagai cadangan.
       done: Boolean(website.logo_url) || status?.hasLogo === true,
-      action: ctx.canEditWebsite ? { kind: 'upload-logo', label: 'Unggah' } : null,
+      action: ctx.isOwner
+        ? { kind: 'upload-logo', label: 'Unggah' }
+        : { kind: 'link', label: 'Lihat identitas', href: '/studio/appearance?tab=identity' },
     },
     {
       id: 'home',

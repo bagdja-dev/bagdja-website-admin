@@ -13,7 +13,6 @@ export const STUDIO_ROUTE_MODULES: ReadonlyArray<{ prefix: string; module: Modul
   { prefix: '/studio/subscription', module: 'subscription' },
   { prefix: '/studio/locations', module: 'locations' },
   { prefix: '/studio/vendors', module: 'vendors' },
-  { prefix: '/studio/android', module: 'android_app' },
   { prefix: '/studio/orders', module: 'orders' },
   { prefix: '/studio/quotes', module: 'quotes' },
   { prefix: '/studio/invoices', module: 'billing' },

@@ -5,8 +5,9 @@ import { useState } from 'react';
 import { errorMessage } from '@/studio/api/client';
 import { markOnboardingLinkShared, updateWebsiteLogo } from '@/studio/api/home';
 import { uploadLogo } from '@/studio/api/onboarding';
+import { hasMinRole } from '@/studio/lib/roles';
 import { buildTenantWebUrl } from '@/studio/lib/template-preview';
-import { useWebsiteStore } from '@/studio/stores/website-store';
+import { useActiveRole, useWebsiteStore } from '@/studio/stores/website-store';
 import { notify } from '@/studio/ui/primitives/Toast';
 
 import { homeStorage } from './home-storage';
@@ -20,10 +21,15 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024;
  */
 export function useHomeActions(websiteId: string, slug: string, onLinkShared: (iso: string) => void) {
   const refreshWebsites = useWebsiteStore((s) => s.refresh);
+  const role = useActiveRole();
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [guideHidden, setGuideHiddenState] = useState(() => homeStorage.isGuideHidden(websiteId));
 
   const uploadAndSaveLogo = async (file: File): Promise<void> => {
+    if (!hasMinRole(role, 'owner')) {
+      notify.error('Logo tidak dapat diubah', 'Hanya owner website yang dapat mengubah identitas.');
+      return;
+    }
     if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > MAX_LOGO_BYTES) {
       notify.error('Logo tidak valid', 'Gunakan PNG/JPG maks. 2 MB.');
       return;

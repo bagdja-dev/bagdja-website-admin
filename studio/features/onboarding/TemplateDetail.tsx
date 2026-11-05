@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { WebsiteTemplateDto } from '@/studio/api/types';
-import { buildTemplatePreviewUrl } from '@/studio/lib/template-preview';
+import { buildTemplatePreviewUrl, type TemplatePreviewProfile } from '@/studio/lib/template-preview';
 
 import { OfficialBadge } from './TemplateCard';
 import { isPaidTemplate } from './use-template-catalog';
@@ -17,29 +17,46 @@ export interface TemplateDetailProps {
   fitLabel: string | null;
   onBack: () => void;
   onUse: () => void;
+  profile?: TemplatePreviewProfile;
+  slug?: string;
+  isCurrent?: boolean;
+  canUse?: boolean;
+  applyLabel?: string;
 }
 
 const SEG = (on: boolean): string =>
   `min-h-[34px] rounded-[9px] px-3 text-[13px] ${on ? 'bg-white font-bold text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.12)]' : 'font-medium text-default-600'}`;
 
 /** Detail template (artboard Wizard-Template, tampilan detail): panggung pratinjau abu + panel kanan 2 kartu. */
-export function TemplateDetail({ template, fitLabel, onBack, onUse }: TemplateDetailProps) {
+export function TemplateDetail({
+  template,
+  fitLabel,
+  onBack,
+  onUse,
+  profile,
+  slug,
+  isCurrent = false,
+  canUse = true,
+  applyLabel = 'Pakai template ini',
+}: TemplateDetailProps) {
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const author = templateAuthor(template);
   const pages = templatePages(template);
   const features = templateFeatures(template);
   const paid = isPaidTemplate(template);
   const price = templatePriceLabel(template);
-  const demoUrl = buildTemplatePreviewUrl(template);
+  const demoUrl = buildTemplatePreviewUrl(template, profile);
 
-  const cta = paid ? (
+  const cta = isCurrent ? (
+    <WizardButton disabled className="min-h-[50px] w-full">Sedang digunakan</WizardButton>
+  ) : paid ? (
     <WizardButton disabled className="min-h-[50px] w-full">Beli · {price}</WizardButton>
   ) : (
-    <WizardButton onClick={onUse} className="min-h-[50px] w-full">Pakai template ini</WizardButton>
+    <WizardButton onClick={onUse} disabled={!canUse} className="min-h-[50px] w-full">{applyLabel}</WizardButton>
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-3.5 px-4 pb-28 pt-5 md:px-6 md:pb-8">
+    <div className="flex w-full flex-col gap-3.5 px-4 pb-28 pt-5 md:px-6 md:pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -68,7 +85,7 @@ export function TemplateDetail({ template, fitLabel, onBack, onUse }: TemplateDe
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <section aria-label="Pratinjau template" className="flex min-w-0 flex-[999_1_560px] justify-center rounded-2xl bg-default-200 p-3 sm:p-[18px]">
-          <TemplatePreviewFrame template={template} device={device} size="compact" height={520} />
+          <TemplatePreviewFrame template={template} profile={profile} slug={slug} device={device} size="compact" height={600} />
         </section>
 
         <aside aria-label="Detail template" className="flex w-full flex-col gap-3.5 lg:max-w-[360px] lg:flex-[1_1_300px]">
@@ -82,7 +99,7 @@ export function TemplateDetail({ template, fitLabel, onBack, onUse }: TemplateDe
             </div>
             <span className={`text-[26px] font-extrabold ${paid ? 'text-foreground' : 'text-success'}`}>{price}</span>
             <div className="hidden md:block">{cta}</div>
-            {paid && <p className="text-xs text-default-500">Pembelian template lewat Bagdja Pay segera tersedia.</p>}
+            {paid && <p className="text-xs text-default-500">Template premium perlu dibeli sebelum dapat diterapkan. Pembelian belum tersedia.</p>}
             {demoUrl && (
               <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="text-center text-[13px] font-semibold text-primary">
                 Buka demo di tab baru
@@ -115,7 +132,7 @@ export function TemplateDetail({ template, fitLabel, onBack, onUse }: TemplateDe
               )}
             </dl>
             <span className="text-default-500">
-              Konten contoh ikut terisi dan bisa diganti. Template bisa diganti lagi kapan saja di Tampilan Website.
+              Template bisa diganti lagi kapan saja di Tampilan Website. Konten website yang sudah tersimpan tetap ada.
             </span>
           </div>
         </aside>
