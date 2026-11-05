@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { NotificationBell } from '@/studio/features/notifications/NotificationBell';
+import { useActiveWebsite } from '@/studio/stores/website-store';
 import { usePageMetaStore } from '@/studio/stores/page-meta-store';
 
 import { Icon } from '../icons';
@@ -14,6 +15,7 @@ import { ProfileMenu } from './ProfileMenu';
  */
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const meta = usePageMetaStore((s) => s.meta);
+  const website = useActiveWebsite();
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-default-200 bg-white px-4 py-3 sm:gap-x-3 sm:px-8 sm:py-3.5">
@@ -26,6 +28,11 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Icon name="menu" size={18} strokeWidth={2} />
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {website && (
+          <span className="text-[11px] font-semibold text-default-500 uppercase tracking-wider truncate">
+            {website.website.name}
+          </span>
+        )}
         {meta?.back && (
           <Link href={meta.back.href} className="inline-flex items-center gap-1 text-xs font-semibold text-default-600 no-underline hover:text-primary">
             <Icon name="arrowUp" size={12} className="-rotate-90" /> {meta.back.label}
