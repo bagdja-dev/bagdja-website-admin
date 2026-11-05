@@ -1,5 +1,6 @@
 import { isNotFound, jsonBody, studioRequest, websitePath } from './client';
 import type {
+  BusinessProfileId,
   BusinessProfilesResponseDto,
   UpdateWebsiteModulesRequestDto,
   WebsiteModulesResponseDto,
@@ -31,6 +32,23 @@ export function updateWebsiteModules(
   body: UpdateWebsiteModulesRequestDto,
 ): Promise<WebsiteModulesResponseDto> {
   return studioRequest<WebsiteModulesResponseDto>(websitePath(websiteId, '/modules'), {
+    method: 'PATCH',
+    ...jsonBody(body),
+  });
+}
+
+/** Body `PATCH /api/websites/:id/business-profile` (owner). */
+export interface UpdateBusinessProfileRequestDto {
+  businessProfile: Exclude<BusinessProfileId, 'legacy'>;
+  /** `true` = tambahkan modul preset profile baru (tidak ada yang dimatikan). */
+  applyPreset: boolean;
+}
+
+export function updateBusinessProfile(
+  websiteId: string,
+  body: UpdateBusinessProfileRequestDto,
+): Promise<WebsiteModulesResponseDto> {
+  return studioRequest<WebsiteModulesResponseDto>(websitePath(websiteId, '/business-profile'), {
     method: 'PATCH',
     ...jsonBody(body),
   });

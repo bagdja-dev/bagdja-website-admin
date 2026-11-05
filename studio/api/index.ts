@@ -7,3 +7,4 @@ export * from './badges';
 export * from './realtime';
 export * from './onboarding';
 export * from './subscription';
+export * from './home';

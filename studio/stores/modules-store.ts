@@ -3,7 +3,13 @@
 import { create } from 'zustand';
 
 import { errorMessage } from '@/studio/api/client';
-import { fetchBusinessProfiles, fetchWebsiteModules, updateWebsiteModules } from '@/studio/api/modules';
+import {
+  fetchBusinessProfiles,
+  fetchWebsiteModules,
+  updateBusinessProfile,
+  updateWebsiteModules,
+  type UpdateBusinessProfileRequestDto,
+} from '@/studio/api/modules';
 import type {
   BusinessProfileId,
   BusinessProfilesResponseDto,
@@ -35,6 +41,8 @@ interface ModulesState {
   refresh: () => Promise<void>;
   /** PATCH lalu langsung memperbarui himpunan efektif (sidebar ikut berubah tanpa reload). */
   updateModules: (body: UpdateWebsiteModulesRequestDto) => Promise<WebsiteModulesResponseDto>;
+  /** Ganti jenis bisnis (owner); `applyPreset` menambah modul preset. */
+  changeBusinessProfile: (body: UpdateBusinessProfileRequestDto) => Promise<WebsiteModulesResponseDto>;
   hasModule: (key: ModuleKey) => boolean;
   moduleLabel: (key: ModuleKey) => string;
 }
@@ -130,6 +138,16 @@ export const useModulesStore = create<ModulesState>()((set, get) => ({
     if (!website) throw new Error('Website aktif belum dimuat.');
     const res = await updateWebsiteModules(website.id, body);
     if (get().website?.id === website.id) set({ ...fromResponse(res), status: 'ready' });
+    return res;
+  },
+
+  changeBusinessProfile: async (body) => {
+    const website = get().website;
+    if (!website) throw new Error('Website aktif belum dimuat.');
+    const res = await updateBusinessProfile(website.id, body);
+    if (get().website?.id === website.id) {
+      set({ ...fromResponse(res), status: 'ready', website: { ...website, business_profile: res.businessProfile } });
+    }
     return res;
   },
 
