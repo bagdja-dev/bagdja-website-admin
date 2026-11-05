@@ -4,13 +4,18 @@
   "private": true,
   "description": "CMS panel for Bagdja Website Builder (Next.js App Router + HeroUI)",
   "scripts": {
-    "dev": "next dev -p 5004",
+    "dev": "npm run studio:css && (tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css --watch=always & next dev -p 5004)",
+    "studio:css": "tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css",
+    "prebuild": "npm run studio:css",
     "build": "next build",
     "start": "next start -p 5004",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@google/model-viewer": "^4.3.1",
     "@heroui/react": "^2.7.0",
     "@tiptap/extension-image": "^3.27.3",
@@ -30,7 +35,8 @@
     "next": "^14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "socket.io-client": "^4.8.4"
+    "socket.io-client": "^4.8.4",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
