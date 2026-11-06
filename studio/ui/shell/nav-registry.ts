@@ -66,7 +66,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { id: 'wallet', label: 'Saldo', icon: 'wallet', module: 'wallet', ownerOnly: true, href: '/studio/wallet' },
       { id: 'invoices', label: 'Tagihan', icon: 'billing', module: 'billing', href: '/studio/invoices', badge: fetchScheduledTerminCount },
-      { id: 'subscription', label: 'Langganan', icon: 'subscription', module: 'subscription', ownerOnly: true, href: '/studio/subscription' },
     ],
   },
   {
