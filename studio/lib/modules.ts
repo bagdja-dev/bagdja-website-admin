@@ -31,7 +31,7 @@ export const FALLBACK_MODULE_LABELS: Readonly<Record<ModuleKey, string>> = {
   subscription: 'Langganan',
   wallet: 'Saldo',
   settings: 'Pengaturan',
-  catalog: 'Produk & Layanan',
+  catalog: 'Produk dan Jasa',
   orders: 'Pesanan',
   quotes: 'Penawaran',
   billing: 'Tagihan',

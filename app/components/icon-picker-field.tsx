@@ -16,7 +16,7 @@ const ICONS = [
   { icon: '✅', label: 'Terpercaya', keywords: 'centang valid sukses' },
   { icon: '⚡', label: 'Cepat', keywords: 'kilat daya energi' },
   { icon: '🔧', label: 'Perbaikan', keywords: 'servis teknis alat' },
-  { icon: '🧰', label: 'Layanan', keywords: 'toolbox service perlengkapan' },
+  { icon: '🧰', label: 'Jasa', keywords: 'toolbox service perlengkapan' },
   { icon: '🎁', label: 'Hadiah', keywords: 'bonus gratis promo' },
   { icon: '💰', label: 'Harga', keywords: 'uang hemat murah' },
   { icon: '📦', label: 'Paket', keywords: 'produk kemasan' },

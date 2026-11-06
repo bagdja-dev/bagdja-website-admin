@@ -4,6 +4,7 @@ import { Checkbox, Table, TableBody, TableCell, TableColumn, TableHeader, TableR
 
 import type { RowSelection } from './use-row-selection';
 import type { ColumnContext, DataColumn, DataRow } from './types';
+import { rowClickHandler } from './row-click';
 
 const SELECT_KEY = '__select';
 
@@ -18,6 +19,8 @@ export interface DataTableProps<T extends DataRow> {
   isRowMuted?: (row: T) => boolean;
   /** Baris tanpa checkbox (mis. baris varian di bawah item induk). Default: semua bisa dipilih. */
   isRowSelectable?: (row: T) => boolean;
+  /** Klik di area kosong baris membuka item (mis. detail pesanan). Klik pada kontrol di baris diabaikan. */
+  onRowClick?: (row: T) => void;
 }
 
 type HeaderCell = { key: string; header: string; align?: 'start' | 'center' | 'end'; hideHeader?: boolean };
@@ -36,6 +39,7 @@ export function DataTable<T extends DataRow>({
   getRowLabel,
   isRowMuted,
   isRowSelectable,
+  onRowClick,
 }: DataTableProps<T>) {
   const pageIds = rows.filter((r) => isRowSelectable?.(r) ?? true).map((r) => r.id);
   const selectedOnPage = pageIds.filter((id) => selection.selectedIds.has(id)).length;
@@ -79,7 +83,10 @@ export function DataTable<T extends DataRow>({
         {(row) => (
           <TableRow
             key={row.id}
-            className={selection.selectedIds.has(row.id) ? 'bg-primary-50' : isRowMuted?.(row) ? 'bg-default-50' : undefined}
+            onClick={rowClickHandler(row, onRowClick)}
+            className={`${selection.selectedIds.has(row.id) ? 'bg-primary-50' : isRowMuted?.(row) ? 'bg-default-50' : ''} ${
+              onRowClick ? 'cursor-pointer hover:bg-default-50' : ''
+            }`}
           >
             {(columnKey) => {
               const key = String(columnKey);

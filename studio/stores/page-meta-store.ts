@@ -5,6 +5,8 @@ import { create } from 'zustand';
 
 export interface PageMeta {
   title: string;
+  titleHref?: string;
+  titlePrefix?: { label: string; href: string };
   description?: ReactNode;
   count?: number;
   actions?: ReactNode;

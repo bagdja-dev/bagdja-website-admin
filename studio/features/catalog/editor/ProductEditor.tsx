@@ -13,6 +13,7 @@ import { StatusScreen } from '@/studio/ui/primitives/StatusScreen';
 import { notify } from '@/studio/ui/primitives/Toast';
 
 import { CATALOG_PATH, FEATURES_PATH, editorHref, isProductTypeKey, isTypeModuleEnabled, ITEM_TYPES } from '../catalog-types';
+import { variantLabelOf } from '../product-utils';
 import { useModulesStore } from '@/studio/stores/modules-store';
 import { completenessChecks, sectionComplete } from './completeness';
 import { Notice, SectionCard } from './fields';
@@ -32,7 +33,7 @@ export interface ProductEditorProps {
   area: 'catalog' | 'events';
 }
 
-/** Editor item per bagian (artboard "17 · Produk & Layanan — editor item", plan §3.12). */
+/** Editor item per bagian (artboard "17 · Produk dan Jasa — editor item", plan §3.12). */
 export function ProductEditor({ productId, initialType, area }: ProductEditorProps) {
   const router = useRouter();
   const ed = useProductEditor({ productId, initialType });
@@ -50,7 +51,11 @@ export function ProductEditor({ productId, initialType, area }: ProductEditorPro
   const byVariant = ed.byVariant;
   const checks = useMemo(() => completenessChecks(ed.form, ed.sections), [ed.form, ed.sections]);
   const backHref = area === 'events' ? `${CATALOG_PATH}?type=gathering` : CATALOG_PATH;
-  const title = ed.form.name.trim() || (ed.isNew ? 'Item baru' : 'Item');
+  const parent = ed.data.item?.parent ?? null;
+  const variantLabel = parent && ed.saved
+    ? variantLabelOf({ ...ed.saved, name: ed.form.name }, parent.name)
+    : ed.form.name.trim();
+  const title = parent ? variantLabel : ed.form.name.trim() || (ed.isNew ? 'Item baru' : 'Item');
 
   const remove = async () => {
     if (!ed.saved || !ed.websiteId) return;
@@ -75,7 +80,8 @@ export function ProductEditor({ productId, initialType, area }: ProductEditorPro
   const header = (
     <PageHeader
       title={title}
-      back={{ href: backHref, label: 'Produk & Layanan' }}
+      titlePrefix={parent ? { label: parent.name, href: editorHref(parent) } : undefined}
+      back={{ href: backHref, label: 'Produk dan Jasa' }}
       actions={
         <>
           <span className={`text-[13px] font-semibold ${ed.dirty || ed.isNew ? 'text-[#92400E]' : 'text-[#15803D]'}`} aria-live="polite">

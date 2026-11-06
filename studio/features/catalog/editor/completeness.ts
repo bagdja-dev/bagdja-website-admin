@@ -28,7 +28,7 @@ export function completenessChecks(form: ProductForm, sections: readonly Section
   if (sections.includes('shipping')) {
     checks.push({ section: 'shipping', label: 'Data pengiriman', ok: !form.requiresShipping || form.weightGrams.trim() !== '' });
   }
-  if (sections.includes('duration')) checks.push({ section: 'duration', label: 'Durasi', ok: form.durationMinutes.trim() !== '' });
+  if (sections.includes('duration')) checks.push({ section: 'duration', label: 'Durasi', ok: form.durationValue.trim() !== '' });
   if (sections.includes('package')) checks.push({ section: 'package', label: 'Isi paket', ok: form.itemsIncluded.trim() !== '' });
   if (sections.includes('digital')) checks.push({ section: 'digital', label: `File yang dikirim${form.assetIds.length ? ` (${form.assetIds.length})` : ''}`, ok: form.assetIds.length > 0 });
   if (sections.includes('event')) {

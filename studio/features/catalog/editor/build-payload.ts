@@ -44,6 +44,7 @@ export function cancellationPolicy(form: ProductForm): Record<string, unknown> {
     penalty_value: Number(form.penaltyValue || 0),
     currency: 'IDR',
     ...(form.policySummary.trim() ? { summary: form.policySummary.trim() } : {}),
+    ...(form.participantTerms.trim() ? { participant_terms: form.participantTerms.trim() } : {}),
   };
 }
 
@@ -71,7 +72,9 @@ export function buildProductPayload(form: ProductForm, ctx: PayloadContext): Pro
   }
   if (sections.includes('duration')) {
     delete meta.duration_minutes;
-    const minutes = intOrNull(form.durationMinutes);
+    const duration = intOrNull(form.durationValue);
+    const unitToMinutes = { minutes: 1, hours: 60, days: 1440 } as const;
+    const minutes = duration === null ? null : duration * unitToMinutes[form.durationUnit];
     if (minutes && minutes > 0) meta.duration_minutes = minutes;
   }
   if (sections.includes('package')) {
@@ -164,6 +167,7 @@ export function buildGatheringOptions(form: ProductForm): GatheringOptionInput[]
     availability_window: o.availabilityNote.trim() ? { note: o.availabilityNote.trim() } : {},
     venue_location: o.venueLocation.trim() || undefined,
     benefits: o.benefits.split('\n').map((b) => b.trim()).filter(Boolean),
+    images: o.images,
     cancellation_policy: policy,
     sort_order: index,
   }));

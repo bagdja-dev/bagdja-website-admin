@@ -16,6 +16,8 @@ interface BaseOptions<T extends DataRow> {
   pageSize?: number;
   /** Sinkron `?q=&<filter>=&page=` ke URL (default true). */
   syncUrl?: boolean;
+  /** Nilai filter awal; filter yang sudah ada di URL selalu lebih diprioritaskan. */
+  initialFilterValues?: FilterValues;
 }
 
 export interface ClientListOptions<T extends DataRow> extends BaseOptions<T> {
@@ -71,6 +73,7 @@ const EMPTY_FILTERS: FilterDef<never>[] = [];
 
 export function useDataList<T extends DataRow>(options: UseDataListOptions<T>): DataListState<T> {
   const { mode, pageSize = 20, syncUrl = true } = options;
+  const initialFilterValues = options.initialFilterValues ?? {};
   const filters = (options.filters ?? EMPTY_FILTERS) as FilterDef<T>[];
   const searchKeys = useMemo(() => options.searchKeys ?? [], [options.searchKeys]);
   const filterKeys = useMemo(() => filters.map((f) => f.key), [filters]);
@@ -82,7 +85,7 @@ export function useDataList<T extends DataRow>(options: UseDataListOptions<T>): 
   const [urlReady, setUrlReady] = useState(!syncUrl);
   const [search, setSearchState] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [filterValues, setFilterValues] = useState<FilterValues>(emptyValues);
+  const [filterValues, setFilterValues] = useState<FilterValues>(() => ({ ...emptyValues, ...initialFilterValues }));
   const [page, setPageState] = useState(1);
   const [items, setItems] = useState<T[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
@@ -99,7 +102,7 @@ export function useDataList<T extends DataRow>(options: UseDataListOptions<T>): 
     const initial = readListQuery(filterKeys);
     setSearchState(initial.search);
     setDebouncedSearch(initial.search);
-    setFilterValues({ ...emptyValues, ...initial.filters });
+    setFilterValues({ ...emptyValues, ...initialFilterValues, ...initial.filters });
     setPageState(initial.page);
     setUrlReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hanya saat mount

@@ -29,9 +29,11 @@ const EDITOR_CONTENT_CLASS =
 interface RichTextEditorProps {
   label: string;
   description?: string;
+  placeholder?: string;
   value: string;
   onChange: (html: string) => void;
   disabled?: boolean;
+  hideToolbar?: boolean;
   websiteId?: string;
   uploadFolder?: string;
 }
@@ -206,9 +208,11 @@ function ToolbarButtons({
 export function RichTextEditor({
   label,
   description,
+  placeholder = 'Tulis konten di sini...',
   value,
   onChange,
   disabled = false,
+  hideToolbar = false,
   websiteId,
   uploadFolder = 'content',
 }: RichTextEditorProps) {
@@ -224,7 +228,7 @@ export function RichTextEditor({
       Underline,
       Link.configure({ openOnClick: false, autolink: true }),
       Image,
-      Placeholder.configure({ placeholder: 'Tulis konten di sini...' }),
+      Placeholder.configure({ placeholder }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -283,7 +287,7 @@ export function RichTextEditor({
       <span className="text-sm font-medium text-foreground">{label}</span>
 
       <div className="overflow-hidden rounded-xl border border-default-300 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-1 border-b border-default-200 bg-default-50 px-2 py-1.5">
+        {!hideToolbar && <div className="flex flex-wrap items-center gap-1 border-b border-default-200 bg-default-50 px-2 py-1.5">
           {!codeMode && editor && (
             <>
               <ToolbarButtons
@@ -303,7 +307,7 @@ export function RichTextEditor({
           >
             {'</>'}
           </ToolbarButton>
-        </div>
+        </div>}
 
         {codeMode ? (
           <textarea

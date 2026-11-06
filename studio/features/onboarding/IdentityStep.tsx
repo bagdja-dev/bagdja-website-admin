@@ -118,7 +118,7 @@ export function IdentityStep({ form, template, submitting, submitError, onBack, 
           height={560}
         />
         <p className="text-xs text-default-500">
-          Layanan &amp; harga di atas adalah contoh dari template — bisa diedit atau dihapus setelah website jadi.
+          Jasa &amp; harga di atas adalah contoh dari template — bisa diedit atau dihapus setelah website jadi.
         </p>
       </section>
     </div>

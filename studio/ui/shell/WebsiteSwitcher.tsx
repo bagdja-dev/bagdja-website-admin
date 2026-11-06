@@ -17,7 +17,7 @@ import { SiteTile } from './SiteTile';
  * Pemilih website di ATAS sidebar (artboard Sidebar): tile logo/inisial, nama,
  * label jenis bisnis. Daftar: semua website + role + centang aktif, lalu "+ Website baru".
  */
-export function WebsiteSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+export function WebsiteSwitcher({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const websites = useWebsiteStore((s) => s.websites);
   const switchWebsite = useWebsiteStore((s) => s.switchWebsite);
   const active = useActiveWebsite();
@@ -40,14 +40,21 @@ export function WebsiteSwitcher({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           aria-label={`Website aktif: ${active.website.name}. Ganti website`}
-          className="flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-default-200 bg-default-50 px-2.5 py-2 text-left text-foreground hover:bg-default-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          title={collapsed ? `${active.website.name} · Ganti website` : undefined}
+          className={`flex min-h-[52px] w-full items-center rounded-xl border border-default-200 bg-default-50 py-2 text-left text-foreground hover:bg-default-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+            collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
+          }`}
         >
           <SiteTile website={active.website} />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13px] font-bold">{active.website.name}</span>
-            <span className="truncate text-xs text-default-600">{profileLabelOf(active.website.business_profile, catalog)}</span>
-          </span>
-          <Icon name="chevronUpDown" size={16} strokeWidth={2} className="shrink-0 text-default-500" />
+          {!collapsed && (
+            <>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13px] font-bold">{active.website.name}</span>
+                <span className="truncate text-xs text-default-600">{profileLabelOf(active.website.business_profile, catalog)}</span>
+              </span>
+              <Icon name="chevronUpDown" size={16} strokeWidth={2} className="shrink-0 text-default-500" />
+            </>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(18rem,calc(100vw-2rem))] p-1.5">

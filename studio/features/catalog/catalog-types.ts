@@ -19,9 +19,9 @@ export interface ItemTypeMeta {
 export const ITEM_TYPES: Readonly<Record<ProductTypeKey, ItemTypeMeta>> = {
   service: {
     key: 'service',
-    label: 'Layanan',
-    pickerLabel: 'Layanan',
-    description: 'Jasa yang dikerjakan, mis. potong rambut. Ada durasi.',
+    label: 'Jasa',
+    pickerLabel: 'Jasa',
+    description: 'Pekerjaan yang ditawarkan, mis. potong rambut. Bisa memiliki durasi.',
     module: null,
     creatable: true,
     badgeClass: 'bg-[#F5F3FF] text-[#6D28D9]',
@@ -39,7 +39,7 @@ export const ITEM_TYPES: Readonly<Record<ProductTypeKey, ItemTypeMeta>> = {
     key: 'package',
     label: 'Paket',
     pickerLabel: 'Paket',
-    description: 'Gabungan beberapa layanan/produk dengan satu harga.',
+    description: 'Gabungan beberapa jasa atau produk dengan satu harga.',
     module: null,
     creatable: false,
     badgeClass: 'bg-[#FFF7ED] text-[#C2410C]',

@@ -33,6 +33,7 @@ export interface GatheringOptionDraft {
   availabilityNote: string;
   venueLocation: string;
   benefits: string;
+  images: string[];
 }
 
 export interface KeyValueRow {
@@ -46,6 +47,7 @@ export interface EstimationRow {
 }
 
 export type PenaltyType = 'NONE' | 'FIXED' | 'PERCENTAGE';
+export type DurationUnit = 'minutes' | 'hours' | 'days';
 
 export interface ProductForm {
   type: string;
@@ -73,7 +75,8 @@ export interface ProductForm {
   lengthCm: string;
   widthCm: string;
   heightCm: string;
-  durationMinutes: string;
+  durationValue: string;
+  durationUnit: DurationUnit;
   itemsIncluded: string;
   assetIds: string[];
   downloadTtl: string;
@@ -82,6 +85,7 @@ export interface ProductForm {
   deposit: string;
   gatheringOptions: GatheringOptionDraft[];
   policySummary: string;
+  participantTerms: string;
   prepareDays: string;
   cutoffDays: string;
   penaltyType: PenaltyType;
@@ -101,12 +105,22 @@ export function newKey(prefix: string): string {
 
 const numText = (v: number | null | undefined): string => (v === null || v === undefined ? '' : String(v));
 
+function durationFromMinutes(minutes: number | null): Pick<ProductForm, 'durationValue' | 'durationUnit'> {
+  if (minutes !== null && minutes > 0 && minutes % 1440 === 0) {
+    return { durationValue: String(minutes / 1440), durationUnit: 'days' };
+  }
+  if (minutes !== null && minutes > 0 && minutes % 60 === 0) {
+    return { durationValue: String(minutes / 60), durationUnit: 'hours' };
+  }
+  return { durationValue: numText(minutes), durationUnit: 'minutes' };
+}
+
 export function emptyVariant(): VariantDraft {
   return { key: newKey('v'), id: null, name: '', price: '', stock: '', sku: '', loadedName: '', loadedAttributes: {} };
 }
 
 export function emptyOption(): GatheringOptionDraft {
-  return { key: newKey('o'), group: '', label: '', description: '', availabilityNote: '', venueLocation: '', benefits: '' };
+  return { key: newKey('o'), group: '', label: '', description: '', availabilityNote: '', venueLocation: '', benefits: '', images: [] };
 }
 
 /** Default item baru. `requires_shipping` mengikuti tipe (Produk fisik saja yang dikirim kurir). */
@@ -136,7 +150,8 @@ export function emptyForm(type: string): ProductForm {
     lengthCm: '',
     widthCm: '',
     heightCm: '',
-    durationMinutes: '',
+    durationValue: '',
+    durationUnit: 'minutes',
     itemsIncluded: '',
     assetIds: [],
     downloadTtl: '4320',
@@ -145,6 +160,7 @@ export function emptyForm(type: string): ProductForm {
     deposit: '0',
     gatheringOptions: [],
     policySummary: '',
+    participantTerms: '',
     prepareDays: '0',
     cutoffDays: '0',
     penaltyType: 'NONE',
@@ -190,12 +206,13 @@ function optionDraftsOf(product: CatalogProduct, options: GatheringProductOption
       key: o.id,
       id: o.id,
       optionKey: o.option_key,
-      group: o.option_group_key,
+      group: o.option_group_key.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
       label: o.label,
       description: o.description ?? '',
       availabilityNote: typeof o.availability_window?.note === 'string' ? o.availability_window.note : '',
       venueLocation: o.venue_location ?? '',
       benefits: (o.benefits ?? []).filter((b): b is string => typeof b === 'string').join('\n'),
+      images: o.images ?? [],
     }));
   }
   const raw = metaOf(product).option_groups;
@@ -244,7 +261,7 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
     lengthCm: numText(product.length_cm),
     widthCm: numText(product.width_cm),
     heightCm: numText(product.height_cm),
-    durationMinutes: numText(metaInt(meta, 'duration_minutes')),
+    ...durationFromMinutes(metaInt(meta, 'duration_minutes')),
     itemsIncluded: metaString(meta, 'items_included'),
     assetIds,
     downloadTtl: String(product.download_link_ttl_minutes ?? 4320),
@@ -253,6 +270,7 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
     deposit: moneyFromApi(firstActive ? firstActive.deposit_amount_per_seat : meta.deposit_amount_per_seat ?? 0) || '0',
     gatheringOptions: product.type === 'gathering' ? optionDraftsOf(product, gatheringOptions) : [],
     policySummary: typeof meta.cancellation_policy === 'string' ? meta.cancellation_policy : typeof policy.summary === 'string' ? policy.summary : '',
+    participantTerms: typeof policy.participant_terms === 'string' ? policy.participant_terms : '',
     prepareDays: String(policy.prepare_days_before_event ?? policy.cutoff_days_before_event ?? 0),
     cutoffDays: String(policy.cutoff_days_before_event ?? 0),
     penaltyType: penalty === 'FIXED' || penalty === 'PERCENTAGE' ? penalty : 'NONE',

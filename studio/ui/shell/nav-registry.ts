@@ -54,7 +54,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: 'sales',
     label: 'Jualan',
     items: [
-      { id: 'catalog', label: 'Produk & Layanan', icon: 'catalog', module: 'catalog', href: '/studio/catalog' },
+      { id: 'catalog', label: 'Produk dan Jasa', icon: 'catalog', module: 'catalog', href: '/studio/catalog' },
       { id: 'quotes', label: 'Penawaran', icon: 'quotes', module: 'quotes', href: '/studio/quotes', badge: fetchDraftOrderCount },
       { id: 'orders', label: 'Pesanan', icon: 'orders', module: 'orders', href: '/studio/orders', badge: fetchPendingTransactionCount },
       { id: 'events', label: 'Gathering', icon: 'events', module: 'events', href: '/studio/events', badge: fetchPlannedGatheringCount },

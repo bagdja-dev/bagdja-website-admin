@@ -1,16 +1,274 @@
 'use client';
 
 import Link from 'next/link';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { RichTextEditor } from '@/studio/ui/rich-text-editor';
+import { Icon } from '@/studio/ui/icons';
 
 import { editorHref } from '../../catalog-types';
 import { metaOf } from '../../product-utils';
 import type { SectionProps } from '../editor-context';
-import { Field, INPUT, Notice, TextAreaField, TextField } from '../fields';
+import { ADD_BTN, Field, HINT, ICON_BTN, INPUT, Notice, TextField } from '../fields';
 
 const NEW_CATEGORY = '__new';
+
+function ShortDescriptionDialog({
+  value,
+  onClose,
+  onSave,
+}: {
+  value: string;
+  onClose: () => void;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    closeButton.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const save = () => {
+    onSave(draft);
+    onClose();
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit deskripsi singkat"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="flex h-[90vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-2xl border border-default-200 bg-white shadow-2xl">
+        <header className="flex shrink-0 items-center gap-3 border-b border-default-200 px-4 py-3.5 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-foreground">Edit deskripsi singkat</h2>
+            <p className={HINT}>Deskripsi ini tampil di kartu produk.</p>
+          </div>
+          <button ref={closeButton} type="button" className={ICON_BTN} aria-label="Tutup editor deskripsi" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <Field label="Deskripsi singkat" hint="Tulis ringkasan yang membantu pelanggan memahami produk atau jasa.">
+            <textarea
+              rows={16}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              className={`${INPUT} min-h-[45vh] resize-y`}
+            />
+          </Field>
+        </div>
+
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-default-200 bg-white px-4 py-3 sm:px-6">
+          <button type="button" className="min-h-10 rounded-[10px] border border-default-300 px-4 text-[13px] font-semibold" onClick={onClose}>
+            Batal
+          </button>
+          <button type="button" className="min-h-10 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white" onClick={save}>
+            Simpan deskripsi
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ShortDescriptionField({
+  value,
+  onSave,
+  canEdit,
+}: {
+  value: string;
+  onSave: (value: string) => void;
+  canEdit: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <section className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/60 p-3.5 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-[13px] font-bold text-foreground">Deskripsi singkat</h3>
+            <p className={HINT}>Tampil di kartu produk. Detail lengkap di bawah.</p>
+          </div>
+          {canEdit && (
+            <button type="button" className={ADD_BTN} onClick={() => setIsOpen(true)}>
+              <Icon name="edit" size={15} />
+              Edit
+            </button>
+          )}
+        </div>
+        {value.trim() ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-default-700">{value}</p>
+        ) : (
+          <p className="text-sm italic text-default-500">Belum ada deskripsi singkat.</p>
+        )}
+      </section>
+      {isOpen && (
+        <ShortDescriptionDialog
+          value={value}
+          onClose={() => setIsOpen(false)}
+          onSave={(description) => onSave(description)}
+        />
+      )}
+    </>
+  );
+}
+
+function DetailEditorDialog({
+  value,
+  websiteId,
+  onClose,
+  onSave,
+}: {
+  value: string;
+  websiteId: string;
+  onClose: () => void;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    closeButton.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const save = () => {
+    onSave(draft);
+    onClose();
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit detail lengkap"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-5"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="flex h-[90vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-2xl border border-default-200 bg-white shadow-2xl">
+        <header className="flex shrink-0 items-center gap-3 border-b border-default-200 px-4 py-3.5 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-foreground">Edit detail lengkap</h2>
+            <p className={HINT}>Atur format, gambar, dan konten detail produk atau jasa.</p>
+          </div>
+          <button ref={closeButton} type="button" className={ICON_BTN} aria-label="Tutup editor detail" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <RichTextEditor
+            label="Detail lengkap"
+            value={draft}
+            onChange={setDraft}
+            websiteId={websiteId}
+            uploadFolder="products"
+          />
+        </div>
+
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-default-200 bg-white px-4 py-3 sm:px-6">
+          <button type="button" className="min-h-10 rounded-[10px] border border-default-300 px-4 text-[13px] font-semibold" onClick={onClose}>
+            Batal
+          </button>
+          <button type="button" className="min-h-10 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white" onClick={save}>
+            Simpan detail
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function FullDetailField({
+  value,
+  onSave,
+  websiteId,
+  canEdit,
+}: {
+  value: string;
+  onSave: (value: string) => void;
+  websiteId: string;
+  canEdit: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <section className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50/60 p-3.5 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-[13px] font-bold text-foreground">Detail lengkap</h3>
+            <p className={HINT}>Konten rich text untuk informasi lengkap produk atau jasa.</p>
+          </div>
+          {canEdit && (
+            <button type="button" className={ADD_BTN} onClick={() => setIsOpen(true)}>
+              <Icon name="edit" size={15} />
+              Edit
+            </button>
+          )}
+        </div>
+        {value.trim() ? (
+          <RichTextEditor label="Pratinjau detail" value={value} onChange={() => {}} disabled hideToolbar />
+        ) : (
+          <p className="rounded-xl border border-dashed border-default-300 bg-white px-3 py-5 text-sm italic text-default-500">
+            Belum ada detail lengkap.
+          </p>
+        )}
+      </section>
+      {isOpen && (
+        <DetailEditorDialog
+          value={value}
+          websiteId={websiteId}
+          onClose={() => setIsOpen(false)}
+          onSave={onSave}
+        />
+      )}
+    </>
+  );
+}
 
 function CategoryField({ form, set, lookups, addCategory }: SectionProps) {
   const id = useId();
@@ -123,8 +381,8 @@ export function BasicSection(props: SectionProps) {
         <Notice>Deskripsi & detail mengikuti item induk.</Notice>
       ) : (
         <>
-          <TextAreaField label="Deskripsi singkat" rows={2} value={form.description} onChange={(description) => set({ description })} hint="Tampil di kartu produk. Detail lengkap di bawah." />
-          <RichTextEditor label="Detail lengkap" value={form.detail} onChange={(detail) => set({ detail })} websiteId={websiteId} uploadFolder="products" disabled={!props.canEdit} />
+          <ShortDescriptionField value={form.description} onSave={(description) => set({ description })} canEdit={props.canEdit} />
+          <FullDetailField value={form.detail} onSave={(detail) => set({ detail })} websiteId={websiteId} canEdit={props.canEdit} />
         </>
       )}
     </>

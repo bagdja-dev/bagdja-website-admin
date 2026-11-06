@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 
 import { uploadAsset } from '@/studio/lib/upload-asset';
 import { Icon } from '@/studio/ui/icons';
+import { FullscreenImageButton } from '@/studio/ui/primitives/FullscreenImageButton';
 import { notify } from '@/studio/ui/primitives/Toast';
 
 import type { SectionProps } from '../editor-context';
@@ -84,6 +85,7 @@ export function MediaSection({ form, set, websiteId, canEdit }: SectionProps) {
               {/* eslint-disable-next-line @next/next/no-img-element -- URL storage tenant */}
               <img src={img.url} alt={img.alt} className="h-full w-full object-cover" />
             </button>
+            <FullscreenImageButton src={img.url} alt={img.alt || `Foto produk ${index + 1}`} />
             {index === 0 && <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">Sampul</span>}
           </li>
         ))}

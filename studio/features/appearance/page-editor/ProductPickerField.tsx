@@ -185,7 +185,7 @@ export function ProductPickerField({
               </div>
             ) : products.filter((product) => product.is_active).length === 0 ? (
               <p className="py-8 text-center text-sm text-default-500">
-                Belum ada produk aktif. Tambahkan atau aktifkan produk terlebih dahulu di menu Produk &amp; Layanan.
+                Belum ada produk aktif. Tambahkan atau aktifkan produk terlebih dahulu di menu Produk dan Jasa.
               </p>
             ) : filteredProducts.length === 0 ? (
               <p className="py-8 text-center text-sm text-default-500">Tidak ada produk yang cocok dengan pencarian.</p>

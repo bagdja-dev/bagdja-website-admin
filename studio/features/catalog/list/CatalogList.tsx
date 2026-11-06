@@ -34,7 +34,7 @@ const FAB =
   'fixed bottom-5 right-4 z-30 inline-flex min-h-[52px] items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-bold text-white shadow-[0_10px_24px_rgba(122,30,72,0.35)] md:hidden';
 const SMALL_BTN = 'min-h-10 rounded-[10px] border border-default-300 bg-white px-3.5 text-[13px] font-semibold';
 
-/** `/studio/catalog` — artboard "16 · Produk & Layanan — daftar" (plan §3.12). */
+/** `/studio/catalog` — artboard "16 · Produk dan Jasa — daftar" (plan §3.12). */
 export function CatalogList() {
   const c = useCatalogList();
   const role = useActiveRole();
@@ -61,7 +61,7 @@ export function CatalogList() {
   const visibleBulk = c.bulkActions.filter((a) => !a.minRole || hasMinRole(role, a.minRole));
   const selectable = visibleBulk.length > 0;
   const tableProps = {
-    ariaLabel: 'Produk & Layanan',
+    ariaLabel: 'Produk dan Jasa',
     rows: c.displayRows,
     columns,
     ctx,
@@ -95,7 +95,7 @@ export function CatalogList() {
     );
   } else if (list.emptyKind === 'no-data') {
     body = (
-      <EmptyState compact title="Belum ada item" description="Tambahkan layanan atau produk pertama yang kamu jual."
+      <EmptyState compact title="Belum ada item" description="Tambahkan jasa atau produk pertama yang kamu jual."
         action={canEdit ? addButton(PRIMARY_BTN) : undefined} />
     );
   }
@@ -103,7 +103,7 @@ export function CatalogList() {
   return (
     <>
       <PageHeader
-        title="Produk & Layanan"
+        title="Produk dan Jasa"
         description="Semua yang kamu jual. Tampil di website dan bisa dipesan pelanggan."
         count={list.status === 'ready' ? list.totalCount : undefined}
         actions={

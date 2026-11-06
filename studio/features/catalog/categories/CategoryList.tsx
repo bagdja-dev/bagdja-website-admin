@@ -169,8 +169,8 @@ export function CategoryListContent() {
     <div className="flex flex-col gap-6">
       <DataListPage
         title="Kategori"
-        back={{ href: PRODUCTS_PATH, label: 'Produk & Layanan' }}
-        description="Kelompokkan produk dan layanan agar mudah ditemukan pembeli."
+        back={{ href: PRODUCTS_PATH, label: 'Produk dan Jasa' }}
+        description="Kelompokkan produk dan jasa agar mudah ditemukan pembeli."
         list={list}
         columns={columns}
         getRowLabel={(r) => r.label}

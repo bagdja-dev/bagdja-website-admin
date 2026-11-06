@@ -22,6 +22,7 @@ const FULLSCREEN_PATHS: readonly string[] = [ONBOARDING_PATH, '/studio/websites/
 function ShellFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const modulesError = useModulesStore((s) => (s.status === 'error' ? s.errorMessage : null));
   const retryModules = useModulesStore((s) => s.refresh);
 
@@ -29,8 +30,15 @@ function ShellFrame({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-default-100">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-default-200 lg:block">
-        <Sidebar />
+      <aside
+        className={`sticky top-0 hidden h-screen shrink-0 border-r border-default-200 transition-[width] duration-200 lg:block ${
+          sidebarCollapsed ? 'w-[72px]' : 'w-64'
+        }`}
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+        />
       </aside>
 
       <Drawer

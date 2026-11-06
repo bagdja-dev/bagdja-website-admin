@@ -11,9 +11,9 @@ export interface WebsiteOnboardingStatusDto {
   hasLogo: boolean;
   /** Ada section Home buatan user / section contoh template yang isinya sudah diubah. */
   homeEdited: boolean;
-  /** Ada produk/layanan yang bukan contoh template (`metadata.is_seed`). */
+  /** Ada produk/jasa yang bukan contoh template (`metadata.is_seed`). */
   hasOwnProduct: boolean;
-  /** Produk/layanan contoh template yang masih ada. */
+  /** Produk/jasa contoh template yang masih ada. */
   seedProductCount: number;
   primaryLocationComplete: boolean;
   hasFlow: boolean;

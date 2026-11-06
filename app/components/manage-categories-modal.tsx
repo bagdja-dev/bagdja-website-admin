@@ -177,7 +177,7 @@ export function ManageCategoriesModal({ isOpen, onClose, websiteId, onChanged }:
       <AppModal isOpen={isOpen} onClose={onClose} title="Kelola Kategori" size="lg">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-default-500">Kategori produk & layanan untuk website ini.</p>
+            <p className="text-sm text-default-500">Kategori produk dan jasa untuk website ini.</p>
             <button
               type="button"
               onClick={() => setAddOpen(true)}

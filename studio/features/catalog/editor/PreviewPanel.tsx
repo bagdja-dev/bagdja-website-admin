@@ -1,6 +1,7 @@
 'use client';
 
 import { StatusSwitch } from '@/studio/ui/primitives/StatusSwitch';
+import { FullscreenImageButton } from '@/studio/ui/primitives/FullscreenImageButton';
 import { Icon } from '@/studio/ui/icons';
 
 import { typeMeta } from '../catalog-types';
@@ -13,7 +14,10 @@ const CAPTION = 'text-xs font-bold uppercase tracking-[0.06em] text-default-600'
 
 function previewMeta(form: ProductForm, byVariant: boolean): string {
   if (form.type === 'product') return byVariant ? `${form.variants.length} pilihan varian` : form.stock ? `Stok ${form.stock}` : 'Produk fisik';
-  if (form.type === 'service') return form.durationMinutes ? `${form.durationMinutes} menit` : 'Layanan';
+  if (form.type === 'service') {
+    const unitLabel = { minutes: 'menit', hours: 'jam', days: 'hari' }[form.durationUnit];
+    return form.durationValue ? `${form.durationValue} ${unitLabel}` : 'Jasa';
+  }
   if (form.type === 'gathering') return form.maxAttendees ? `Maks ${form.maxAttendees} peserta` : 'Acara';
   if (form.type === 'digital') return 'Dikirim otomatis setelah bayar';
   return typeMeta(form.type).label;
@@ -29,8 +33,11 @@ export function PreviewPanel({ form, byVariant, checks, onToggleActive, canEdit 
         <span className={CAPTION}>Tampil di website</span>
         <div className="overflow-hidden rounded-xl border border-default-200 bg-white">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL storage tenant
-            <img src={cover} alt="" className="h-[150px] w-full object-cover" />
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- URL storage tenant */}
+              <img src={cover} alt="" className="h-[150px] w-full object-cover" />
+              <FullscreenImageButton src={cover} alt={form.name ? `Foto ${form.name}` : 'Foto produk'} />
+            </div>
           ) : (
             <span className="flex h-[150px] items-center justify-center bg-default-100 text-default-500">
               <Icon name="image" size={28} />

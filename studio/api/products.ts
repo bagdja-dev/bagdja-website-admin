@@ -113,6 +113,7 @@ export interface GatheringProductOption {
   availability_window: Record<string, unknown> | null;
   venue_location?: string | null;
   benefits: unknown[] | null;
+  images?: string[] | null;
   cancellation_policy: Record<string, unknown> | null;
   is_active: boolean;
   sort_order: number;
@@ -132,6 +133,7 @@ export interface GatheringOptionInput {
   availability_window: Record<string, unknown>;
   venue_location?: string;
   benefits: string[];
+  images: string[];
   cancellation_policy: Record<string, unknown>;
   sort_order: number;
 }

@@ -39,7 +39,19 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           </Link>
         )}
         <h1 className="truncate text-lg font-extrabold text-foreground sm:font-bold">
-          {meta?.title ?? ''}
+          {meta?.titlePrefix && (
+            <>
+              <Link href={meta.titlePrefix.href} className="text-primary no-underline hover:underline">
+                {meta.titlePrefix.label}
+              </Link>
+              {' - '}
+            </>
+          )}
+          {meta?.titleHref ? (
+            <Link href={meta.titleHref} className="text-inherit no-underline hover:text-primary">
+              {meta.title ?? ''}
+            </Link>
+          ) : meta?.title ?? ''}
           {typeof meta?.count === 'number' && <span className="text-sm font-semibold text-default-500"> · {meta.count}</span>}
         </h1>
         {meta?.description && <p className="hidden text-[13px] text-default-600 sm:block">{meta.description}</p>}

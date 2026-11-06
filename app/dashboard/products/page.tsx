@@ -37,7 +37,7 @@ import type { GalleryImage } from '../../lib/section-types';
 const TYPE_TABS = [
   { key: 'all', label: 'Semua' },
   { key: 'product', label: 'Produk' },
-  { key: 'service', label: 'Layanan' },
+  { key: 'service', label: 'Jasa' },
   { key: 'package', label: 'Paket' },
   { key: 'digital', label: 'Digital' },
   { key: 'gathering', label: 'Gathering' },
@@ -989,8 +989,8 @@ export default function ProductsManagement() {
     <div className={`space-y-6 ${canEdit ? mobileFabPagePadding : ''}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Produk & Layanan</h1>
-          <p className="mt-1 text-default-500">Kelola katalog produk, layanan, paket, dan item digital.</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Produk dan Jasa</h1>
+          <p className="mt-1 text-default-500">Kelola katalog produk, jasa, paket, dan item digital.</p>
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
@@ -1050,7 +1050,7 @@ export default function ProductsManagement() {
               <p className="text-lg font-semibold">Belum ada item</p>
               <p className="mt-1 max-w-sm text-sm text-default-500">
                 {typeFilter === 'all'
-                  ? 'Tambahkan produk, layanan, paket, atau item digital pertama.'
+                  ? 'Tambahkan produk, jasa, paket, atau item digital pertama.'
                   : `Belum ada ${PRODUCT_TYPE_LABELS[typeFilter]?.toLowerCase() ?? 'item'} di katalog.`}
               </p>
             </div>

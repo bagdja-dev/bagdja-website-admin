@@ -10,10 +10,12 @@ import {
 } from '@/studio/api/subscription';
 import { useIsOwner } from '@/studio/stores/role';
 
+import { Icon } from '../icons';
+
 const SUBSCRIPTION_HREF = '/studio/subscription';
 
 /** Kartu "Paket" di kaki sidebar (artboard Sidebar). Paket melekat ke akun owner → hanya owner. */
-export function PlanCard({ onNavigate }: { onNavigate?: () => void }) {
+export function PlanCard({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const isOwner = useIsOwner();
   const [planName, setPlanName] = useState<string | null>(null);
 
@@ -36,6 +38,22 @@ export function PlanCard({ onNavigate }: { onNavigate?: () => void }) {
   }, [isOwner]);
 
   if (!isOwner) return null;
+
+  if (collapsed) {
+    return (
+      <div className="w-full border-t border-default-100 px-2 pb-3 pt-2">
+        <Link
+          href={SUBSCRIPTION_HREF}
+          onClick={onNavigate}
+          aria-label={`Paket ${planName ?? '—'} · lihat atau upgrade paket`}
+          title={`Paket ${planName ?? '—'} · lihat atau upgrade paket`}
+          className="flex h-10 items-center justify-center rounded-lg bg-default-100 text-primary no-underline hover:bg-primary-50"
+        >
+          <Icon name="subscription" size={19} />
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="border-t border-default-100 px-3.5 pb-4 pt-3">

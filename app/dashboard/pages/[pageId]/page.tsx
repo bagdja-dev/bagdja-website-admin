@@ -622,7 +622,7 @@ export default function PageSectionsEditor() {
             <div>
               <p className="text-lg font-semibold">Halaman masih kosong</p>
               <p className="mt-1 max-w-md text-sm text-default-500">
-                Susun halaman dengan menambahkan section — hero banner, grid layanan, FAQ, dan lainnya.
+                Susun halaman dengan menambahkan section — hero banner, grid jasa, FAQ, dan lainnya.
               </p>
             </div>
             {canEdit && (

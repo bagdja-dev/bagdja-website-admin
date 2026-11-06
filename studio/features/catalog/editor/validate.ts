@@ -13,7 +13,7 @@ export function sectionOfError(key: string): SectionId {
   if (key === 'price') return 'price';
   if (key.startsWith('variant') || key === 'stock') return 'variants';
   if (['weightGrams', 'lengthCm', 'widthCm', 'heightCm'].includes(key)) return 'shipping';
-  if (key === 'durationMinutes') return 'duration';
+  if (key === 'durationValue') return 'duration';
   if (key === 'downloadTtl' || key === 'assets') return 'digital';
   if (key === 'guarantyDays') return 'fulfil';
   if (key === 'slug' || key === 'estimation') return 'advanced';
@@ -62,8 +62,8 @@ export function validateForm(form: ProductForm, ctx: ValidationContext): FormErr
       if (form[k].trim() && (!isInt(form[k]) || Number(form[k]) < 1)) e[k] = 'Minimal 1.';
     }
   }
-  if (sections.includes('duration') && form.durationMinutes.trim() && (!isInt(form.durationMinutes) || Number(form.durationMinutes) < 1)) {
-    e.durationMinutes = 'Durasi minimal 1 menit.';
+  if (sections.includes('duration') && form.durationValue.trim() && (!isInt(form.durationValue) || Number(form.durationValue) < 1)) {
+    e.durationValue = 'Durasi minimal 1.';
   }
   if (sections.includes('digital')) {
     const ttl = Number(form.downloadTtl);

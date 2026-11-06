@@ -4,6 +4,7 @@ import { Checkbox } from '@heroui/react';
 
 import type { RowSelection } from './use-row-selection';
 import type { ColumnContext, DataColumn, DataRow, MobileSlot } from './types';
+import { rowClickHandler } from './row-click';
 
 export interface DataCardListProps<T extends DataRow> {
   ariaLabel: string;
@@ -17,6 +18,8 @@ export interface DataCardListProps<T extends DataRow> {
   isRowMuted?: (row: T) => boolean;
   /** Kartu tanpa checkbox (mis. varian). Default: semua bisa dipilih. */
   isRowSelectable?: (row: T) => boolean;
+  /** Ketuk kartu membuka item. Ketukan pada kontrol di kartu diabaikan. */
+  onRowClick?: (row: T) => void;
 }
 
 function bySlot<T extends DataRow>(columns: DataColumn<T>[], slot: MobileSlot): DataColumn<T>[] {
@@ -34,6 +37,7 @@ export function DataCardList<T extends DataRow>({
   getRowLabel,
   isRowMuted,
   isRowSelectable,
+  onRowClick,
 }: DataCardListProps<T>) {
   const media = bySlot(columns, 'media');
   const titles = [...bySlot(columns, 'title'), ...bySlot(columns, 'subtitle')];
@@ -50,7 +54,8 @@ export function DataCardList<T extends DataRow>({
         return (
           <li
             key={row.id}
-            className={`flex items-center gap-3 rounded-[14px] border p-3.5 ${
+            onClick={rowClickHandler(row, onRowClick)}
+            className={`flex items-center gap-3 rounded-[14px] border p-3.5 ${onRowClick ? 'cursor-pointer active:bg-default-50' : ''} ${
               selected ? 'border-primary-200 bg-primary-50' : `border-default-200 ${muted ? 'bg-default-50' : 'bg-white'}`
             }`}
           >

@@ -3,7 +3,8 @@
 import { StatusSwitch } from '@/studio/ui/primitives/StatusSwitch';
 
 import type { SectionProps } from '../editor-context';
-import { HINT, IntField, TextAreaField } from '../fields';
+import type { DurationUnit } from '../form-state';
+import { Field, HINT, INPUT, IntField, TextAreaField } from '../fields';
 
 /** Switch "Perlu dikirim kurir" di kepala bagian Pengiriman. */
 export function ShippingAside({ form, set, canEdit }: SectionProps) {
@@ -30,26 +31,39 @@ export function ShippingSection({ form, set, errors }: SectionProps) {
   );
 }
 
-const QUICK_DURATIONS = ['15', '30', '45', '60'];
-
-/** Bagian "Durasi": metadata.duration_minutes (pilihan cepat 15/30/45/60). */
+/** Bagian "Durasi": nilai numerik dan satuan; disimpan sebagai menit di metadata. */
 export function DurationSection({ form, set, errors }: SectionProps) {
-  const custom = form.durationMinutes !== '' && !QUICK_DURATIONS.includes(form.durationMinutes);
-  const chip = (on: boolean) =>
-    `min-h-10 rounded-full border px-3.5 text-[13px] ${on ? 'border-primary-200 bg-primary-50 font-bold text-primary' : 'border-default-200 bg-white font-medium text-default-700'}`;
+  const durationUnitOptions: { value: DurationUnit; label: string }[] = [
+    { value: 'minutes', label: 'Menit' },
+    { value: 'hours', label: 'Jam' },
+    { value: 'days', label: 'Hari' },
+  ];
   return (
     <>
-      <div role="group" aria-label="Durasi cepat" className="flex flex-wrap gap-2">
-        {QUICK_DURATIONS.map((m) => (
-          <button key={m} type="button" aria-pressed={form.durationMinutes === m} onClick={() => set({ durationMinutes: m })} className={chip(form.durationMinutes === m)}>
-            {m} menit
-          </button>
-        ))}
-        <button type="button" aria-pressed={custom} onClick={() => set({ durationMinutes: custom ? form.durationMinutes : '90' })} className={chip(custom)}>
-          Lainnya…
-        </button>
-      </div>
-      {custom && <IntField label="Durasi (menit)" value={form.durationMinutes} onChange={(durationMinutes) => set({ durationMinutes })} error={errors.durationMinutes} suffix="menit" />}
+      <Field label="Durasi" error={errors.durationValue}>
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="Jumlah durasi"
+            placeholder="10"
+            value={form.durationValue}
+            onChange={(event) => set({ durationValue: event.target.value.replace(/[^\d]/g, '') })}
+            aria-invalid={Boolean(errors.durationValue) || undefined}
+            className={INPUT}
+          />
+          <select
+            aria-label="Satuan durasi"
+            value={form.durationUnit}
+            onChange={(event) => set({ durationUnit: event.target.value as DurationUnit })}
+            className={INPUT}
+          >
+            {durationUnitOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+      </Field>
       <span className={HINT}>Ditampilkan ke pelanggan sebagai perkiraan lama pengerjaan.</span>
     </>
   );

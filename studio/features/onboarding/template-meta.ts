@@ -87,7 +87,7 @@ export function templateSeedSummary(template: WebsiteTemplateDto): string[] {
     return Array.isArray(value) ? value.length : 0;
   };
   const lines = [`${templatePages(template).length} halaman`];
-  if (count('services') > 0) lines.push(`${count('services')} contoh layanan`);
+  if (count('services') > 0) lines.push(`${count('services')} contoh jasa`);
   if (count('products') > 0) lines.push(`${count('products')} contoh produk`);
   if (count('faqs') > 0) lines.push(`${count('faqs')} FAQ umum`);
   if (record(defaults?.location)) lines.push('1 lokasi utama');

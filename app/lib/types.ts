@@ -325,7 +325,7 @@ export function hasMinRole(userRole: string, minRole: TenantRole): boolean {
 
 export const PRODUCT_TYPE_LABELS: Record<string, string> = {
   product: 'Produk',
-  service: 'Layanan',
+  service: 'Jasa',
   package: 'Paket',
   digital: 'Digital',
   gathering: 'Gathering',
