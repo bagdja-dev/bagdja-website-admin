@@ -7,9 +7,23 @@ import { ProfileIcon } from '@/studio/features/onboarding/profile-icons';
 import { DIALOG_PRIMARY, DIALOG_SECONDARY, StudioDialog } from './dialog-ui';
 import type { ChangeProfileState } from './use-change-profile';
 
-/** Dialog ganti jenis bisnis + diff preset (hanya penambahan). */
+/** Dialog ganti jenis bisnis dengan opsi menambah atau menyelaraskan fitur preset. */
 export function ChangeProfileDialog({ state }: { state: ChangeProfileState }) {
-  const { open, setOpen, profiles, selected, select, applyPreset, setApplyPreset, addedLabels, saving, save } = state;
+  const {
+    open,
+    setOpen,
+    profiles,
+    selected,
+    select,
+    applyPreset,
+    setApplyPreset,
+    resetFeaturesToPreset,
+    setResetFeaturesToPreset,
+    addedLabels,
+    removedLabels,
+    saving,
+    save,
+  } = state;
   return (
     <StudioDialog
       isOpen={open}
@@ -28,7 +42,7 @@ export function ChangeProfileDialog({ state }: { state: ChangeProfileState }) {
         </>
       }
     >
-      <p className="text-sm text-default-600">Jenis bisnis dipakai untuk saran fitur dan template. Fitur yang sudah aktif tidak diubah.</p>
+      <p className="text-sm text-default-600">Jenis bisnis dipakai untuk saran fitur dan template. Pilih apakah fitur aktif perlu disesuaikan dengan preset bisnis baru.</p>
       <div role="radiogroup" aria-label="Jenis bisnis" className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
         {profiles.map((p) => {
           const on = p.id === selected;
@@ -54,7 +68,7 @@ export function ChangeProfileDialog({ state }: { state: ChangeProfileState }) {
       </div>
       {selected && (
         <div className="flex flex-col gap-2 rounded-xl border border-default-200 bg-default-50 p-3.5">
-          {addedLabels.length > 0 ? (
+          {!resetFeaturesToPreset && addedLabels.length > 0 ? (
             <>
               <label className="flex items-start gap-2.5 text-sm font-bold">
                 <input
@@ -63,14 +77,35 @@ export function ChangeProfileDialog({ state }: { state: ChangeProfileState }) {
                   onChange={(e) => setApplyPreset(e.target.checked)}
                   className="mt-0.5 h-4 w-4 accent-[#7A1E48]"
                 />
-                Terapkan preset fitur
+                Tambahkan fitur preset yang belum aktif
               </label>
-              <p className="text-[13px] text-default-600">Akan ditambahkan: {addedLabels.join(', ')}.</p>
+              <p className="text-[13px] text-default-600">
+                {applyPreset ? `Akan ditambahkan: ${addedLabels.join(', ')}.` : 'Fitur bawaan tidak akan diterapkan.'}
+              </p>
             </>
+          ) : null}
+          <label className="flex items-start gap-2.5 text-sm font-bold">
+            <input
+              type="checkbox"
+              checked={resetFeaturesToPreset}
+              onChange={(e) => setResetFeaturesToPreset(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[#7A1E48]"
+            />
+            Reset fitur sesuai standar jenis bisnis
+          </label>
+          {resetFeaturesToPreset ? (
+            <div className="flex flex-col gap-1 text-[13px] text-default-600">
+              <p>Akan diaktifkan: {addedLabels.length ? addedLabels.join(', ') : 'tidak ada fitur tambahan'}.</p>
+              <p>Akan dimatikan: {removedLabels.length ? removedLabels.join(', ') : 'tidak ada fitur tambahan'}.</p>
+              <p className="text-xs text-default-500">Data fitur tidak dihapus. Fitur dengan transaksi atau gathering berjalan tidak dapat direset.</p>
+            </div>
           ) : (
-            <p className="text-[13px] text-default-600">Semua fitur bawaan jenis bisnis ini sudah aktif.</p>
+            <p className="text-xs text-default-500">
+              {addedLabels.length > 0
+                ? 'Fitur aktif lainnya tetap aktif.'
+                : 'Semua fitur bawaan jenis bisnis ini sudah aktif. Tidak ada fitur yang dimatikan.'}
+            </p>
           )}
-          <p className="text-xs text-default-500">Tidak ada fitur yang dimatikan.</p>
         </div>
       )}
     </StudioDialog>

@@ -41,7 +41,7 @@ interface ModulesState {
   refresh: () => Promise<void>;
   /** PATCH lalu langsung memperbarui himpunan efektif (sidebar ikut berubah tanpa reload). */
   updateModules: (body: UpdateWebsiteModulesRequestDto) => Promise<WebsiteModulesResponseDto>;
-  /** Ganti jenis bisnis (owner); `applyPreset` menambah modul preset. */
+  /** Ganti jenis bisnis (owner); preset dapat ditambahkan atau diselaraskan sepenuhnya. */
   changeBusinessProfile: (body: UpdateBusinessProfileRequestDto) => Promise<WebsiteModulesResponseDto>;
   hasModule: (key: ModuleKey) => boolean;
   moduleLabel: (key: ModuleKey) => string;

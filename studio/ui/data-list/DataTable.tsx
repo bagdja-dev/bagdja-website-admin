@@ -16,6 +16,8 @@ export interface DataTableProps<T extends DataRow> {
   selection: RowSelection;
   getRowLabel: (row: T) => string;
   isRowMuted?: (row: T) => boolean;
+  /** Baris tanpa checkbox (mis. baris varian di bawah item induk). Default: semua bisa dipilih. */
+  isRowSelectable?: (row: T) => boolean;
 }
 
 type HeaderCell = { key: string; header: string; align?: 'start' | 'center' | 'end'; hideHeader?: boolean };
@@ -33,8 +35,9 @@ export function DataTable<T extends DataRow>({
   selection,
   getRowLabel,
   isRowMuted,
+  isRowSelectable,
 }: DataTableProps<T>) {
-  const pageIds = rows.map((r) => r.id);
+  const pageIds = rows.filter((r) => isRowSelectable?.(r) ?? true).map((r) => r.id);
   const selectedOnPage = pageIds.filter((id) => selection.selectedIds.has(id)).length;
   const allSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
 
@@ -81,6 +84,7 @@ export function DataTable<T extends DataRow>({
             {(columnKey) => {
               const key = String(columnKey);
               if (key === SELECT_KEY) {
+                if (isRowSelectable && !isRowSelectable(row)) return <TableCell>{null}</TableCell>;
                 return (
                   <TableCell>
                     <Checkbox

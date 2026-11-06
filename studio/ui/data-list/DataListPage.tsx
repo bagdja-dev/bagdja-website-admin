@@ -42,6 +42,8 @@ export interface DataListPageProps<T extends DataRow> {
   roleOverride?: TenantRole | null;
   /** `true` = judul & aksi dirender di konten (bukan topbar), mis. beberapa daftar dalam satu halaman. */
   embedded?: boolean;
+  /** Tautan kembali di topbar (mode non-embedded). */
+  back?: { href: string; label: string };
 }
 
 const PRIMARY_BTN =
@@ -167,6 +169,7 @@ export function DataListPage<T extends DataRow>(props: DataListPageProps<T>) {
           title={props.title}
           description={props.description}
           count={countLabel}
+          back={props.back}
           actions={primary ? <PrimaryButton action={primary} className={`hidden md:inline-flex ${PRIMARY_BTN}`} /> : undefined}
         />
       )}

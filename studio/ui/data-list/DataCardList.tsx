@@ -15,6 +15,8 @@ export interface DataCardListProps<T extends DataRow> {
   getRowLabel: (row: T) => string;
   /** Baris "redup" (mis. nonaktif) → latar #FAFAFA seperti artboard FAQ-HP. */
   isRowMuted?: (row: T) => boolean;
+  /** Kartu tanpa checkbox (mis. varian). Default: semua bisa dipilih. */
+  isRowSelectable?: (row: T) => boolean;
 }
 
 function bySlot<T extends DataRow>(columns: DataColumn<T>[], slot: MobileSlot): DataColumn<T>[] {
@@ -31,6 +33,7 @@ export function DataCardList<T extends DataRow>({
   selection,
   getRowLabel,
   isRowMuted,
+  isRowSelectable,
 }: DataCardListProps<T>) {
   const media = bySlot(columns, 'media');
   const titles = [...bySlot(columns, 'title'), ...bySlot(columns, 'subtitle')];
@@ -51,7 +54,7 @@ export function DataCardList<T extends DataRow>({
               selected ? 'border-primary-200 bg-primary-50' : `border-default-200 ${muted ? 'bg-default-50' : 'bg-white'}`
             }`}
           >
-            {selectable && (
+            {selectable && (isRowSelectable?.(row) ?? true) && (
               <Checkbox aria-label={`Pilih ${getRowLabel(row)}`} isSelected={selected} onValueChange={() => selection.toggle(row.id)} />
             )}
             {media.map((c) => (

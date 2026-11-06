@@ -42,6 +42,8 @@ export interface UpdateBusinessProfileRequestDto {
   businessProfile: Exclude<BusinessProfileId, 'legacy'>;
   /** `true` = tambahkan modul preset profile baru (tidak ada yang dimatikan). */
   applyPreset: boolean;
+  /** `true` = samakan modul aktif dengan preset; modul di luar preset dinonaktifkan tanpa menghapus datanya. */
+  resetFeaturesToPreset?: boolean;
 }
 
 export function updateBusinessProfile(
