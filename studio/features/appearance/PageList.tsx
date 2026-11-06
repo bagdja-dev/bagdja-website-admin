@@ -1,22 +1,36 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
+
+import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
 
 import { useDataList, DataListPage, type BulkAction, type DataColumn, type PrimaryAction } from '@/studio/ui/data-list';
 import { useActiveWebsiteId } from '@/studio/stores/website-store';
 import { fetchPages, createPage, updatePage, deletePage, reorderPages, type WebsitePage } from '@/studio/api/pages';
+import { slugify } from '@/studio/lib/slug';
 import { Icon } from '@/studio/ui/icons';
 import { notify } from '@/studio/ui/primitives/Toast';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 
 export interface PageRow extends WebsitePage {}
 
+const PAGE_PLACEMENT_OPTIONS: Array<{ value: WebsitePage['placement']; label: string }> = [
+  { value: 'regular', label: 'Navigasi utama' },
+  { value: 'header', label: 'Navigasi header' },
+  { value: 'footer', label: 'Navigasi footer' },
+];
+
 export function usePageList() {
   const websiteId = useActiveWebsiteId();
   const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const [addPageOpen, setAddPageOpen] = useState(false);
+  const [newPageTitle, setNewPageTitle] = useState('');
+  const [creatingPage, setCreatingPage] = useState(false);
+  const [addPageError, setAddPageError] = useState<string | null>(null);
+  const [updatingPageId, setUpdatingPageId] = useState<string | null>(null);
 
   const list = useDataList<PageRow>({
     mode: 'client',
@@ -76,19 +90,56 @@ export function usePageList() {
     icon: 'plus',
     minRole: 'editor',
     onPress: () => {
-      const title = window.prompt('Judul halaman baru:', '');
-      if (!title?.trim()) return;
-      (async () => {
-        try {
-          const created = await createPage(websiteId!, { title: title.trim() });
-          list.replaceRows([created, ...list.rows]);
-          notify.success('Halaman dibuat.');
-        } catch {
-          notify.error('Gagal membuat halaman.');
-        }
-      })();
+      setNewPageTitle('');
+      setAddPageError(null);
+      setAddPageOpen(true);
     },
   };
+
+  const handleCreatePage = useCallback(async () => {
+    const title = newPageTitle.trim();
+    if (!title) {
+      setAddPageError('Judul halaman wajib diisi.');
+      return;
+    }
+    const slug = slugify(title);
+    if (!slug) {
+      setAddPageError('Judul halaman harus memiliki huruf atau angka agar bisa dibuat menjadi alamat halaman.');
+      return;
+    }
+    if (!websiteId) {
+      setAddPageError('Pilih website aktif sebelum menambahkan halaman.');
+      return;
+    }
+
+    setCreatingPage(true);
+    setAddPageError(null);
+    try {
+      const created = await createPage(websiteId, { title, slug });
+      list.replaceRows([created, ...list.rows]);
+      setAddPageOpen(false);
+      notify.success('Halaman dibuat.');
+    } catch {
+      setAddPageError('Gagal membuat halaman. Coba lagi.');
+      notify.error('Gagal membuat halaman.');
+    } finally {
+      setCreatingPage(false);
+    }
+  }, [list, newPageTitle, websiteId]);
+
+  const changePagePlacement = useCallback(async (page: PageRow, placement: WebsitePage['placement']) => {
+    if (!websiteId || page.placement === placement || updatingPageId) return;
+    setUpdatingPageId(page.id);
+    try {
+      const updated = await updatePage(websiteId, page.id, { placement });
+      list.replaceRows(list.rows.map((row) => row.id === page.id ? { ...row, placement: updated.placement } : row));
+      notify.success('Posisi halaman di navigasi diperbarui.');
+    } catch {
+      notify.error(`Gagal memperbarui navigasi "${page.title}".`);
+    } finally {
+      setUpdatingPageId(null);
+    }
+  }, [list, updatingPageId, websiteId]);
 
   const columns: DataColumn<PageRow>[] = useMemo(() => [
     {
@@ -113,6 +164,30 @@ export function usePageList() {
         </span>
       ),
       mobile: 'meta',
+    },
+    {
+      key: 'placement',
+      header: 'Posisi navigasi',
+      mobile: 'trailing',
+      render: (row, ctx) => (
+        <Select
+          aria-label={`Posisi navigasi ${row.title}`}
+          selectedKeys={[row.placement]}
+          onChange={(event) => {
+            const option = PAGE_PLACEMENT_OPTIONS.find((item) => item.value === event.target.value);
+            if (option) void changePagePlacement(row, option.value);
+          }}
+          isDisabled={!ctx.canAct('editor') || updatingPageId !== null}
+          isLoading={updatingPageId === row.id}
+          className="w-full sm:max-w-[200px]"
+          size="sm"
+          variant="bordered"
+        >
+          {PAGE_PLACEMENT_OPTIONS.map((option) => (
+            <SelectItem key={option.value}>{option.label}</SelectItem>
+          ))}
+        </Select>
+      ),
     },
     {
       key: 'sortOrder',
@@ -163,7 +238,7 @@ export function usePageList() {
         </div>
       ),
     },
-  ], [router, handleDeleteRow, websiteId]);
+  ], [router, handleDeleteRow, websiteId, changePagePlacement, updatingPageId]);
 
   const handleReorderSave = useCallback(
     async (ordered: PageRow[]) => {
@@ -182,17 +257,76 @@ export function usePageList() {
     handleDeleteRow,
     handleReorderSave,
     confirmDialog,
+    addPageDialog: (
+      <Modal
+        isOpen={addPageOpen}
+        onOpenChange={(open) => {
+          if (!open && !creatingPage) setAddPageOpen(false);
+        }}
+        placement="center"
+        isDismissable={!creatingPage}
+        hideCloseButton
+        classNames={{
+          base: 'max-w-[460px] rounded-[18px] shadow-[0_24px_60px_rgba(24,24,27,0.25)]',
+          backdrop: 'bg-[rgba(24,24,27,0.45)]',
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="px-6 pb-0 pt-6 text-xl font-extrabold">Tambah halaman</ModalHeader>
+          <ModalBody className="gap-3 px-6 py-4">
+            <p className="text-sm text-default-600">Beri judul untuk halaman baru website kamu.</p>
+            <Input
+              autoFocus
+              label="Judul halaman"
+              placeholder="Contoh: Tentang Kami"
+              value={newPageTitle}
+              onValueChange={(value) => {
+                setNewPageTitle(value);
+                if (addPageError) setAddPageError(null);
+              }}
+              isInvalid={Boolean(addPageError)}
+              errorMessage={addPageError}
+              isDisabled={creatingPage}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void handleCreatePage();
+                }
+              }}
+            />
+          </ModalBody>
+          <ModalFooter className="flex flex-wrap justify-end gap-2.5 px-6 pb-6 pt-0">
+            <Button
+              variant="bordered"
+              radius="sm"
+              isDisabled={creatingPage}
+              onPress={() => setAddPageOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              color="primary"
+              radius="sm"
+              isLoading={creatingPage}
+              onPress={() => void handleCreatePage()}
+            >
+              Buat halaman
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    ),
   };
 }
 
 export function PageList() {
-  const { list, columns, bulkActions, primaryAction, handleReorderSave, confirmDialog } = usePageList();
+  const { list, columns, bulkActions, primaryAction, handleReorderSave, confirmDialog, addPageDialog } = usePageList();
 
   return (
     <div className="flex flex-col gap-6">
       <DataListPage
         title="Halaman Website"
-        description="Susunan section halaman website. Hero selalu tampil paling atas."
+        description="Atur halaman, posisi di navigasi website, dan susunan section. Hero selalu tampil paling atas."
         list={list}
         columns={columns}
         getRowLabel={(row) => row.title}
@@ -208,6 +342,7 @@ export function PageList() {
         }}
       />
       {confirmDialog}
+      {addPageDialog}
     </div>
   );
 }

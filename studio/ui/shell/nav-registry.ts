@@ -57,6 +57,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: 'catalog', label: 'Produk & Layanan', icon: 'catalog', module: 'catalog', href: '/studio/catalog' },
       { id: 'quotes', label: 'Penawaran', icon: 'quotes', module: 'quotes', href: '/studio/quotes', badge: fetchDraftOrderCount },
       { id: 'orders', label: 'Pesanan', icon: 'orders', module: 'orders', href: '/studio/orders', badge: fetchPendingTransactionCount },
+      { id: 'events', label: 'Gathering', icon: 'events', module: 'events', href: '/studio/events', badge: fetchPlannedGatheringCount },
     ],
   },
   {
@@ -75,7 +76,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: 'appointments', label: 'Jadwal & Booking', icon: 'appointments', module: 'appointments', href: '/studio/appointments' },
       { id: 'rentals', label: 'Aset & Sewa', icon: 'rental', module: 'rental', href: '/studio/rentals' },
       { id: 'tickets', label: 'Tiket & Venue', icon: 'ticketing', module: 'ticketing', href: '/studio/tickets' },
-      { id: 'events', label: 'Kalender Acara', icon: 'events', module: 'events', href: '/studio/events', badge: fetchPlannedGatheringCount },
       { id: 'flows', label: 'Master Flow', icon: 'fulfillment', module: 'fulfillment', href: '/studio/flows' },
       { id: 'locations', label: 'Lokasi', icon: 'locations', module: 'locations', href: '/studio/locations' },
       { id: 'vendors', label: 'Vendor', icon: 'vendors', module: 'vendors', href: '/studio/vendors' },

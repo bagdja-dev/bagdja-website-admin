@@ -11,15 +11,15 @@ import { TemplateEditor } from './TemplateEditor';
 type AppearanceTab = 'identity' | 'pages' | 'footer' | 'theme' | 'template';
 
 const TABS: { key: AppearanceTab; label: string; icon: string }[] = [
-  { key: 'identity', label: 'Identitas', icon: 'settings' },
   { key: 'pages', label: 'Halaman', icon: 'layout' },
+  { key: 'identity', label: 'Identitas', icon: 'settings' },
   { key: 'footer', label: 'Footer', icon: 'layout' },
   { key: 'theme', label: 'Tema & Warna', icon: 'settings' },
   { key: 'template', label: 'Template', icon: 'layout' },
 ];
 
 export function AppearancePage() {
-  const [tab, setTab] = useState<AppearanceTab>('identity');
+  const [tab, setTab] = useState<AppearanceTab>('pages');
 
   // Tautan dalam (mis. checklist Beranda) memilih tab lewat `?tab=…`.
   useEffect(() => {

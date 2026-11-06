@@ -27,7 +27,17 @@ const config: Config = {
   darkMode: 'class',
   corePlugins: { preflight: false },
   theme: {
-    extend: {},
+    extend: {
+      keyframes: {
+        'studio-fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+      },
+      animation: {
+        'studio-fade-in': 'studio-fade-in 180ms ease-out both',
+      },
+    },
   },
   plugins: [heroui({ themes: studioThemes }) as unknown as NonNullable<Config['plugins']>[number]],
 };

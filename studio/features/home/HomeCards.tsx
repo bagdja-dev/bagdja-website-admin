@@ -77,7 +77,7 @@ export function MoreFeaturesCard() {
     <section className="flex flex-col gap-2 rounded-2xl border border-primary-200 bg-primary-50 p-4">
       <span className="text-sm font-bold text-primary-700">Butuh fitur lain?</span>
       <span className="text-[13px] leading-normal text-primary-700">
-        Penawaran harga, Vendor, Kalender Acara, dan lainnya bisa diaktifkan kapan saja.
+        Penawaran harga, Vendor, Gathering, dan lainnya bisa diaktifkan kapan saja.
       </span>
       <Link href="/studio/features" className="text-[13px] font-bold text-primary">
         Lihat semua fitur →

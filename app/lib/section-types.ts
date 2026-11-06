@@ -3,6 +3,8 @@ export type SectionFieldType =
   | 'textarea'
   | 'switch'
   | 'select'
+  | 'iconPicker'
+  | 'list'
   | 'richtext'
   | 'gallery'
   | 'blogPostPicker'
@@ -17,7 +19,7 @@ export interface GalleryImage {
   caption?: string;
 }
 
-export type SectionFormValue = string | boolean | GalleryImage[] | string[];
+export type SectionFormValue = string | boolean | GalleryImage[] | string[] | Record<string, unknown>[];
 
 export interface SectionFieldDef {
   key: string;
@@ -26,6 +28,8 @@ export interface SectionFieldDef {
   description?: string;
   placeholder?: string;
   options?: { value: string; label: string }[];
+  itemFields?: SectionFieldDef[];
+  default?: unknown;
 }
 
 export interface SectionTypeConfig {
@@ -187,37 +191,27 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
   {
     type: 'features_grid',
     label: 'Blok Fitur/USP',
-    description: 'Keunggulan bisnis dalam 2-4 kolom (mis. Gratis Ongkir, Garansi, Layanan 24/7).',
+    description: 'Tambahkan keunggulan bisnis, mis. Gratis Ongkir, Garansi, atau Layanan 24/7.',
     category: 'narrative',
     categoryLabel: 'Konten',
     gradient: 'from-sky-600 to-blue-500',
     icon: '⭐',
     defaults: {
       title: 'Kenapa Pilih Kami',
-      feature_1_icon: '🚚',
-      feature_1_title: '',
-      feature_1_desc: '',
-      feature_2_icon: '🛡️',
-      feature_2_title: '',
-      feature_2_desc: '',
-      feature_3_icon: '💬',
-      feature_3_title: '',
-      feature_3_desc: '',
+      features: [],
     },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text' },
-      { key: 'feature_1_icon', label: 'Ikon Fitur 1 (emoji)', type: 'text', placeholder: '🚚' },
-      { key: 'feature_1_title', label: 'Judul Fitur 1', type: 'text' },
-      { key: 'feature_1_desc', label: 'Deskripsi Fitur 1', type: 'textarea' },
-      { key: 'feature_2_icon', label: 'Ikon Fitur 2 (emoji)', type: 'text', placeholder: '🛡️' },
-      { key: 'feature_2_title', label: 'Judul Fitur 2', type: 'text' },
-      { key: 'feature_2_desc', label: 'Deskripsi Fitur 2', type: 'textarea' },
-      { key: 'feature_3_icon', label: 'Ikon Fitur 3 (emoji)', type: 'text', placeholder: '💬' },
-      { key: 'feature_3_title', label: 'Judul Fitur 3', type: 'text' },
-      { key: 'feature_3_desc', label: 'Deskripsi Fitur 3', type: 'textarea' },
-      { key: 'feature_4_icon', label: 'Ikon Fitur 4', type: 'text', placeholder: '04' },
-      { key: 'feature_4_title', label: 'Judul Fitur 4', type: 'text' },
-      { key: 'feature_4_desc', label: 'Deskripsi Fitur 4', type: 'textarea' },
+      {
+        key: 'features',
+        label: 'Daftar keunggulan',
+        type: 'list',
+        itemFields: [
+          { key: 'icon', label: 'Ikon', type: 'iconPicker', default: '⭐' },
+          { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
+          { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+        ],
+      },
     ],
   },
   {
@@ -507,6 +501,8 @@ export function getDefaultFormValues(type: string): Record<string, SectionFormVa
       values[field.key] = def === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(def);
+    } else if (field.type === 'list') {
+      values[field.key] = Array.isArray(def) ? def as Record<string, unknown>[] : [];
     } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(def);
     } else if (field.type === 'richtext') {
@@ -531,12 +527,28 @@ export function contentToFormValues(
   const values = getDefaultFormValues(type);
 
   for (const field of config.fields) {
-    const val = content[field.key];
+    let val = content[field.key];
+
+    if (type === 'features_grid' && field.key === 'features' && !Array.isArray(val)) {
+      val = [1, 2, 3, 4]
+        .map((index) => ({
+          icon: content[`feature_${index}_icon`],
+          title: content[`feature_${index}_title`],
+          desc: content[`feature_${index}_desc`],
+        }))
+        .filter((item) =>
+          [item.title, item.desc].some((value) => typeof value === 'string' && value.trim()),
+        );
+    }
 
     if (field.type === 'switch') {
       values[field.key] = val === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(val);
+    } else if (field.type === 'list') {
+      values[field.key] = Array.isArray(val)
+        ? val.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+        : [];
     } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(val);
     } else if (field.type === 'richtext') {
@@ -569,6 +581,13 @@ export function formValuesToContent(
     if (field.type === 'gallery') {
       const images = parseGalleryImages(val);
       content[field.key] = images.filter((img) => img.url);
+      continue;
+    }
+
+    if (field.type === 'list') {
+      content[field.key] = Array.isArray(val)
+        ? val.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+        : [];
       continue;
     }
 

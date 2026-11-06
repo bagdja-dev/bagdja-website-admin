@@ -36,7 +36,7 @@ export const FALLBACK_MODULE_LABELS: Readonly<Record<ModuleKey, string>> = {
   quotes: 'Penawaran',
   billing: 'Tagihan',
   fulfillment: 'Master Flow',
-  events: 'Kalender Acara',
+  events: 'Gathering',
   digital_delivery: 'Digital Asset',
   locations: 'Lokasi',
   vendors: 'Vendor',

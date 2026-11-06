@@ -75,7 +75,7 @@ export function ProfileStep({ catalog, selectedId, onSelect, onNext }: ProfileSt
             ))}
           </ul>
           <p className="text-[13px] text-default-500">
-            Fitur lain (Penawaran, Vendor, Kalender Acara, dll.) bisa diaktifkan kapan saja dari menu Fitur. Fitur bertanda
+            Fitur lain (Penawaran, Vendor, Gathering, dll.) bisa diaktifkan kapan saja dari menu Fitur. Fitur bertanda
             «segera hadir» aktif otomatis saat siap.
           </p>
           </div>

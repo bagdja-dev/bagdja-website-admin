@@ -1,6 +1,26 @@
 import { studioRequest } from './client';
 import type { WebsiteTemplateDto } from './types';
 
+export interface TemplateManifestField {
+  key: string;
+  label: string;
+  /** text | textarea | richtext | number | url | phone | email | select | iconPicker | switch | image | gallery | list | …Picker */
+  type: string;
+  description?: string;
+  placeholder?: string;
+  required?: boolean;
+  default?: unknown;
+  options?: Array<{ value: string; label: string }>;
+  itemFields?: TemplateManifestField[];
+  minItems?: number;
+  maxItems?: number;
+  multiple?: boolean;
+  /** Tampil hanya bila nilai field `field` (level yang sama) sama dengan `equals`; nilai yang disembunyikan tetap disimpan. */
+  showWhen?: { field: string; equals: string | string[] };
+  /** `select` satu pilihan sebagai chip/segmen, bukan dropdown. */
+  display?: 'segmented';
+}
+
 export interface TemplateManifestSection {
   type: string;
   label: string;
@@ -11,20 +31,7 @@ export interface TemplateManifestSection {
   dataSource?: string;
   singleton?: boolean;
   pinned?: 'top';
-  fields: Array<{
-    key: string;
-    label: string;
-    type: string;
-    description?: string;
-    placeholder?: string;
-    required?: boolean;
-    default?: unknown;
-    options?: Array<{ value: string; label: string }>;
-    itemFields?: any;
-    minItems?: number;
-    maxItems?: number;
-    multiple?: boolean;
-  }>;
+  fields: TemplateManifestField[];
   defaults: Record<string, unknown>;
 }
 

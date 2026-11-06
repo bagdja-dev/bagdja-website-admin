@@ -22,7 +22,7 @@ const BLOCK_TYPES: Array<{ type: WebsiteFooterBlockType; label: string; descript
 ];
 
 const PAGE_PLACEMENT_OPTIONS = [
-  { value: 'regular', label: 'Tidak di navigasi' },
+  { value: 'regular', label: 'Navigasi utama' },
   { value: 'header', label: 'Navigasi header' },
   { value: 'footer', label: 'Navigasi footer' },
 ] as const;
