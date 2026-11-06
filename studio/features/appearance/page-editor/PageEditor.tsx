@@ -432,7 +432,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
             <button
               type="button"
               onClick={() => setMobilePanel('list')}
-              className="absolute left-2 top-1/2 z-10 inline-flex -translate-y-1/2 items-center gap-2 rounded-r-xl rounded-l-md border border-l-0 border-default-300 bg-white/95 px-2.5 py-3 text-xs font-semibold text-default-700 shadow-lg backdrop-blur md:hidden"
+              className="fixed left-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-r-xl border border-l-0 border-default-300 bg-white px-2 py-3 text-[10px] font-semibold leading-tight text-default-700 shadow-lg md:hidden"
               aria-label="Buka daftar section"
             >
               <Icon name="menu" size={17} strokeWidth={1.8} />

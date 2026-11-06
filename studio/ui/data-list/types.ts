@@ -41,8 +41,8 @@ interface FilterBase<T extends DataRow> {
   label: string;
   allLabel: string;
   options: FilterOption[];
-  /** Nilai baris untuk filter & hitungan (mode client). */
-  getValue: (row: T) => string | null | undefined;
+  /** Nilai baris untuk filter & hitungan (mode client); array mendukung filter multi-relasi. */
+  getValue: (row: T) => string | readonly string[] | null | undefined;
 }
 
 export interface ChipFilterDef<T extends DataRow> extends FilterBase<T> {

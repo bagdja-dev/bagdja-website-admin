@@ -18,7 +18,8 @@ function matchesFilters<T extends DataRow>(
   return filters.every((f) => {
     if (f.key === skipKey) return true;
     const selected = values[f.key] ?? '';
-    return !selected || (f.getValue(row) ?? '') === selected;
+    const value = f.getValue(row);
+    return !selected || (Array.isArray(value) ? value.includes(selected) : (value ?? '') === selected);
   });
 }
 
@@ -47,7 +48,10 @@ export function computeFilterCounts<T extends DataRow>(
       if (!matchesSearch(row, search, searchKeys) || !matchesFilters(row, filters, values, filter.key)) continue;
       bucket[''] += 1;
       const value = filter.getValue(row) ?? '';
-      bucket[value] = (bucket[value] ?? 0) + 1;
+      const valuesForRow = Array.isArray(value) ? new Set(value) : [value];
+      for (const item of valuesForRow) {
+        bucket[item] = (bucket[item] ?? 0) + 1;
+      }
     }
     counts[filter.key] = bucket;
   }
