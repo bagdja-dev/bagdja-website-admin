@@ -6,6 +6,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { errorMessage } from '@/studio/api/client';
 import {
+  GatheringAttendeeCell,
+  GatheringOrderLink,
+  GatheringOrderTitle,
+  GatheringOrganizerCell,
+  GatheringStateCell,
+  GatheringStatusBadge,
+  GatheringTotalCell,
+} from './GatheringOrderCells';
+import {
   fetchOrderListSummary,
   fetchOrders,
   fetchOrderVendors,
@@ -19,7 +28,6 @@ import { useModulesStore } from '@/studio/stores/modules-store';
 import { useActiveRole, useActiveWebsiteId } from '@/studio/stores/website-store';
 import {
   chipFilter,
-  DataCardList,
   DataTable,
   DataToolbar,
   ListPager,
@@ -101,6 +109,7 @@ function formatDate(value: string): string {
 }
 
 function orderTotal(row: OrderListRow): number {
+  if (row.kind === 'gathering') return row.gathering?.collected_amount ?? 0;
   if (!row.items.length) return row.total_amount;
   return row.items.reduce((sum, item) => sum + (item.order?.quoted_total_amount ?? item.total_amount), 0);
 }
@@ -140,6 +149,7 @@ function progressFor(row: OrderListRow): { progress: OrderListProgress | null; c
 }
 
 function StatusBadge({ row }: { row: OrderListRow }) {
+  if (row.kind === 'gathering') return <GatheringStatusBadge row={row} />;
   return (
     <span className={`inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-bold leading-tight ${STATUS_TONE[row.status] ?? 'bg-default-100 text-default-700'}`}>
       {paymentLabel(row)}
@@ -153,8 +163,16 @@ function orderColumns(): DataColumn<OrderListRow>[] {
       key: 'order',
       header: 'Pesanan',
       mobile: 'title',
-      render: (row) => (
-        <Link href={`/studio/orders/${row.id}`} onClick={rememberOrdersListQuery} className="flex items-start gap-2 text-foreground no-underline hover:text-primary">
+      render: (row) => row.kind === 'gathering' ? (
+        <GatheringOrderLink row={row} onClick={rememberOrdersListQuery}>
+          <GatheringOrderTitle row={row} />
+        </GatheringOrderLink>
+      ) : (
+        <Link
+          href={`/studio/orders/${encodeURIComponent(row.id)}`}
+          onClick={rememberOrdersListQuery}
+          className="flex items-start gap-2 text-foreground no-underline hover:text-primary"
+        >
           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${row.needs_action ? 'bg-warning' : 'bg-transparent'}`} aria-hidden="true" />
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-bold">{row.ref_number || `#${row.id.slice(0, 8).toUpperCase()}`}</span>
@@ -167,7 +185,9 @@ function orderColumns(): DataColumn<OrderListRow>[] {
       key: 'buyer',
       header: 'Pembeli',
       mobile: 'subtitle',
-      render: (row, ctx) => (
+      render: (row, ctx) => row.kind === 'gathering' ? (
+        <GatheringOrganizerCell row={row} ctx={ctx} />
+      ) : (
         <div className={ctx.variant === 'table' ? 'min-w-[140px]' : 'min-w-0'}>
           <p className="truncate text-[13px] font-semibold text-foreground">{row.recipient_name || row.buyer_identifier || 'Pembeli'}</p>
           {row.recipient_name && row.buyer_identifier && <p className="truncate text-xs text-default-500">{row.buyer_identifier}</p>}
@@ -180,6 +200,7 @@ function orderColumns(): DataColumn<OrderListRow>[] {
       header: 'Item',
       mobile: 'meta',
       render: (row, ctx) => {
+        if (row.kind === 'gathering') return <GatheringAttendeeCell row={row} ctx={ctx} />;
         const firstItem = row.items[0];
         const count = row.items.length;
         return (
@@ -196,7 +217,9 @@ function orderColumns(): DataColumn<OrderListRow>[] {
       header: 'Total',
       align: 'end',
       mobile: 'trailing',
-      render: (row, ctx) => (
+      render: (row, ctx) => row.kind === 'gathering' ? (
+        <GatheringTotalCell row={row} ctx={ctx} />
+      ) : (
         <div className={`${ctx.variant === 'table' ? 'min-w-[120px]' : 'max-w-[120px]'} text-right`}>
           <p className="whitespace-nowrap text-[13px] font-bold text-foreground">{formatAmount(orderTotal(row), row.currency)}</p>
           {row.termin_summary && row.termin_summary.total > 1 ? (
@@ -220,6 +243,7 @@ function orderColumns(): DataColumn<OrderListRow>[] {
       header: 'Pengerjaan',
       mobile: 'subtitle',
       render: (row, ctx) => {
+        if (row.kind === 'gathering') return <GatheringStateCell row={row} ctx={ctx} />;
         const progress = progressFor(row);
         const percentage = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
         return (
@@ -290,19 +314,85 @@ function SummaryValue({ summary, loading, type }: { summary: OrderListSummary | 
   return <>{formatAmounts(rows)}</>;
 }
 
+function OrderMobileCards({
+  rows,
+  columns,
+  ctx,
+  onRowClick,
+}: {
+  rows: OrderListRow[];
+  columns: DataColumn<OrderListRow>[];
+  ctx: ColumnContext;
+  onRowClick: (row: OrderListRow) => void;
+}) {
+  const cardCtx = { ...ctx, variant: 'card' as const };
+  const renderCell = (key: string, row: OrderListRow) => columns.find((column) => column.key === key)?.render(row, cardCtx);
+
+  return (
+    <ul aria-label="Daftar pesanan" className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <li
+          key={row.id}
+          onClick={(event) => {
+            if (event.target instanceof Element && event.target.closest('a, button')) return;
+            onRowClick(row);
+          }}
+          className="cursor-pointer rounded-[14px] border border-default-200 bg-white p-3.5 active:bg-default-50"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">{renderCell('order', row)}</div>
+            <div className="shrink-0">{renderCell('total', row)}</div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-default-100 pt-3">
+            <div className="min-w-0">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-default-400">
+                {row.kind === 'gathering' ? 'Penyelenggara' : 'Pembeli'}
+              </p>
+              {renderCell('buyer', row)}
+            </div>
+            <div className="min-w-0">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-default-400">
+                {row.kind === 'gathering' ? 'Status acara' : 'Pengerjaan'}
+              </p>
+              {renderCell('fulfillment', row)}
+            </div>
+          </div>
+          <div className="mt-3 flex items-start justify-between gap-3 border-t border-default-100 pt-3">
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-default-400">
+                {row.kind === 'gathering' ? 'Peserta' : 'Item'}
+              </p>
+              {renderCell('items', row)}
+            </div>
+            {row.kind !== 'gathering' && (
+              <div className="min-w-0 shrink-0 text-right">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-default-400">Pembayaran</p>
+                {renderCell('payment', row)}
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function OrdersList() {
   const router = useRouter();
   const websiteId = useActiveWebsiteId();
   const openOrder = useCallback(
     (row: OrderListRow) => {
       rememberOrdersListQuery();
-      router.push(`/studio/orders/${row.id}`);
+      router.push(row.kind === 'gathering'
+        ? `/studio/orders/gathering/${encodeURIComponent(row.gathering?.group_id ?? row.id)}`
+        : `/studio/orders/${encodeURIComponent(row.id)}`);
     },
     [router],
   );
   const role = useActiveRole();
   const hasModule = useModulesStore((state) => state.hasModule);
   const hasVendors = hasModule('vendors');
+  const hasEvents = useModulesStore((state) => state.enabledModules.includes('events'));
   const [vendors, setVendors] = useState<Array<{ id: string; name: string }>>([]);
   const [vendorError, setVendorError] = useState<string | null>(null);
   const [summary, setSummary] = useState<OrderListSummary | null>(null);
@@ -316,6 +406,16 @@ export function OrdersList() {
   );
   const filters = useMemo(
     () => [
+      chipFilter<OrderListRow>({
+        key: 'kind',
+        label: 'Jenis',
+        allLabel: 'Semua',
+        options: [
+          { value: 'order', label: 'Pesanan' },
+          { value: 'gathering', label: 'Gathering' },
+        ],
+        getValue: (row) => row.kind,
+      }),
       chipFilter<OrderListRow>({
         key: 'status',
         label: 'Status pesanan',
@@ -410,7 +510,9 @@ export function OrdersList() {
     [role],
   );
   const status = list.filterValues.status || 'NEEDS_ACTION';
-  const tabFilters = list.filters.filter((filter) => filter.key !== 'status');
+  const kind = list.filterValues.kind || 'ALL';
+  const hasDataFilter = Boolean(list.search || list.filterValues.period || list.filterValues.vendor || kind !== 'ALL');
+  const tabFilters = list.filters.filter((filter) => filter.key !== 'status' && filter.key !== 'kind');
   const listTableProps = {
     ariaLabel: 'Daftar pesanan',
     rows: list.rows,
@@ -418,7 +520,9 @@ export function OrdersList() {
     ctx,
     selectable: false,
     selection: list.selection,
-    getRowLabel: (row: OrderListRow) => row.recipient_name || row.buyer_identifier || 'Pesanan',
+    getRowLabel: (row: OrderListRow) => row.kind === 'gathering'
+      ? row.gathering?.title || 'Gathering'
+      : row.recipient_name || row.buyer_identifier || 'Pesanan',
     onRowClick: openOrder,
   };
 
@@ -474,32 +578,53 @@ export function OrdersList() {
           <p role="status" className="text-xs text-warning-700">Filter vendor tidak tersedia: {vendorError}</p>
         )}
 
-        <div role="group" aria-label="Filter status pesanan" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          {ORDER_STATUSES.map((item) => {
-            const active = status === item.value;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setStatus(item.value)}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${
-                  active ? 'border-primary-200 bg-primary-50 font-bold text-primary' : 'border-default-200 bg-white font-medium text-default-700 hover:bg-default-50'
-                }`}
-              >
-                {item.label}
-                <span className={`rounded-full px-1.5 py-px text-[11px] font-bold ${active ? 'bg-primary text-white' : 'bg-default-100 text-default-600'}`}>
-                  {statusCount(summary, item.value) ?? (summaryLoading ? '…' : '—')}
-                </span>
-              </button>
-            );
-          })}
+        <div className="sticky top-[72px] z-20 -mx-3 flex flex-col gap-2 bg-default-100 px-3 py-2 sm:top-[97px] md:-mx-0 md:px-0">
+          <div role="group" aria-label="Filter jenis pesanan" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {[{ value: 'ALL', label: 'Semua' }, { value: 'order', label: 'Pesanan' }, ...(hasEvents ? [{ value: 'gathering', label: 'Gathering' }] : [])].map((item) => {
+              const active = kind === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => list.setFilter('kind', item.value === 'ALL' ? '' : item.value)}
+                  className={`inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] transition-colors ${
+                    active ? 'border-[#F0CFDD] bg-[#FBF2F6] font-bold text-[#7A1E48]' : 'border-default-200 bg-white font-medium text-default-700 hover:bg-default-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div role="group" aria-label="Filter status pesanan" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {ORDER_STATUSES.map((item) => {
+              const active = status === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setStatus(item.value)}
+                  className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${
+                    active ? 'border-primary-200 bg-primary-50 font-bold text-primary' : 'border-default-200 bg-white font-medium text-default-700 hover:bg-default-50'
+                  }`}
+                >
+                  {item.label}
+                  <span className={`rounded-full px-1.5 py-px text-[11px] font-bold ${active ? 'bg-primary text-white' : 'bg-default-100 text-default-600'}`}>
+                    {statusCount(summary, item.value) ?? (summaryLoading ? '…' : '—')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <DataToolbar
           search={list.search}
           onSearchChange={list.setSearch}
-          searchPlaceholder="Cari pembeli, nomor pesanan, atau produk"
+          searchPlaceholder="Cari pembeli, nomor pesanan, produk, atau acara"
           filters={tabFilters}
           filterValues={list.filterValues}
           filterCounts={list.filterCounts}
@@ -522,22 +647,22 @@ export function OrdersList() {
           <div className="rounded-[14px] border border-default-200 bg-white">
             <EmptyState
               compact
-              icon={Boolean(list.search || list.filterValues.period || list.filterValues.vendor) ? 'search' : undefined}
+              icon={hasDataFilter ? 'search' : undefined}
               title={
-                Boolean(list.search || list.filterValues.period || list.filterValues.vendor)
-                  ? 'Tidak ada pesanan yang cocok'
+                hasDataFilter
+                  ? kind === 'gathering' ? 'Tidak ada acara yang cocok' : 'Tidak ada pesanan yang cocok'
                   : status === 'NEEDS_ACTION'
-                    ? 'Tidak ada pesanan yang perlu ditindaklanjuti'
+                    ? kind === 'gathering' ? 'Tidak ada acara yang perlu ditindaklanjuti' : 'Tidak ada pesanan yang perlu ditindaklanjuti'
                     : status === 'ALL'
-                      ? 'Belum ada pesanan'
+                      ? kind === 'gathering' ? 'Belum ada acara gathering' : 'Belum ada pesanan'
                       : `Tidak ada pesanan: ${ORDER_STATUSES.find((item) => item.value === status)?.label ?? 'filter ini'}`
               }
               description={
-                Boolean(list.search || list.filterValues.period || list.filterValues.vendor)
+                hasDataFilter
                   ? 'Coba kata kunci lain atau ubah filter.'
-                  : 'Pesanan baru dari pembeli akan muncul di sini.'
+                  : kind === 'gathering' ? 'Acara gathering sesuai status akan muncul di sini.' : 'Pesanan baru dari pembeli akan muncul di sini.'
               }
-              action={Boolean(list.search || list.filterValues.period || list.filterValues.vendor) ? <button type="button" onClick={list.resetQuery} className="min-h-10 rounded-[10px] border border-default-300 bg-white px-3.5 text-[13px] font-semibold">Reset filter</button> : undefined}
+              action={hasDataFilter ? <button type="button" onClick={list.resetQuery} className="min-h-10 rounded-[10px] border border-default-300 bg-white px-3.5 text-[13px] font-semibold">Reset filter</button> : undefined}
             />
           </div>
         ) : (
@@ -547,7 +672,7 @@ export function OrdersList() {
               <ListPager list={list} />
             </section>
             <div className="flex flex-col gap-2 md:hidden">
-              <DataCardList {...listTableProps} ctx={{ ...ctx, variant: 'card' }} />
+              <OrderMobileCards rows={list.rows} columns={columns} ctx={ctx} onRowClick={openOrder} />
               <ListPager list={list} />
             </div>
           </>

@@ -23,6 +23,7 @@ export interface OrderListItem {
 
 export interface OrderListRow {
   id: string;
+  kind: 'order' | 'gathering';
   buyer_identifier: string | null;
   recipient_name: string | null;
   city: string | null;
@@ -40,6 +41,21 @@ export interface OrderListRow {
   fulfillment: Record<string, OrderListProgress>;
   needs_action: boolean;
   termin_summary: TerminProgressSummary | null;
+  gathering?: {
+    group_id: string;
+    occurrence_id: string;
+    title: string;
+    status: string;
+    final_schedule: string | null;
+    final_location: string | null;
+    min_attendees: number;
+    max_attendees: number;
+    paid_count: number;
+    registered_count: number;
+    collected_amount: number;
+    currency: string;
+    initiator_name: string | null;
+  };
 }
 
 export interface OrderListSummary {
@@ -83,6 +99,7 @@ export async function fetchOrders(websiteId: string, query: ServerQuery): Promis
     size: String(query.pageSize),
   });
   if (query.search) params.set('q', query.search);
+  if (query.filters.kind) params.set('kind', query.filters.kind);
 
   const selectedStatus = query.filters.status ?? 'NEEDS_ACTION';
   if (selectedStatus === 'NEEDS_ACTION') {

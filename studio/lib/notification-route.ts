@@ -43,6 +43,16 @@ export function toStudioPath(actionUrl: string): string {
   const sub = path.startsWith(API_PREFIX) ? path.slice(API_PREFIX.length) : path;
   if (sub === '' || sub === '/') return `/studio${rest}`;
 
+  const gatheringMatch = sub.match(/^\/calendar\/([^/]+)(?:\/check-in)?\/?$/);
+  if (gatheringMatch) {
+    const checkIn = sub.includes('/check-in');
+    const query = rest.startsWith('?') ? rest.slice(1) : '';
+    const params = new URLSearchParams(query);
+    if (checkIn) params.set('checkin', '1');
+    const suffix = params.toString();
+    return `/studio/orders/gathering/${encodeURIComponent(gatheringMatch[1])}${suffix ? `?${suffix}` : ''}`;
+  }
+
   for (const [from, to] of PATH_MAP) {
     if (sub === from || sub.startsWith(`${from}/`)) {
       // Tujuan berquery (mis. tab Pengaturan): sub-path dibuang, query asli digabung dengan `&`.

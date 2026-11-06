@@ -73,6 +73,7 @@ export interface DetailOrder {
   product?: DetailProduct | null;
   quantity?: number;
   quoted_total_amount?: number | null;
+  metadata?: { gathering?: { role?: string; group_id?: string; occurrence_id?: string } } | null;
 }
 
 export interface DetailItem {
@@ -134,7 +135,10 @@ export interface OrderDetail {
   escrow?: EscrowSummary | null;
   fulfillment?: Record<string, FulfillmentProgress>;
   termins?: TransactionTermin[];
-  metadata?: { shipping?: ShippingMetadata } | null;
+  metadata?: {
+    shipping?: ShippingMetadata;
+    gathering?: { role?: string; group_id?: string; occurrence_id?: string };
+  } | null;
   termin_summary?: TerminProgressSummary | null;
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@heroui/react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { OrderDetail } from '@/studio/api/order-detail';
@@ -61,12 +62,37 @@ function DetailSkeleton() {
 }
 
 export function OrderDetailPage({ id }: { id: string }) {
+  const router = useRouter();
   const websiteId = useActiveWebsiteId();
   const backHref = useListBackHref();
   const { state, reload } = useOrderDetail(id);
   const order = state.kind === 'ready' ? state.order : null;
+  const gatheringItem = order?.items?.find(
+    (item) => item.order?.metadata?.gathering?.role === 'participant',
+  );
+  const transactionGathering = order?.metadata?.gathering;
+  const gatheringGroupId = gatheringItem?.order?.metadata?.gathering?.group_id
+    ?? (transactionGathering?.role === 'participant' ? transactionGathering.group_id : null)
+    ?? null;
   const actions = useOrderActions(websiteId, order, () => reload({ silent: true }));
   const back = { href: backHref, label: 'Pesanan' };
+
+  useEffect(() => {
+    if (gatheringGroupId) {
+      router.replace(`/studio/orders/gathering/${encodeURIComponent(gatheringGroupId)}`);
+    }
+  }, [gatheringGroupId, router]);
+
+  if (gatheringGroupId) {
+    return (
+      <>
+        <PageHeader title="Membuka detail acara…" back={back} />
+        <div role="status" className="mx-auto max-w-[520px] px-4 py-10 text-center text-sm text-default-600">
+          Transaksi ini merupakan pembayaran peserta gathering. Membuka detail acara.
+        </div>
+      </>
+    );
+  }
 
   if (state.kind === 'cancelled') return <CancelledPreorderView preorder={state.preorder} />;
   if (state.kind === 'not-found') {

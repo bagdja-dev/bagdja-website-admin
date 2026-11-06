@@ -1,6 +1,6 @@
 /** Endpoint hitungan badge sidebar — sama dengan dashboard lama (parity C · Shell). */
 import { studioRequest, websitePath } from './client';
-import type { CountResponseDto, GatheringCalendarRowDto, PaginatedMetaResponseDto } from './types';
+import type { CountResponseDto, PaginatedMetaResponseDto } from './types';
 
 export async function fetchDraftOrderCount(websiteId: string): Promise<number> {
   const res = await studioRequest<CountResponseDto>(websitePath(websiteId, '/orders/drafts/count'));
@@ -21,7 +21,9 @@ export async function fetchScheduledTerminCount(websiteId: string): Promise<numb
   return res.count;
 }
 
-export async function fetchPlannedGatheringCount(websiteId: string): Promise<number> {
-  const rows = await studioRequest<GatheringCalendarRowDto[]>(websitePath(websiteId, '/gatherings/calendar'));
-  return rows.filter((row) => row.status === 'PREORDER' && row.workflow_step === 'PLAN').length;
+export async function fetchGatheringActionCount(websiteId: string): Promise<number> {
+  const res = await studioRequest<PaginatedMetaResponseDto>(
+    websitePath(websiteId, '/transactions?page=1&size=1&kind=gathering&needs_action=true'),
+  );
+  return res.meta.total;
 }
