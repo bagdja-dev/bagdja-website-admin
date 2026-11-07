@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { uploadAsset } from '@/studio/lib/upload-asset';
-import { ModelViewerElement } from '@/app/components/model-viewer-element';
+import { ModelViewerElement } from '@/lib/model-viewer-element';
 import { Icon } from '@/studio/ui/icons';
 import { notify } from '@/studio/ui/primitives/Toast';
 

@@ -23,7 +23,7 @@ import { StatusScreen } from '@/studio/ui/primitives/StatusScreen';
 import { notify } from '@/studio/ui/primitives/Toast';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { RichTextEditor } from '@/studio/ui/rich-text-editor';
-import { IconPickerField } from '@/app/components/icon-picker-field';
+import { IconPickerField } from './IconPickerField';
 
 import { AddSectionDialog } from './AddSectionDialog';
 import { PagePreviewPanel } from './PagePreviewPanel';
