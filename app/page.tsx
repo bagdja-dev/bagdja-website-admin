@@ -1,494 +1,599 @@
-'use client';
-
-import {
-  Button,
-} from '@heroui/react';
 import Link from 'next/link';
 
 import { LandingNavbar } from './components/landing-navbar';
+import { PublicPricingSection } from './components/public-pricing-section';
 
-const features = [
+type IconName =
+  | 'layout'
+  | 'catalog'
+  | 'cart'
+  | 'orders'
+  | 'chat'
+  | 'team'
+  | 'domain'
+  | 'android'
+  | 'calendar'
+  | 'rental'
+  | 'ticket'
+  | 'arrow';
+
+const activeFeatures = [
   {
-    title: 'Website Instan UMKM',
-    desc: 'Buat website profesional dalam hitungan menit. Pilih template, isi konten, langsung online.',
-    gradient: 'from-blue-500 to-cyan-400',
-    bg: 'bg-blue-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-      </svg>
-    ),
+    icon: 'layout',
+    eyebrow: 'Website & konten',
+    title: 'Bangun tampilan yang terasa seperti brand-mu',
+    description:
+      'Atur halaman, section, warna, dan konten lewat editor visual. Lengkapi website dengan FAQ, blog, dan informasi lokasi.',
   },
   {
-    title: 'Multi-Tenant & Multi-Staff',
-    desc: 'Kelola banyak website dari satu akun. Undang tim dengan role berbeda: owner, admin, editor.',
-    gradient: 'from-violet-500 to-purple-400',
-    bg: 'bg-violet-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-      </svg>
-    ),
+    icon: 'catalog',
+    eyebrow: 'Katalog',
+    title: 'Produk, jasa, dan paket dalam satu katalog',
+    description:
+      'Tampilkan foto, deskripsi, kategori, harga, dan varian supaya pelanggan lebih mudah memahami yang kamu tawarkan.',
   },
   {
-    title: 'Katalog Produk dan Jasa',
-    desc: 'Tampilkan produk, harga, dan gambar. Cocok untuk toko, barbershop, salon, restoran.',
-    gradient: 'from-amber-500 to-orange-400',
-    bg: 'bg-amber-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-      </svg>
-    ),
+    icon: 'cart',
+    eyebrow: 'Transaksi',
+    title: 'Pilih alur pemesanan yang sesuai',
+    description:
+      'Arahkan pelanggan ke tautan eksternal atau gunakan cart, checkout, dan pilihan pembayaran yang dikonfigurasi untuk produk.',
   },
   {
-    title: 'Cart & Checkout Terintegrasi',
-    desc: 'Pelanggan dapat menambahkan produk ke keranjang, mengatur jumlah, lalu menyelesaikan checkout dalam satu alur.',
-    gradient: 'from-fuchsia-500 to-pink-400',
-    bg: 'bg-fuchsia-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437m0 0L6.75 15h9.878a2.25 2.25 0 0 0 2.166-1.641l1.488-5.21A1.125 1.125 0 0 0 19.2 6.75H5.106Zm2.25 11.25h9.272M8.25 19.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm8.25 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-      </svg>
-    ),
+    icon: 'orders',
+    eyebrow: 'Pesanan',
+    title: 'Lihat progres pesanan dengan lebih teratur',
+    description:
+      'Pantau transaksi dan atur langkah fulfillment untuk produk yang menggunakannya, dari mulai diproses sampai selesai.',
   },
   {
-    title: 'Chat & Direct Message',
-    desc: 'Layani pertanyaan pelanggan secara langsung melalui chat dan DM agar konsultasi, pemesanan, dan tindak lanjut terasa lebih personal.',
-    gradient: 'from-sky-500 to-blue-400',
-    bg: 'bg-sky-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75h6.75m-6.75 3h4.5m-9.75 4.5a9.75 9.75 0 1 0 17.728-5.62L21 21l-5.37-1.147A9.75 9.75 0 0 1 3.375 17.25Z" />
-      </svg>
-    ),
+    icon: 'chat',
+    eyebrow: 'Inbox',
+    title: 'Percakapan pelanggan dalam satu ruang kerja',
+    description:
+      'Tanggapi percakapan pelanggan dari Inbox Bagdja Studio dan hubungkan pekerjaan tim dengan konteks bisnis.',
   },
   {
-    title: 'Rating & Review Pelanggan',
-    desc: 'Kumpulkan penilaian dan ulasan dari pelanggan untuk membangun kepercayaan serta membantu calon pembeli memilih dengan lebih yakin.',
-    gradient: 'from-yellow-500 to-amber-400',
-    bg: 'bg-yellow-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="m11.48 3.499-2.23 4.522-4.99.725a1.125 1.125 0 0 0-.624 1.919l3.61 3.52-.852 4.971a1.125 1.125 0 0 0 1.633 1.186L12.5 18l4.463 2.342a1.125 1.125 0 0 0 1.633-1.186l-.852-4.971 3.61-3.52a1.125 1.125 0 0 0-.624-1.919l-4.99-.725-2.23-4.522a1.125 1.125 0 0 0-2.02 0Z" />
-      </svg>
-    ),
+    icon: 'team',
+    eyebrow: 'Kolaborasi',
+    title: 'Kelola website bersama tim',
+    description:
+      'Undang anggota tim dan atur peran owner, admin, editor, atau viewer sesuai tanggung jawabnya.',
   },
   {
-    title: 'Desain Responsif',
-    desc: 'Semua template dioptimalkan untuk mobile, tablet, dan desktop. Akses dari mana saja.',
-    gradient: 'from-emerald-500 to-teal-400',
-    bg: 'bg-emerald-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-      </svg>
-    ),
+    icon: 'domain',
+    eyebrow: 'Alamat website',
+    title: 'Gunakan domain yang mewakili brand',
+    description:
+      'Atur domain website dari pengaturan. Ketersediaan alamat mengikuti konfigurasi DNS dan domain yang digunakan.',
+  },
+] satisfies Array<{ icon: IconName; eyebrow: string; title: string; description: string }>;
+
+const businessTypes = [
+  'Toko online',
+  'Jasa & layanan',
+  'Proyek & pesanan custom',
+  'Gathering & komunitas',
+  'Produk digital',
+  'Profil usaha',
+];
+
+const roadmapFeatures = [
+  {
+    icon: 'calendar',
+    title: 'Jadwal & booking',
+    description: 'Pelanggan memilih jadwal sesuai jam kerja, staf, atau ruang yang tersedia.',
   },
   {
-    title: 'Page Builder Visual',
-    desc: 'Susun halaman dengan section: hero, gallery, pricing, testimonial. Tanpa coding.',
-    gradient: 'from-rose-500 to-pink-400',
-    bg: 'bg-rose-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" />
-      </svg>
-    ),
+    icon: 'rental',
+    title: 'Aset & penyewaan',
+    description: 'Kelola masa sewa, ketersediaan unit, dan pelacakan aset dalam satu alur.',
   },
   {
-    title: 'Ekosistem Bagdja',
-    desc: 'Login via SSO, pembayaran via Bagdja Wallet, analitik, semuanya satu platform.',
-    gradient: 'from-indigo-500 to-blue-400',
-    bg: 'bg-indigo-50',
-    icon: (
-      <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-      </svg>
-    ),
+    icon: 'ticket',
+    title: 'Tiket & venue',
+    description: 'Dukung penjualan tiket berdasarkan jenis, kuota, lokasi, dan check-in.',
+  },
+] satisfies Array<{ icon: IconName; title: string; description: string }>;
+
+const faqs = [
+  {
+    question: 'Apakah saya perlu bisa coding?',
+    answer:
+      'Tidak. Kamu dapat mengatur halaman dan konten melalui editor visual, lalu mengelola katalog dari Bagdja Studio.',
+  },
+  {
+    question: 'Apakah website hanya untuk menjual produk fisik?',
+    answer:
+      'Tidak. Bagdja mendukung katalog produk dan jasa, pesanan custom, gathering, produk digital, serta profil usaha.',
+  },
+  {
+    question: 'Apakah semua produk harus memakai checkout Bagdja?',
+    answer:
+      'Tidak. Cara transaksi dapat berbeda per produk: menggunakan tautan eksternal atau checkout di website, sesuai konfigurasi produk.',
+  },
+  {
+    question: 'Fitur apa yang sedang dikembangkan?',
+    answer:
+      'Jadwal dan booking, pengelolaan aset sewaan, serta tiket dan venue sedang direncanakan. Fitur-fitur ini belum tersedia untuk digunakan.',
+  },
+  {
+    question: 'Bisakah saya menggunakan domain sendiri?',
+    answer:
+      'Pengaturan domain kustom tersedia. Penyambungan domain bergantung pada konfigurasi DNS dan domain yang kamu gunakan.',
   },
 ];
 
-const stats = [
-  { value: '10+', label: 'Template Siap Pakai' },
-  { value: '5 menit', label: 'Setup Website' },
-  { value: '100%', label: 'Mobile Friendly' },
-  { value: '24/7', label: 'Online Tanpa Henti' },
-];
+const iconPaths: Record<IconName, string[]> = {
+  layout: ['M3.75 4.5h16.5v15h-16.5z', 'M3.75 9h16.5', 'M9 9v10.5'],
+  catalog: ['M4.5 6.75h15l1.5 13.5h-18l1.5-13.5Z', 'M8.25 8.25v-2.5a3.75 3.75 0 0 1 7.5 0v2.5'],
+  cart: ['M2.25 3h1.5l2.25 11.25h12.75l2.25-8.25H5.25', 'M8.25 18.75h.008', 'M16.5 18.75h.008'],
+  orders: ['M8.25 6.75h12', 'M8.25 12h12', 'M8.25 17.25h12', 'M3.75 6.75h.008', 'M3.75 12h.008', 'M3.75 17.25h.008'],
+  chat: ['M20.25 11.25a7.5 7.5 0 0 1-7.5 7.5H6l-3.75 2.25V11.25a7.5 7.5 0 0 1 7.5-7.5h3a7.5 7.5 0 0 1 7.5 7.5Z', 'M8.25 11.25h.008', 'M12 11.25h.008', 'M15.75 11.25h.008'],
+  team: ['M16.5 20.25h5.25v-1.5a4.5 4.5 0 0 0-7.5-3.354', 'M16.5 20.25H7.5m9 0v-1.5c0-1.19-.464-2.271-1.22-3.079M7.5 20.25H2.25v-1.5a4.5 4.5 0 0 1 7.5-3.354', 'M7.5 20.25v-1.5c0-1.19.464-2.271 1.22-3.079m5.78-3.421a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z'],
+  domain: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M3.6 9h16.8', 'M3.6 15h16.8', 'M12 3a15 15 0 0 1 0 18', 'M12 3a15 15 0 0 0 0 18'],
+  android: ['M7.5 3.75h9a2.25 2.25 0 0 1 2.25 2.25v12a2.25 2.25 0 0 1-2.25 2.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75Z', 'M9.75 16.5h4.5', 'M10.5 6.75h3'],
+  calendar: ['M6.75 3v3.75', 'M17.25 3v3.75', 'M3.75 8.25h16.5', 'M4.5 5.25h15a.75.75 0 0 1 .75.75v13.5H3.75V6a.75.75 0 0 1 .75-.75Z', 'm8.25 14.25 2.25 2.25 5.25-5.25'],
+  rental: ['M3.75 20.25h16.5', 'M6 20.25V9l6-5.25L18 9v11.25', 'M9.75 20.25v-6h4.5v6', 'M8.25 10.5h.008', 'M15.75 10.5h.008'],
+  ticket: ['M3 8.25a2.25 2.25 0 0 0 0 4.5v4.5h18v-4.5a2.25 2.25 0 0 1 0-4.5v-4.5H3v4.5Z', 'M12 6.75v1.5', 'M12 10.5V12', 'M12 14.25v1.5'],
+  arrow: ['M4.5 12h15', 'm13.5 6 6 6-6 6'],
+};
 
-const pricingPlans = [
-  {
-    name: 'FREE',
-    badge: 'Aktif Sekarang',
-    price: 'Rp 0',
-    period: 'selamanya (selama masa beta)',
-    highlight: false,
-    features: [
-      '1 Website dengan subdomain sites.bagdja.com',
-      'Semua template & fitur page builder',
-      'Produk, blog, dan halaman tanpa batas',
-    ],
-    cta: 'Mulai Gratis Sekarang',
-  },
-  {
-    name: 'STARTER',
-    badge: 'Paling Populer',
-    price: 'Rp 29.000',
-    period: '/ bulan',
-    priceNote: 'atau Rp 290.000 / tahun',
-    highlight: true,
-    features: [
-      '1 Website + Custom Domain sendiri',
-      'Semua template & fitur page builder',
-      'Produk, blog, dan halaman tanpa batas',
-    ],
-    cta: 'Mulai Sekarang',
-  },
-  {
-    name: 'BUSINESS',
-    badge: 'Untuk Multi-Toko',
-    price: 'Rp 35.000',
-    period: '/ bulan',
-    priceNote: 'atau Rp 350.000 / tahun',
-    highlight: false,
-    features: [
-      '3 Website + Custom Domain per website',
-      'Staff/tim tanpa batas per website',
-      '+Rp 10.000/bln per website tambahan (tahunan: +Rp 100.000)',
-    ],
-    cta: 'Mulai Sekarang',
-  },
-];
+function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {iconPaths[name].map((path) => (
+        <path key={path} d={path} />
+      ))}
+    </svg>
+  );
+}
+
+function ProductPreview() {
+  return (
+    <div
+      id="contoh"
+      className="relative mx-auto w-full max-w-[650px]"
+      aria-label="Ilustrasi website toko dan Bagdja Studio"
+    >
+      <div className="absolute -left-5 top-20 hidden h-36 w-36 rounded-full bg-[#eeddd9] blur-3xl sm:block" />
+      <div className="absolute -right-4 bottom-12 hidden h-40 w-40 rounded-full bg-[#e6e5d7] blur-3xl sm:block" />
+
+      <div className="relative rounded-[26px] border border-[#e7ded5] bg-white p-2.5 shadow-[0_30px_90px_-40px_rgba(74,38,47,0.38)] sm:rounded-[32px] sm:p-3">
+        <div className="flex h-9 items-center gap-1.5 border-b border-[#f1ece7] px-2">
+          <span className="h-2 w-2 rounded-full bg-[#e9aaa0]" />
+          <span className="h-2 w-2 rounded-full bg-[#e8d1a2]" />
+          <span className="h-2 w-2 rounded-full bg-[#b7c8a9]" />
+          <div className="mx-auto flex h-6 min-w-0 items-center gap-2 rounded-md bg-[#f7f4f0] px-3 text-[10px] text-[#7d706a]">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#6d8b63]" />
+            <span className="truncate">Contoh tampilan · tokokamu.example</span>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-2 sm:grid-cols-[1.4fr_0.85fr] sm:gap-4 sm:p-4">
+          <div className="overflow-hidden rounded-2xl border border-[#eee7df] bg-[#fbf8f4]">
+            <div className="flex items-center justify-between border-b border-[#eee7df] bg-white px-3 py-2.5 sm:px-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#681c3c] text-xs font-semibold text-white">
+                  D
+                </span>
+                <span className="text-xs font-semibold text-[#30252a]">Daily Goods</span>
+              </div>
+              <div className="flex gap-2 text-[9px] text-[#81766f] sm:gap-3">
+                <span>Katalog</span>
+                <span>Tentang</span>
+                <span>Kontak</span>
+              </div>
+            </div>
+            <div className="m-2 flex min-h-24 items-end justify-between overflow-hidden rounded-xl bg-[#e5ded2] p-3 sm:m-3 sm:min-h-32 sm:p-4">
+              <div>
+                <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#7b564c]">
+                  Pilihan untuk harimu
+                </p>
+                <p className="mt-1 max-w-36 text-lg font-semibold leading-tight tracking-tight text-[#3d2c2d] sm:text-2xl">
+                  Cerita baik dimulai di sini.
+                </p>
+              </div>
+              <div className="mb-1 mr-1 flex h-14 w-14 rotate-[-8deg] items-center justify-center rounded-2xl bg-[#b7a283] text-3xl shadow-md sm:h-20 sm:w-20 sm:text-4xl">
+                <span aria-hidden="true">✦</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 px-2 pb-2 sm:gap-3 sm:px-3 sm:pb-3">
+              {[
+                ['Minyak Aromatik', 'Rp 89.000', 'bg-[#d9c8b3]', '✿'],
+                ['Lilin Senja', 'Rp 125.000', 'bg-[#c7d0bc]', '◉'],
+                ['Paket Hadiah', 'Rp 179.000', 'bg-[#ddc0b7]', '◇'],
+              ].map(([name, price, color, symbol]) => (
+                <div key={name} className="min-w-0 rounded-xl bg-white p-1.5 sm:p-2">
+                  <div className={`flex h-12 items-center justify-center rounded-lg ${color} text-xl text-[#5b4038] sm:h-16 sm:text-2xl`}>
+                    {symbol}
+                  </div>
+                  <p className="mt-1.5 truncate text-[9px] font-medium text-[#493a37] sm:text-[10px]">{name}</p>
+                  <p className="mt-0.5 text-[8px] text-[#8d7e76] sm:text-[9px]">{price}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="rounded-2xl border border-[#eee7df] bg-white p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-[#433337] sm:text-xs">Bagdja Studio</p>
+                <span className="rounded-full bg-[#f5e7e8] px-2 py-1 text-[8px] font-medium text-[#8b3d55]">Preview</span>
+              </div>
+              <div className="mt-4 flex items-center gap-2 rounded-xl bg-[#f8f5f1] p-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#681c3c] shadow-sm">
+                  <Icon name="layout" className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-[9px] font-medium text-[#504341]">Editor website</p>
+                  <p className="mt-0.5 text-[8px] text-[#9a8b82]">Halaman & tampilan</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-2 rounded-xl bg-[#f8f5f1] p-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#681c3c] shadow-sm">
+                  <Icon name="catalog" className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-[9px] font-medium text-[#504341]">Katalog produk</p>
+                  <p className="mt-0.5 text-[8px] text-[#9a8b82]">Varian & harga</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#eee7df] bg-white p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-[#433337] sm:text-xs">Pesanan terbaru</p>
+                <span className="rounded-full bg-[#f5e7e8] px-2 py-1 text-[8px] font-medium text-[#8b3d55]">2 baru</span>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                {[
+                  ['#ORD-1042', '2 produk', 'Baru'],
+                  ['#ORD-1041', 'Paket hadiah', 'Diproses'],
+                ].map(([order, detail, status]) => (
+                  <div key={order} className="flex items-center justify-between border-b border-[#f3efeb] pb-2 last:border-0 last:pb-0">
+                    <div>
+                      <p className="text-[9px] font-medium text-[#504341]">{order}</p>
+                      <p className="mt-0.5 text-[8px] text-[#9a8b82]">{detail}</p>
+                    </div>
+                    <span className="text-[8px] text-[#7b665e]">{status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute -bottom-5 left-5 hidden items-center gap-2 rounded-xl border border-[#eee7df] bg-white px-3 py-2.5 shadow-lg sm:flex">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#edf3e8] text-[#59704c]">
+          <span aria-hidden="true">✓</span>
+        </span>
+        <div>
+          <p className="text-[9px] font-semibold text-[#443638]">Katalog dan pesanan</p>
+          <p className="text-[8px] text-[#93857d]">Dikelola dari satu tempat</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen overflow-hidden bg-[#fbf9f6] text-[#2c2425]">
       <LandingNavbar />
 
-      {/* ─── Hero ───────────────────────────────────────── */}
-      <section className="relative overflow-hidden px-4 pb-20 pt-32 sm:pb-32 sm:pt-40">
-        {/* Background decorations */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-50" />
-          <div className="animate-pulse-glow absolute -left-32 top-20 h-96 w-96 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-300/20 blur-3xl" />
-          <div className="animate-pulse-glow absolute -right-32 bottom-20 h-96 w-96 rounded-full bg-gradient-to-br from-violet-400/20 to-purple-300/20 blur-3xl" style={{ animationDelay: '2s' }} />
-          <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-amber-200/10 to-orange-200/10 blur-3xl" />
-        </div>
+      <main>
+        <section className="relative px-5 pb-20 pt-28 sm:px-8 sm:pb-28 sm:pt-36 lg:px-12 lg:pb-32">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_80%_35%,rgba(226,211,198,0.35),transparent_38%),linear-gradient(180deg,#fbf9f6_0%,#f8f4ef_100%)]" />
+          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#e8ded6] bg-white/80 px-3.5 py-2 text-xs font-medium text-[#695c57] shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#6d8b63]" />
+                Website bisnis untuk toko, jasa, dan tim kecil
+              </div>
 
-        {/* Floating shapes */}
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="animate-float absolute left-[10%] top-[20%] h-16 w-16 rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-100/40 to-blue-50/40 backdrop-blur-sm" />
-          <div className="animate-float-slow absolute right-[15%] top-[30%] h-12 w-12 rounded-full border border-violet-200/50 bg-gradient-to-br from-violet-100/40 to-violet-50/40 backdrop-blur-sm" style={{ animationDelay: '1s' }} />
-          <div className="animate-float absolute bottom-[25%] left-[20%] h-10 w-10 rounded-xl border border-cyan-200/50 bg-gradient-to-br from-cyan-100/40 to-cyan-50/40 backdrop-blur-sm" style={{ animationDelay: '3s' }} />
-          <div className="animate-float-slow absolute bottom-[30%] right-[10%] h-14 w-14 rounded-2xl border border-amber-200/50 bg-gradient-to-br from-amber-100/40 to-amber-50/40 backdrop-blur-sm" style={{ animationDelay: '2s' }} />
-        </div>
+              <h1 className="mt-7 text-[clamp(2.65rem,6.1vw,5.25rem)] font-semibold leading-[0.99] tracking-[-0.065em] text-[#2b2425]">
+                Bukan cuma jualan di platform lain.
+                <span className="mt-1 block font-normal italic text-[#681c3c]">
+                  Bangun website untuk bisnismu sendiri.
+                </span>
+              </h1>
 
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
-            </span>
-            <span className="text-sm font-medium text-blue-700">Platform #1 untuk UMKM Indonesia</span>
-          </div>
-
-          <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-gray-900 sm:text-6xl lg:text-7xl">
-            Buat Toko Online
-            <br />
-            <span className="animate-gradient bg-gradient-to-r from-blue-600 via-cyan-500 to-violet-600 bg-clip-text text-transparent">
-              Profesional
-            </span>
-            <br />
-            untuk Bisnis Indonesia
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-500 sm:text-xl">
-            Buat e-commerce Indonesia tanpa coding. Pilih template, tampilkan katalog produk,
-            gunakan custom domain toko online, dan terima pesanan melalui checkout yang terintegrasi.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button
-              as={Link}
-              href="/auth/login"
-              size="lg"
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 px-8 text-base font-semibold text-white shadow-xl shadow-blue-500/30 transition-all hover:shadow-2xl hover:shadow-blue-500/40 sm:w-auto"
-            >
-              Mulai Gratis — Tanpa Kartu Kredit
-            </Button>
-            <Button
-              as={Link}
-              href="#how-it-works"
-              variant="bordered"
-              size="lg"
-              className="w-full border-gray-300 text-base font-medium text-gray-700 sm:w-auto"
-            >
-              <svg className="mr-1.5 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.555 7.168A1 1 0 0 0 8 8v4a1 1 0 0 0 1.555.832l3-2a1 1 0 0 0 0-1.664l-3-2Z" clipRule="evenodd" />
-              </svg>
-              Lihat Demo
-            </Button>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-400">
-            Dipercaya 50+ UMKM di seluruh Indonesia
-          </p>
-        </div>
-      </section>
-
-      {/* ─── Stats ──────────────────────────────────────── */}
-      <section id="stats" className="relative border-y border-gray-100 bg-gray-50/50 px-4 py-12">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:gap-8 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-3xl font-extrabold text-transparent sm:text-4xl px-2">
-                {s.value}
+              <p className="mt-6 max-w-xl text-base leading-7 text-[#716864] sm:text-lg sm:leading-8">
+                Buat website tanpa coding, tampilkan katalog produk atau jasa, lalu kelola pesanan dan percakapan pelanggan melalui Bagdja Studio.
               </p>
-              <p className="mt-1 text-sm font-medium text-gray-500">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
-      {/* ─── Features ───────────────────────────────────── */}
-      <section id="features" className="scroll-mt-20 px-4 py-20 sm:py-28">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <span className="mb-4 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Fitur Lengkap
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-              Semua yang Bisnis Anda
-              <br />
-              <span className="text-gray-400">Butuhkan</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-gray-500">
-              Platform lengkap untuk membangun kehadiran digital bisnis Anda di era modern.
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/auth/login"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#681c3c] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(104,28,60,0.7)] transition hover:bg-[#53142f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#681c3c] focus-visible:ring-offset-2"
+                >
+                  Mulai buat website
+                  <Icon name="arrow" className="h-4 w-4" />
+                </Link>
+                <a
+                  href="#fitur"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#cfc5bd] bg-white/70 px-6 py-3.5 text-sm font-medium text-[#473c39] transition hover:border-[#8e7c72] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#681c3c] focus-visible:ring-offset-2"
+                >
+                  Jelajahi fitur
+                </a>
+              </div>
+
+              <div className="mt-7 flex flex-wrap gap-2 text-xs text-[#796e67]">
+                <span className="rounded-full border border-[#e8ded6] bg-white/70 px-3 py-2">Editor visual</span>
+                <span className="rounded-full border border-[#e8ded6] bg-white/70 px-3 py-2">Katalog & checkout</span>
+                <span className="rounded-full border border-[#e8ded6] bg-white/70 px-3 py-2">Tim & Inbox</span>
+              </div>
+            </div>
+
+            <ProductPreview />
+          </div>
+        </section>
+
+        <section className="border-y border-[#ece5de] bg-white/70 px-5 py-7 sm:px-8">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-center text-xs font-medium text-[#776b65] sm:justify-between sm:text-sm">
+            <span>Website & halaman bisnis</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#c4b8af] sm:block" />
+            <span>Katalog produk dan jasa</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#c4b8af] sm:block" />
+            <span>Pesanan & fulfillment</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#c4b8af] sm:block" />
+            <span>Kelola bersama tim</span>
+          </div>
+        </section>
+
+        <section className="px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b4b5e]">Kanal milik brand</p>
+              <h2 className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#33292a] sm:text-5xl">
+                Beri bisnismu tempat sendiri di internet.
+              </h2>
+            </div>
+            <p className="max-w-2xl text-base leading-7 text-[#746963] sm:text-lg sm:leading-8">
+              Media sosial dan marketplace tetap bisa menjadi tempat pelanggan menemukanmu. Website bisnis memberi mereka satu tempat untuk mengenal brand, melihat penawaran, dan memilih cara bertransaksi.
             </p>
           </div>
+          <div className="mx-auto mt-10 grid max-w-6xl gap-4 sm:grid-cols-3">
+            {[
+              ['Info bisnis lebih tertata', 'Satukan halaman, katalog, FAQ, artikel, dan lokasi dalam website yang bisa kamu kelola.'],
+              ['Pilihan transaksi yang sesuai', 'Arahkan pelanggan ke checkout website atau tautan eksternal sesuai kebutuhan produk.'],
+              ['Pekerjaan lebih terorganisir', 'Pantau pesanan, percakapan, dan pekerjaan tim lewat Bagdja Studio.'],
+            ].map(([title, description], index) => (
+              <article key={title} className="rounded-2xl border border-[#ece4dc] bg-white p-6 sm:p-7">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5e9e9] text-sm font-semibold text-[#7d3551]">
+                  0{index + 1}
+                </span>
+                <h3 className="mt-5 text-lg font-semibold tracking-tight text-[#352a2b]">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#796e68]">{description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className="feature-card group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-              >
-                <div className={`mb-4 inline-flex rounded-xl ${f.bg} p-3`}>
-                  <div className={`bg-gradient-to-br ${f.gradient} bg-clip-text text-transparent`}>
-                    {f.icon}
+        <section id="fitur" className="scroll-mt-24 bg-[#f4efe9] px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b4b5e]">Yang tersedia sekarang</p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#33292a] sm:text-5xl">
+                Mulai dari website. Lanjutkan dengan cara bisnismu bekerja.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-[#746963]">
+                Fitur-fitur Bagdja dirancang untuk membantu mengelola konten, katalog, transaksi, dan kolaborasi dari satu tempat.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {activeFeatures.map((feature) => (
+                <article key={feature.title} className="rounded-2xl border border-[#e8dfd7] bg-[#fbf9f6] p-6 transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-32px_rgba(61,42,44,0.55)] sm:p-7">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3e5e5] text-[#752d4a]">
+                    <Icon name={feature.icon} className="h-5 w-5" />
+                  </span>
+                  <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#936e67]">{feature.eyebrow}</p>
+                  <h3 className="mt-2 text-lg font-semibold leading-snug tracking-tight text-[#352a2b]">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#796e68]">{feature.description}</p>
+                </article>
+              ))}
+            </div>
+
+            <article className="relative mt-5 overflow-hidden rounded-[24px] bg-[#681c3c] p-6 text-white sm:p-9 lg:p-10">
+              <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#a95c76]/30 blur-3xl" />
+              <div className="relative grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#f3dfe4]">
+                    <Icon name="android" className="h-4 w-4" />
+                    Aplikasi Android
+                  </div>
+                  <h3 className="mt-5 text-2xl font-semibold leading-tight tracking-[-0.04em] sm:text-3xl">
+                    Bawa websitemu ke Play Store.
+                  </h3>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[#f0dfe1]">
+                    Atur identitas aplikasi, signing, lalu buat APK untuk pengujian atau AAB release yang bisa kamu unggah ke Google Play melalui Play Console.
+                  </p>
+                  <p className="mt-3 text-xs leading-5 text-[#e2c6cd]">
+                    Bagdja menyiapkan file AAB; pengunggahan dan publikasi di Play Console dilakukan oleh pemilik aplikasi.
+                  </p>
+                </div>
+
+                <div className="w-full rounded-2xl border border-white/15 bg-white/[0.08] p-4 md:w-64">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fbf7f2] text-[#681c3c]">
+                        <Icon name="android" className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold">Build aplikasi</p>
+                        <p className="mt-0.5 text-[10px] text-[#e5cbd2]">Website ke Android</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-[#dbe8d5] px-2 py-1 text-[9px] font-semibold text-[#3d5a39]">AAB</span>
+                  </div>
+                  <div className="mt-4 rounded-xl bg-[#fbf7f2] p-3 text-[#4c3940]">
+                    <p className="text-[10px] font-medium">AAB Release · Play Store</p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eadfe2]">
+                      <div className="h-full w-full rounded-full bg-[#8b526a]" />
+                    </div>
+                    <p className="mt-2 text-[9px] text-[#88777a]">Unduh hasil build, lalu kirim ke Play Console</p>
                   </div>
                 </div>
-                <h3 className="mb-2 text-lg font-bold text-gray-900">{f.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{f.desc}</p>
               </div>
-            ))}
+            </article>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ─── How it Works ───────────────────────────────── */}
-      <section id="how-it-works" className="scroll-mt-20 bg-gradient-to-b from-gray-50 to-white px-4 py-20 sm:py-28">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-16 text-center">
-            <span className="mb-4 inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-700">
-              Mudah Sekali
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-              3 Langkah Mudah
-            </h2>
-          </div>
-
-          <div className="grid gap-8 sm:grid-cols-3">
-            {[
-              {
-                step: '01',
-                title: 'Pilih Template',
-                desc: 'Pilih dari koleksi template yang dirancang untuk berbagai jenis bisnis.',
-                color: 'from-blue-600 to-cyan-500',
-                bg: 'bg-blue-50',
-              },
-              {
-                step: '02',
-                title: 'Isi Konten',
-                desc: 'Tambahkan nama bisnis, produk, galeri foto, informasi kontak, dan atur cara pelanggan berbelanja.',
-                color: 'from-violet-600 to-purple-500',
-                bg: 'bg-violet-50',
-              },
-              {
-                step: '03',
-                title: 'Publikasikan',
-                desc: 'Website Anda langsung online! Bagikan ke pelanggan atau gunakan domain sendiri.',
-                color: 'from-emerald-600 to-teal-500',
-                bg: 'bg-emerald-50',
-              },
-            ].map((item, i) => (
-              <div key={item.step} className="relative text-center">
-                {/* Connector line */}
-                {i < 2 && (
-                  <div className="absolute left-[calc(50%+40px)] top-10 hidden h-0.5 w-[calc(100%-80px)] bg-gradient-to-r from-gray-200 to-gray-100 sm:block" />
-                )}
-                <div className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl ${item.bg}`}>
-                  <span className={`bg-gradient-to-br ${item.color} bg-clip-text text-3xl font-extrabold text-transparent`}>
-                    {item.step}
-                  </span>
-                </div>
-                <h3 className="mb-2 text-xl font-bold text-gray-900">{item.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{item.desc}</p>
+        <section id="cara-kerja" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="grid gap-5 sm:grid-cols-[0.8fr_1.2fr] sm:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b4b5e]">Cara kerja</p>
+                <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#33292a] sm:text-5xl">
+                  Dari ide bisnis ke website yang siap dibagikan.
+                </h2>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <p className="max-w-xl text-base leading-7 text-[#746963] sm:justify-self-end">
+                Mulai dengan kebutuhan bisnismu, atur konten dan katalog, lalu kelola aktivitas berikutnya melalui Studio.
+              </p>
+            </div>
 
-      {/* ─── Pricing ────────────────────────────────────── */}
-      <section id="pricing" className="scroll-mt-20 bg-gradient-to-b from-white to-gray-50 px-4 py-20 sm:py-28">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-4 text-center">
-            <span className="mb-4 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Iuran
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-              Iuran Transparan, Tanpa Biaya Tersembunyi
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-              Nikmati seluruh fitur premium Bagdja Website secara <strong className="text-gray-700">GRATIS</strong>{' '}
-              selama masa pengembangan. Iuran paket berbayar nantinya adalah dukungan Anda untuk
-              operasional layanan cloud dan pengembangan berkelanjutan, bukan biaya lisensi terpisah.
-            </p>
+            <ol className="mt-10 grid gap-4 md:grid-cols-3">
+              {[
+                ['01', 'Pilih kebutuhan bisnis', 'Mulai dari toko online, jasa, pesanan custom, atau tipe usaha lain yang tersedia.'],
+                ['02', 'Atur website & katalog', 'Sesuaikan tampilan, isi informasi bisnis, lalu tambahkan produk atau layanan.'],
+                ['03', 'Bagikan dan kelola', 'Bagikan website ke pelanggan, pantau pesanan, dan ajak tim ikut mengelola.'],
+              ].map(([step, title, description]) => (
+                <li key={step} className="relative rounded-2xl border border-[#ece4dc] bg-white p-6 sm:p-7">
+                  <span className="text-sm font-semibold tracking-[0.12em] text-[#8b4b5e]">{step}</span>
+                  <h3 className="mt-6 text-xl font-semibold tracking-tight text-[#352a2b]">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#796e68]">{description}</p>
+                  {step !== '03' && <Icon name="arrow" className="absolute right-6 top-6 hidden h-4 w-4 text-[#bba9a0] md:block" />}
+                </li>
+              ))}
+            </ol>
           </div>
+        </section>
 
-          <div className="mb-12 flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25">
-              🎉 Masa Beta: Gratis 100%
-            </span>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {pricingPlans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative rounded-2xl border p-6 ${
-                  plan.highlight
-                    ? 'border-blue-500 bg-white shadow-xl shadow-blue-500/10 ring-1 ring-blue-500'
-                    : 'border-gray-100 bg-white shadow-sm'
-                }`}
-              >
-                <span
-                  className={`mb-4 inline-block rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
-                    plan.highlight ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {plan.badge}
+        <section id="bisnis" className="scroll-mt-24 bg-[#332328] px-5 py-20 text-[#fbf7f2] sm:px-8 sm:py-24">
+          <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#e2b9bc]">Untuk beragam kebutuhan</p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.045em] sm:text-4xl">
+                Satu fondasi website. Banyak cara menjalankan bisnis.
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {businessTypes.map((type) => (
+                <span key={type} className="rounded-full border border-white/20 bg-white/[0.06] px-4 py-2.5 text-sm text-[#f3e9e4]">
+                  {type}
                 </span>
-                <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-gray-900">{plan.price}</span>
-                  {plan.period && <span className="text-sm font-medium text-gray-500">{plan.period}</span>}
-                </div>
-                {plan.priceNote && <p className="mt-1 text-xs text-gray-400">{plan.priceNote}</p>}
+              ))}
+            </div>
+          </div>
+        </section>
 
-                <ul className="mt-6 space-y-3 text-sm text-gray-600">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <svg
-                        className={`mt-0.5 h-5 w-5 flex-shrink-0 ${plan.highlight ? 'text-blue-500' : 'text-gray-400'}`}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  as={Link}
-                  href="/auth/login"
-                  fullWidth
-                  className={`mt-8 font-semibold ${
-                    plan.highlight
-                      ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25'
-                      : 'border border-gray-300 bg-white text-gray-700'
-                  }`}
-                  variant={plan.highlight ? 'solid' : 'bordered'}
-                >
-                  {plan.cta}
-                </Button>
+        <section id="roadmap" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b4b5e]">Dalam pengembangan</p>
+                <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#33292a] sm:text-5xl">
+                  Fitur berikutnya dibangun dari kebutuhan nyata bisnis.
+                </h2>
               </div>
-            ))}
+              <p className="max-w-sm text-sm leading-6 text-[#796e68]">
+                Ini adalah roadmap, bukan fitur yang sudah bisa digunakan. Status dapat berubah seiring pengembangan.
+              </p>
+            </div>
+            <div className="mt-9 grid gap-4 md:grid-cols-3">
+              {roadmapFeatures.map((feature) => (
+                <article key={feature.title} className="rounded-2xl border border-dashed border-[#d9cbc3] bg-[#fbf9f6] p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0e9e2] text-[#806e65]">
+                      <Icon name={feature.icon} />
+                    </span>
+                    <span className="rounded-full bg-[#f2e7dc] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#876546]">Roadmap</span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-[#443638]">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#796e68]">{feature.description}</p>
+                </article>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-gray-400">
-            *Iuran paket berbayar berlaku setelah masa beta berakhir dan payment gateway resmi aktif. Angka di
-            atas adalah rencana iuran dan dapat berubah sebelum diluncurkan.
-          </p>
-        </div>
-      </section>
+        <PublicPricingSection />
 
-      {/* ─── CTA ────────────────────────────────────────── */}
-      <section className="px-4 py-20 sm:py-28">
-        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 px-6 py-16 text-center sm:px-16 sm:py-20">
-          {/* Decorative shapes */}
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-cyan-300/20 blur-2xl" />
-            <div className="absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 rounded-full bg-blue-400/20 blur-xl" />
+        <section id="faq" className="scroll-mt-24 bg-[#f4efe9] px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[0.75fr_1.25fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b4b5e]">Pertanyaan umum</p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#33292a] sm:text-4xl">
+                Kenali dulu cara Bagdja bekerja.
+              </h2>
+            </div>
+            <div className="divide-y divide-[#e2d9d1] border-y border-[#e2d9d1]">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-semibold text-[#433638] marker:hidden">
+                    {faq.question}
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d8cbc2] text-[#785268] transition group-open:rotate-45" aria-hidden="true">
+                      +
+                    </span>
+                  </summary>
+                  <p className="max-w-2xl pr-10 pt-3 text-sm leading-6 text-[#756a64]">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <div className="relative z-10">
-            <h2 className="text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl">
-              Siap Membawa Bisnis Anda
-              <br />
-              ke Dunia Digital?
+        <section className="px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-6xl overflow-hidden rounded-[28px] bg-[#681c3c] px-6 py-12 text-center text-white sm:px-14 sm:py-16">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#e8c9cd]">Mulai dari yang kamu butuhkan</p>
+            <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.045em] sm:text-5xl">
+              Buat ruang digital yang bisa tumbuh bersama bisnismu.
             </h2>
-            <p className="mx-auto mt-4 max-w-lg text-lg text-blue-100">
-              Ribuan UMKM sudah mempercayakan website mereka kepada Bagdja. Giliran Anda sekarang.
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#f0dfe1] sm:text-base">
+              Susun website, tampilkan penawaran, dan kelola aktivitas bisnis dari Bagdja Studio.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button
-                as={Link}
-                href="/auth/login"
-                size="lg"
-                className="w-full bg-white px-8 text-base font-bold text-blue-600 shadow-xl transition-all hover:bg-gray-50 sm:w-auto"
-              >
-                Daftar Sekarang — Gratis
-              </Button>
-              <Button
-                as={Link}
-                href="#features"
-                variant="bordered"
-                size="lg"
-                className="w-full border-white/30 text-base font-medium text-white hover:bg-white/10 sm:w-auto"
-              >
-                Pelajari Lebih Lanjut
-              </Button>
-            </div>
+            <Link
+              href="/auth/login"
+              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#fbf7f2] px-6 py-3 text-sm font-semibold text-[#5b1935] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#681c3c]"
+            >
+              Mulai buat website
+              <Icon name="arrow" className="h-4 w-4" />
+            </Link>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* ─── Footer ─────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 bg-gray-50 px-4 py-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500">
-                <span className="text-sm font-bold text-white">B</span>
-              </div>
-              <span className="text-lg font-bold text-gray-900">Bagdja Website</span>
-            </div>
-            <div className="flex gap-8 text-sm text-gray-500">
-              <Link href="#" className="transition-colors hover:text-gray-900">Kebijakan Privasi</Link>
-              <Link href="#" className="transition-colors hover:text-gray-900">Syarat & Ketentuan</Link>
-              <Link href="#" className="transition-colors hover:text-gray-900">Kontak</Link>
+      <footer id="kontak" className="scroll-mt-24 border-t border-[#e9e1d9] bg-[#fbf9f6] px-5 py-9 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 text-sm text-[#796e68] sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-semibold text-[#403336]">Bagdja Website</p>
+            <p className="mt-2 text-xs">Website bisnis dan pengelolaan dalam satu tempat.</p>
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#58494a]">Kontak</h2>
+            <div className="mt-2 flex flex-col gap-1.5 sm:items-end">
+              <a className="transition hover:text-[#681c3c]" href="mailto:contact@bagdja.com">
+                contact@bagdja.com
+              </a>
+              <a className="transition hover:text-[#681c3c]" href="https://wa.me/6285188448383">
+                WhatsApp: 0851 8844 8383
+              </a>
             </div>
           </div>
-          <div className="mt-8 border-t border-gray-200 pt-6 text-center">
-            <p className="text-sm text-gray-400">
-              &copy; {new Date().getFullYear()} Bagdja Platform. Hak cipta dilindungi.
-            </p>
-          </div>
+          <p className="text-xs sm:text-right">&copy; {new Date().getFullYear()} Bagdja.</p>
         </div>
       </footer>
     </div>
