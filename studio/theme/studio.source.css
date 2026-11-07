@@ -1,0 +1,10 @@
+/*
+ * Sumber utilitas Tailwind Studio. TIDAK diimpor langsung oleh Next: dikompilasi
+ * dengan Tailwind CLI (`npm run studio:css`, juga otomatis di `dev` & `prebuild`)
+ * memakai tailwind.studio.config.ts menjadi `studio.generated.css`.
+ *
+ * Alasan: memakai `@config` di dalam pipeline PostCSS Next membuat config Studio
+ * bocor ke globals.css saat dev (Tailwind 3.4), sehingga seluruh utilitas
+ * halaman lama ikut ter-scope ke `.studio` dan landing page/dashboard kehilangan style.
+ */
+@tailwind utilities;

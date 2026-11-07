@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    label: 'Produk & Layanan',
+    label: 'Produk dan Jasa',
     href: '/dashboard/products',
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

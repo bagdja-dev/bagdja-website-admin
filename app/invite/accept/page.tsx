@@ -49,7 +49,7 @@ function InviteAcceptContent() {
         localStorage.setItem('bw_active_website', data.website_id);
       }
 
-      setTimeout(() => router.replace('/dashboard'), 2500);
+      setTimeout(() => router.replace('/studio'), 2500);
     } catch (err) {
       setState('error');
       if (err instanceof ApiError) {
@@ -123,10 +123,10 @@ function InviteAcceptContent() {
                   ) : null}
                   .
                 </p>
-                <p className="mt-2 text-xs text-default-400">Mengalihkan ke dashboard…</p>
+                <p className="mt-2 text-xs text-default-400">Mengalihkan ke Studio…</p>
               </div>
-              <Button as={Link} href="/dashboard" color="primary" variant="flat" className="w-full">
-                Buka Dashboard
+              <Button as={Link} href="/studio" color="primary" variant="flat" className="w-full">
+                Buka Studio
               </Button>
             </div>
           )}

@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     const redirectTo =
       nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
         ? nextPath
-        : '/dashboard';
+        : '/studio';
 
     return NextResponse.redirect(new URL(redirectTo, request.url));
   } catch (err) {

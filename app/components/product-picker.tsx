@@ -69,7 +69,7 @@ export function ProductPicker({
         {loading ? (
           <p className="p-4 text-sm text-default-400">Memuat produk…</p>
         ) : products.length === 0 ? (
-          <p className="p-4 text-sm text-default-400">Belum ada produk/layanan — buat dulu di menu Produk & Layanan.</p>
+          <p className="p-4 text-sm text-default-400">Belum ada produk atau jasa — buat dulu di menu Produk dan Jasa.</p>
         ) : (
           products.map((product) => (
             <label

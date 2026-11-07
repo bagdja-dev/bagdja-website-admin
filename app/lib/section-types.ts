@@ -3,6 +3,8 @@ export type SectionFieldType =
   | 'textarea'
   | 'switch'
   | 'select'
+  | 'iconPicker'
+  | 'list'
   | 'richtext'
   | 'gallery'
   | 'blogPostPicker'
@@ -17,7 +19,7 @@ export interface GalleryImage {
   caption?: string;
 }
 
-export type SectionFormValue = string | boolean | GalleryImage[] | string[];
+export type SectionFormValue = string | boolean | GalleryImage[] | string[] | Record<string, unknown>[];
 
 export interface SectionFieldDef {
   key: string;
@@ -26,6 +28,8 @@ export interface SectionFieldDef {
   description?: string;
   placeholder?: string;
   options?: { value: string; label: string }[];
+  itemFields?: SectionFieldDef[];
+  default?: unknown;
 }
 
 export interface SectionTypeConfig {
@@ -187,37 +191,27 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
   {
     type: 'features_grid',
     label: 'Blok Fitur/USP',
-    description: 'Keunggulan bisnis dalam 2-4 kolom (mis. Gratis Ongkir, Garansi, Layanan 24/7).',
+    description: 'Tambahkan keunggulan bisnis, mis. Gratis Ongkir, Garansi, atau Layanan 24/7.',
     category: 'narrative',
     categoryLabel: 'Konten',
     gradient: 'from-sky-600 to-blue-500',
     icon: '⭐',
     defaults: {
       title: 'Kenapa Pilih Kami',
-      feature_1_icon: '🚚',
-      feature_1_title: '',
-      feature_1_desc: '',
-      feature_2_icon: '🛡️',
-      feature_2_title: '',
-      feature_2_desc: '',
-      feature_3_icon: '💬',
-      feature_3_title: '',
-      feature_3_desc: '',
+      features: [],
     },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text' },
-      { key: 'feature_1_icon', label: 'Ikon Fitur 1 (emoji)', type: 'text', placeholder: '🚚' },
-      { key: 'feature_1_title', label: 'Judul Fitur 1', type: 'text' },
-      { key: 'feature_1_desc', label: 'Deskripsi Fitur 1', type: 'textarea' },
-      { key: 'feature_2_icon', label: 'Ikon Fitur 2 (emoji)', type: 'text', placeholder: '🛡️' },
-      { key: 'feature_2_title', label: 'Judul Fitur 2', type: 'text' },
-      { key: 'feature_2_desc', label: 'Deskripsi Fitur 2', type: 'textarea' },
-      { key: 'feature_3_icon', label: 'Ikon Fitur 3 (emoji)', type: 'text', placeholder: '💬' },
-      { key: 'feature_3_title', label: 'Judul Fitur 3', type: 'text' },
-      { key: 'feature_3_desc', label: 'Deskripsi Fitur 3', type: 'textarea' },
-      { key: 'feature_4_icon', label: 'Ikon Fitur 4', type: 'text', placeholder: '04' },
-      { key: 'feature_4_title', label: 'Judul Fitur 4', type: 'text' },
-      { key: 'feature_4_desc', label: 'Deskripsi Fitur 4', type: 'textarea' },
+      {
+        key: 'features',
+        label: 'Daftar keunggulan',
+        type: 'list',
+        itemFields: [
+          { key: 'icon', label: 'Ikon', type: 'iconPicker', default: '⭐' },
+          { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
+          { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+        ],
+      },
     ],
   },
   {
@@ -261,7 +255,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
   },
   {
     type: 'service_process_section',
-    label: 'Alur Layanan',
+    label: 'Alur Jasa',
     description: 'Menampilkan langkah dari Master Flow yang dipilih.',
     category: 'narrative',
     categoryLabel: 'Konten',
@@ -301,30 +295,30 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
       { key: 'title', label: 'Judul Section', type: 'text' },
       { key: 'subtitle', label: 'Subjudul', type: 'text' },
       { key: 'show_form', label: 'Tampilkan formulir', type: 'switch' },
-      { key: 'service_options', label: 'Pilihan layanan (JSON)', type: 'json', description: 'Array string, contoh: ["Kanopi", "Pagar"]' },
+      { key: 'service_options', label: 'Pilihan jasa (JSON)', type: 'json', description: 'Array string, contoh: ["Kanopi", "Pagar"]' },
     ],
   },
   {
     type: 'services_grid',
-    label: 'Grid Layanan',
-    description: 'Menampilkan layanan dari menu Produk & Layanan.',
+    label: 'Grid Jasa',
+    description: 'Menampilkan jasa dari menu Produk dan Jasa.',
     category: 'master',
     categoryLabel: 'Data Master',
     gradient: 'from-indigo-600 to-blue-500',
     icon: '✂️',
-    manageHint: 'Kelola layanan di menu Produk & Layanan → filter Layanan.',
-    defaults: { title: 'Layanan Kami', source: 'products', filter_type: 'service' },
+    manageHint: 'Kelola jasa di menu Produk dan Jasa → filter Jasa.',
+    defaults: { title: 'Jasa Kami', source: 'products', filter_type: 'service' },
     fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
   },
   {
     type: 'products_grid',
     label: 'Grid Produk',
-    description: 'Menampilkan produk dari menu Produk & Layanan.',
+    description: 'Menampilkan produk dari menu Produk dan Jasa.',
     category: 'master',
     categoryLabel: 'Data Master',
     gradient: 'from-cyan-600 to-sky-500',
     icon: '🛍️',
-    manageHint: 'Kelola produk di menu Produk & Layanan → filter Produk.',
+    manageHint: 'Kelola produk di menu Produk dan Jasa → filter Produk.',
     defaults: { title: 'Produk Kami', source: 'products', filter_type: 'product' },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text' },
@@ -343,24 +337,24 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
   {
     type: 'category_grid',
     label: 'Grid Kategori',
-    description: 'Kartu navigasi kategori produk/layanan (dikelompokkan otomatis dari field Kategori).',
+    description: 'Kartu navigasi kategori produk/jasa (dikelompokkan otomatis dari field Kategori).',
     category: 'master',
     categoryLabel: 'Data Master',
     gradient: 'from-purple-600 to-indigo-500',
     icon: '🗃️',
-    manageHint: 'Kategori diambil dari field "Kategori" di menu Produk & Layanan.',
+    manageHint: 'Kategori diambil dari field "Kategori" di menu Produk dan Jasa.',
     defaults: { title: 'Kategori Pilihan', source: 'products' },
     fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
   },
   {
     type: 'featured_product',
     label: 'Spotlight Produk',
-    description: 'Banner promosi untuk 1 produk/layanan unggulan dari katalog.',
+    description: 'Banner promosi untuk 1 produk atau jasa unggulan dari katalog.',
     category: 'master',
     categoryLabel: 'Data Master',
     gradient: 'from-yellow-600 to-amber-500',
     icon: '🌟',
-    manageHint: 'Kelola produk di menu Produk & Layanan.',
+    manageHint: 'Kelola produk di menu Produk dan Jasa.',
     defaults: { title: '', subtitle: '', product_ids: [] as string[], button_text: 'Lihat Detail' },
     fields: [
       { key: 'title', label: 'Judul', type: 'text', placeholder: 'Opsional' },
@@ -369,7 +363,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
         key: 'product_ids',
         label: 'Pilih Produk',
         type: 'productPicker',
-        description: 'Pilih 1 produk/layanan yang ingin ditonjolkan.',
+        description: 'Pilih 1 produk atau jasa yang ingin ditonjolkan.',
       },
       { key: 'button_text', label: 'Teks Tombol', type: 'text', placeholder: 'Lihat Detail' },
     ],
@@ -507,6 +501,8 @@ export function getDefaultFormValues(type: string): Record<string, SectionFormVa
       values[field.key] = def === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(def);
+    } else if (field.type === 'list') {
+      values[field.key] = Array.isArray(def) ? def as Record<string, unknown>[] : [];
     } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(def);
     } else if (field.type === 'richtext') {
@@ -531,12 +527,28 @@ export function contentToFormValues(
   const values = getDefaultFormValues(type);
 
   for (const field of config.fields) {
-    const val = content[field.key];
+    let val = content[field.key];
+
+    if (type === 'features_grid' && field.key === 'features' && !Array.isArray(val)) {
+      val = [1, 2, 3, 4]
+        .map((index) => ({
+          icon: content[`feature_${index}_icon`],
+          title: content[`feature_${index}_title`],
+          desc: content[`feature_${index}_desc`],
+        }))
+        .filter((item) =>
+          [item.title, item.desc].some((value) => typeof value === 'string' && value.trim()),
+        );
+    }
 
     if (field.type === 'switch') {
       values[field.key] = val === true;
     } else if (field.type === 'gallery') {
       values[field.key] = parseGalleryImages(val);
+    } else if (field.type === 'list') {
+      values[field.key] = Array.isArray(val)
+        ? val.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+        : [];
     } else if (field.type === 'blogPostPicker' || field.type === 'productPicker') {
       values[field.key] = parseStringArray(val);
     } else if (field.type === 'richtext') {
@@ -569,6 +581,13 @@ export function formValuesToContent(
     if (field.type === 'gallery') {
       const images = parseGalleryImages(val);
       content[field.key] = images.filter((img) => img.url);
+      continue;
+    }
+
+    if (field.type === 'list') {
+      content[field.key] = Array.isArray(val)
+        ? val.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+        : [];
       continue;
     }
 
