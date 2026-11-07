@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // `next lint` default hanya memindai app/pages/components/lib/src; Studio
+  // berada di folder top-level `studio/` (plan §4.3) sehingga perlu didaftarkan.
+  eslint: {
+    dirs: ['app', 'components', 'lib', 'studio'],
+  },
   transpilePackages: ['@heroui/react'],
   experimental: {
     optimizePackageImports: ['@heroui/react'],

@@ -1,3 +1,132 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": [
+        "studio/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/app/dashboard",
+                  "@/app/dashboard/**",
+                  "**/app/dashboard",
+                  "**/app/dashboard/**",
+                  "@/app/components",
+                  "@/app/components/**",
+                  "**/app/components",
+                  "**/app/components/**",
+                  "@/app/context",
+                  "@/app/context/**",
+                  "**/app/context",
+                  "**/app/context/**",
+                  "@/app/hooks",
+                  "@/app/hooks/**",
+                  "**/app/hooks",
+                  "**/app/hooks/**"
+                ],
+                "message": "Studio tidak boleh mengimpor UI dashboard lama (app/dashboard, app/components, app/context, app/hooks). Salin lalu rapikan ke studio/ (plan §4.3)."
+              },
+              {
+                "group": [
+                  "@/app/lib/**",
+                  "**/app/lib/**",
+                  "!@/app/lib/api-client",
+                  "!@/app/lib/session",
+                  "!**/app/lib/api-client",
+                  "!**/app/lib/session"
+                ],
+                "message": "Dari app/lib, Studio hanya boleh memakai api-client dan session. Tipe ditulis ulang di studio/api (plan §4.3)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "app/studio/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/app/dashboard",
+                  "@/app/dashboard/**",
+                  "**/app/dashboard",
+                  "**/app/dashboard/**",
+                  "@/app/components",
+                  "@/app/components/**",
+                  "**/app/components",
+                  "**/app/components/**",
+                  "@/app/context",
+                  "@/app/context/**",
+                  "**/app/context",
+                  "**/app/context/**",
+                  "@/app/hooks",
+                  "@/app/hooks/**",
+                  "**/app/hooks",
+                  "**/app/hooks/**"
+                ],
+                "message": "Studio tidak boleh mengimpor UI dashboard lama (app/dashboard, app/components, app/context, app/hooks). Salin lalu rapikan ke studio/ (plan §4.3)."
+              },
+              {
+                "group": [
+                  "@/app/lib/**",
+                  "**/app/lib/**",
+                  "!@/app/lib/api-client",
+                  "!@/app/lib/session",
+                  "!**/app/lib/api-client",
+                  "!**/app/lib/session"
+                ],
+                "message": "Dari app/lib, Studio hanya boleh memakai api-client dan session. Tipe ditulis ulang di studio/api (plan §4.3)."
+              },
+              {
+                "group": [
+                  "./*",
+                  "./**",
+                  "../*",
+                  "../**"
+                ],
+                "message": "app/studio hanya berisi file rute tipis: impor kode lewat '@/studio/...', bukan path relatif (mencegah lolos ke app/components, app/dashboard, dll.)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "app/**/*.{ts,tsx}"
+      ],
+      "excludedFiles": [
+        "app/studio/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/studio",
+                  "@/studio/**",
+                  "**/studio",
+                  "**/studio/**"
+                ],
+                "message": "Kode dashboard lama tidak boleh mengimpor Studio (plan §4.3)."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

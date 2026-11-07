@@ -375,7 +375,7 @@ export default function BlogManagement() {
               {productsLoading ? (
                 <p className="p-5 text-sm text-default-400">Memuat produk...</p>
               ) : products.length === 0 ? (
-                <p className="p-5 text-sm text-default-400">Belum ada produk atau layanan.</p>
+                <p className="p-5 text-sm text-default-400">Belum ada produk atau jasa.</p>
               ) : products.map((product) => {
                 const selected = relatedProductIds.includes(product.id);
                 const limitReached = relatedProductIds.length >= 3;

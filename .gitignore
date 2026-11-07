@@ -11,3 +11,6 @@ next-env.d.ts
 
 # graphify knowledge graph — dibangun lokal (`graphify update .`), tidak di-commit
 graphify-out/
+
+# CSS Studio hasil kompilasi Tailwind CLI (npm run studio:css)
+studio/theme/studio.generated.css

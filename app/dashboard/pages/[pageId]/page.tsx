@@ -14,6 +14,7 @@ import { RichTextEditor } from '../../../components/rich-text-editor';
 import { AppModal } from '../../../components/app-modal';
 import { useConfirmDialog } from '../../../components/confirm-dialog';
 import { FormInput, FormSelect, FormSwitch, FormTextarea } from '../../../components/form-field';
+import { IconPickerField } from '../../../components/icon-picker-field';
 import { LoadingSpinner } from '../../../components/loading-spinner';
 import { desktopAddButtonClass, MobileFloatingActionBar, mobileFabPagePadding } from '../../../components/mobile-floating-action';
 import { apiClient } from '../../../lib/api-client';
@@ -46,6 +47,69 @@ function SectionFormFields({
 }) {
   const renderField = (field: SectionFieldDef) => {
     const val = values[field.key];
+
+    if (field.type === 'list') {
+      const items = Array.isArray(val)
+        ? val.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+        : [];
+      const itemFields = field.itemFields ?? [];
+      const updateItem = (index: number, key: string, value: unknown) => {
+        onChange(field.key, items.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+      };
+      return (
+        <div key={field.key} className="flex flex-col gap-3">
+          <div className="text-sm font-medium">{field.label}</div>
+          {items.map((item, index) => (
+            <div key={index} className="flex flex-col gap-3 rounded-xl border border-default-200 p-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-default-600">
+                <span>Keunggulan {index + 1}</span>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-danger hover:bg-danger-50"
+                  onClick={() => onChange(field.key, items.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  Hapus
+                </button>
+              </div>
+              {itemFields.map((itemField) => (
+                <div key={itemField.key} className="flex flex-col gap-1">
+                  {itemField.type === 'iconPicker' ? (
+                    <>
+                      <label className="text-xs font-medium text-default-600">{itemField.label}</label>
+                      <IconPickerField
+                        value={typeof item[itemField.key] === 'string' ? item[itemField.key] as string : ''}
+                        onChange={(value) => updateItem(index, itemField.key, value)}
+                      />
+                    </>
+                  ) : itemField.type === 'textarea' ? (
+                    <FormTextarea
+                      label={itemField.label}
+                      value={typeof item[itemField.key] === 'string' ? item[itemField.key] as string : ''}
+                      onChange={(value) => updateItem(index, itemField.key, value)}
+                      rows={3}
+                    />
+                  ) : (
+                    <FormInput
+                      label={itemField.label}
+                      placeholder={itemField.placeholder}
+                      value={typeof item[itemField.key] === 'string' ? item[itemField.key] as string : ''}
+                      onChange={(value) => updateItem(index, itemField.key, value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="bordered"
+            onPress={() => onChange(field.key, [...items, Object.fromEntries(itemFields.map((itemField) => [itemField.key, itemField.default ?? '']))])}
+          >
+            Tambah keunggulan
+          </Button>
+        </div>
+      );
+    }
 
     if (field.type === 'switch') {
       return (
@@ -558,7 +622,7 @@ export default function PageSectionsEditor() {
             <div>
               <p className="text-lg font-semibold">Halaman masih kosong</p>
               <p className="mt-1 max-w-md text-sm text-default-500">
-                Susun halaman dengan menambahkan section — hero banner, grid layanan, FAQ, dan lainnya.
+                Susun halaman dengan menambahkan section — hero banner, grid jasa, FAQ, dan lainnya.
               </p>
             </div>
             {canEdit && (

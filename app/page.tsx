@@ -31,7 +31,7 @@ const features = [
     ),
   },
   {
-    title: 'Katalog Produk & Layanan',
+    title: 'Katalog Produk dan Jasa',
     desc: 'Tampilkan produk, harga, dan gambar. Cocok untuk toko, barbershop, salon, restoran.',
     gradient: 'from-amber-500 to-orange-400',
     bg: 'bg-amber-50',
