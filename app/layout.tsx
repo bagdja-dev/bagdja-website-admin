@@ -5,21 +5,21 @@ import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Buat Toko Online dengan Custom Domain | Bagdja',
+  title: 'Bagdja Website — Website Bisnis Tanpa Coding',
   description:
-    'Buat toko online profesional untuk bisnis Indonesia dengan katalog produk, custom domain toko online, checkout, payment gateway, chat pelanggan, rating, dan review.',
+    'Buat website bisnis tanpa coding. Tampilkan halaman, katalog produk atau jasa, dan kelola pesanan serta percakapan pelanggan melalui Bagdja Studio.',
   keywords: [
     'buat toko online',
-    'custom domain toko online',
+    'buat website bisnis',
     'buat e-commerce Indonesia',
     'platform toko online Indonesia',
     'toko online untuk UMKM',
     'website jualan online',
-    'toko online dengan payment gateway',
+    'website jasa',
   ],
   icons: {
-    icon: '/bagdja-cart-logo.svg',
-    apple: '/bagdja-cart-logo.svg',
+    icon: '/studio-icon.svg',
+    apple: '/studio-icon.svg',
   },
 };
 

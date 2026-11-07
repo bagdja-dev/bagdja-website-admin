@@ -1,14 +1,17 @@
 'use client';
 
-import { Button } from '@heroui/react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const NAV_LINKS = [
-  { href: '#features', label: 'Fitur' },
-  { href: '#how-it-works', label: 'Cara Kerja' },
-  { href: '#pricing', label: 'Iuran' },
-  { href: '#stats', label: 'Keunggulan' },
+  { href: '#cara-kerja', label: 'Cara kerja' },
+  { href: '#fitur', label: 'Fitur' },
+  { href: '#bisnis', label: 'Jenis bisnis' },
+  { href: '#pricing', label: 'Harga & Paket' },
+  { href: '#roadmap', label: 'Roadmap' },
+  { href: '#faq', label: 'FAQ' },
+  { href: '#kontak', label: 'Kontak' },
 ];
 
 export function LandingNavbar() {
@@ -31,46 +34,42 @@ export function LandingNavbar() {
 
   return (
     <>
-      <header className="glass fixed inset-x-0 top-0 z-50 border-b border-white/20">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-[#eee7e0]/90 bg-[#fbf9f6]/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 sm:hidden"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#55464a] transition-colors hover:bg-[#f0eae4] lg:hidden"
               aria-expanded={open}
               aria-controls="landing-mobile-menu"
               aria-label={open ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
               onClick={() => setOpen((v) => !v)}
             >
               {open ? (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
                 </svg>
               )}
             </button>
 
-            <Link href="/" className="flex min-w-0 items-center gap-2" onClick={close}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/bagdja-cart-logo.svg" alt="Bagdja Website" className="h-8 w-8 shrink-0 rounded-lg" />
-              <p className="truncate text-base font-bold tracking-tight sm:text-lg">
-                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Bagdja
-                </span>
-                <span className="text-gray-800"> Website</span>
+            <Link href="/" className="flex min-w-0 items-center gap-2.5" onClick={close}>
+              <Image src="/studio-icon.svg" alt="" width={34} height={34} className="h-8 w-8 shrink-0 rounded-[10px]" />
+              <p className="truncate text-base font-semibold tracking-tight text-[#302528] sm:text-lg">
+                Bagdja <span className="font-normal text-[#776a64]">Website</span>
               </p>
             </Link>
           </div>
 
-          <nav className="hidden items-center gap-8 sm:flex" aria-label="Navigasi utama">
+          <nav className="hidden items-center gap-6 lg:flex" aria-label="Navigasi utama">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+                className="text-xs font-medium text-[#746963] transition-colors hover:text-[#681c3c]"
               >
                 {link.label}
               </Link>
@@ -80,27 +79,23 @@ export function LandingNavbar() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <Link
               href="/auth/login"
-              className="hidden text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 sm:inline"
+              className="hidden text-sm font-medium text-[#625653] transition-colors hover:text-[#681c3c] sm:inline"
             >
               Masuk
             </Link>
-            <Button
-              as={Link}
+            <Link
               href="/auth/login"
-              size="sm"
-              className="hidden bg-gradient-to-r from-blue-600 to-cyan-500 font-semibold text-white shadow-lg shadow-blue-500/25 sm:inline-flex"
+              className="hidden rounded-full bg-[#681c3c] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#53142f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#681c3c] focus-visible:ring-offset-2 sm:inline-flex"
             >
-              Mulai Gratis
-            </Button>
+              Mulai buat website
+            </Link>
             {!open && (
-              <Button
-                as={Link}
+              <Link
                 href="/auth/login"
-                size="sm"
-                className="bg-gradient-to-r from-blue-600 to-cyan-500 px-3 text-xs font-semibold text-white shadow-md shadow-blue-500/20 sm:hidden"
+                className="rounded-full bg-[#681c3c] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#53142f] sm:hidden"
               >
                 Mulai
-              </Button>
+              </Link>
             )}
           </div>
         </div>
@@ -109,7 +104,7 @@ export function LandingNavbar() {
       {open && (
         <nav
           id="landing-mobile-menu"
-          className="fixed inset-x-0 bottom-0 top-16 z-40 flex flex-col bg-white sm:hidden"
+          className="fixed inset-x-0 bottom-0 top-[68px] z-40 flex flex-col bg-[#fbf9f6] lg:hidden"
           aria-label="Menu mobile"
         >
           <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -118,7 +113,7 @@ export function LandingNavbar() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="block rounded-lg px-3 py-3 text-lg font-medium text-gray-800 transition-colors hover:bg-gray-50"
+                    className="block rounded-xl px-3 py-3 text-lg font-medium text-[#44373a] transition-colors hover:bg-[#f0eae4]"
                     onClick={close}
                   >
                     {link.label}
@@ -126,10 +121,10 @@ export function LandingNavbar() {
                 </li>
               ))}
             </ul>
-            <div className="mt-4 border-t border-gray-100 pt-4">
+            <div className="mt-4 border-t border-[#e9e1d9] pt-4">
               <Link
                 href="/auth/login"
-                className="block rounded-lg px-3 py-3 text-lg font-medium text-blue-600 transition-colors hover:bg-blue-50"
+                className="block rounded-xl px-3 py-3 text-lg font-medium text-[#681c3c] transition-colors hover:bg-[#f5e9e9]"
                 onClick={close}
               >
                 Masuk
@@ -137,16 +132,14 @@ export function LandingNavbar() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-gray-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
-            <Button
-              as={Link}
+          <div className="shrink-0 border-t border-[#e9e1d9] bg-[#fbf9f6] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
+            <Link
               href="/auth/login"
-              size="lg"
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-base font-semibold text-white shadow-lg shadow-blue-500/25"
-              onPress={close}
+              className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#681c3c] px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#53142f]"
+              onClick={close}
             >
-              Mulai Gratis
-            </Button>
+              Mulai buat website
+            </Link>
           </div>
         </nav>
       )}
