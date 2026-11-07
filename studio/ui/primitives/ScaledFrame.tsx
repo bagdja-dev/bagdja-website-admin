@@ -14,6 +14,7 @@ export interface ScaledFrameProps {
   viewportWidth?: number;
   iframeRef?: Ref<HTMLIFrameElement>;
   onLoad?: () => void;
+  loading?: 'eager' | 'lazy';
 }
 
 /**
@@ -21,7 +22,15 @@ export interface ScaledFrameProps {
  * jadi pratinjau desktop selalu menampilkan layout desktop asli, bukan versi sempit.
  * Dipakai semua pratinjau Studio (detail template, tab Template, editor halaman).
  */
-export function ScaledFrame({ src, title, height, viewportWidth = DESKTOP_VIEWPORT, iframeRef, onLoad }: ScaledFrameProps) {
+export function ScaledFrame({
+  src,
+  title,
+  height,
+  viewportWidth = DESKTOP_VIEWPORT,
+  iframeRef,
+  onLoad,
+  loading = 'eager',
+}: ScaledFrameProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ scale: 1, boxHeight: height ?? 0 });
 
@@ -43,6 +52,7 @@ export function ScaledFrame({ src, title, height, viewportWidth = DESKTOP_VIEWPO
         src={src}
         title={title}
         onLoad={onLoad}
+        loading={loading}
         className="absolute left-0 top-0 block border-0 bg-white"
         style={{
           width: viewportWidth,

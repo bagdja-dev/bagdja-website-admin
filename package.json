@@ -4,11 +4,11 @@
   "private": true,
   "description": "CMS panel for Bagdja Website Builder (Next.js App Router + HeroUI)",
   "scripts": {
-    "dev": "npm run studio:css && (tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css --watch=always & next dev -p 5004)",
+    "dev": "node init && npm run studio:css && (tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css --watch=always & next dev -p 5004)",
     "studio:css": "tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css",
     "prebuild": "npm run studio:css",
-    "build": "next build",
-    "start": "next start -p 5004",
+    "build": "node init && next build",
+    "start": "node init && next start -p 5004",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
