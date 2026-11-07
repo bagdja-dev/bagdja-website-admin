@@ -43,6 +43,18 @@ export function toStudioPath(actionUrl: string): string {
   const sub = path.startsWith(API_PREFIX) ? path.slice(API_PREFIX.length) : path;
   if (sub === '' || sub === '/') return `/studio${rest}`;
 
+  const pageMatch = sub.match(/^\/pages\/([^/]+)\/?$/);
+  if (pageMatch) {
+    return `/studio/appearance/pages/${pageMatch[1]}${rest}`;
+  }
+
+  const chatMatch = sub.match(/^\/chats\/([^/]+)\/?$/);
+  if (chatMatch) {
+    const query = new URLSearchParams(rest.startsWith('?') ? rest.slice(1) : '');
+    query.set('thread', decodeURIComponent(chatMatch[1]));
+    return `/studio/inbox?${query.toString()}`;
+  }
+
   const gatheringMatch = sub.match(/^\/calendar\/([^/]+)(?:\/check-in)?\/?$/);
   if (gatheringMatch) {
     const checkIn = sub.includes('/check-in');
