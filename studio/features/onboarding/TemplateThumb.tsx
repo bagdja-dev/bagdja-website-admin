@@ -1,5 +1,6 @@
 import type { WebsiteTemplateDto } from '@/studio/api/types';
-import { templatePreviewImage } from '@/studio/lib/template-preview';
+import { buildTemplatePreviewUrl, templatePreviewImage } from '@/studio/lib/template-preview';
+import { ScaledFrame } from '@/studio/ui/primitives/ScaledFrame';
 
 import { templateSwatch } from './template-meta';
 
@@ -8,6 +9,18 @@ import { templateSwatch } from './template-meta';
  * sketsa 190px dari warna template — logo, menu, eyebrow, judul 2 baris, CTA, 3 kartu.
  */
 export function TemplateThumb({ template, height = 190 }: { template: WebsiteTemplateDto; height?: number }) {
+  const previewUrl = buildTemplatePreviewUrl(template);
+  if (previewUrl) {
+    return (
+      <ScaledFrame
+        src={previewUrl}
+        title={`Pratinjau template ${template.name}`}
+        height={height}
+        loading="lazy"
+      />
+    );
+  }
+
   const image = templatePreviewImage(template);
   if (image) {
     // eslint-disable-next-line @next/next/no-img-element -- aset template dari banyak host
