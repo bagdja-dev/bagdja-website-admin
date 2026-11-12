@@ -52,3 +52,35 @@ export function updateWebsiteIdentity(websiteId: string, identity: WebsiteIdenti
     ...jsonBody(identity),
   });
 }
+
+/** Versi template designer — mirror `WebsiteTemplateVersionStatusResponseDto` (Website API). */
+export interface WebsiteTemplateVersionSummaryDto {
+  versionId: string;
+  version: string;
+  status: 'published' | 'deprecated' | 'revoked';
+  changelog: string | null;
+  publishedAt: string;
+}
+
+export interface WebsiteTemplateVersionStatusDto {
+  websiteId: string;
+  templateId: string | null;
+  source: 'builtin' | 'package' | null;
+  /** Versi yang terpasang; null untuk template bawaan. */
+  current: WebsiteTemplateVersionSummaryDto | null;
+  /** Versi published terbaru; null untuk template bawaan. */
+  latest: WebsiteTemplateVersionSummaryDto | null;
+  updateAvailable: boolean;
+}
+
+export function fetchTemplateVersionStatus(websiteId: string): Promise<WebsiteTemplateVersionStatusDto> {
+  return studioRequest<WebsiteTemplateVersionStatusDto>(`${websitePath(websiteId)}/template-version`);
+}
+
+/** Update eksplisit ke versi yang lebih baru — versi template tidak pernah naik otomatis. */
+export function upgradeTemplateVersion(websiteId: string, versionId: string): Promise<WebsiteTemplateVersionStatusDto> {
+  return studioRequest<WebsiteTemplateVersionStatusDto>(`${websitePath(websiteId)}/template-version/upgrade`, {
+    method: 'POST',
+    ...jsonBody({ versionId }),
+  });
+}

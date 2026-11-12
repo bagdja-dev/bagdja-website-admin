@@ -8,7 +8,12 @@ import { Button, Spinner } from '@heroui/react';
 import { errorMessage } from '@/studio/api/client';
 import { fetchWebsiteTemplates } from '@/studio/api/templates';
 import type { WebsiteTemplateDto } from '@/studio/api/types';
-import { updateWebsiteTemplate } from '@/studio/api/websites';
+import {
+  fetchTemplateVersionStatus,
+  updateWebsiteTemplate,
+  upgradeTemplateVersion,
+  type WebsiteTemplateVersionStatusDto,
+} from '@/studio/api/websites';
 import { hasMinRole } from '@/studio/lib/roles';
 import { isPaidTemplate } from '@/studio/features/onboarding/use-template-catalog';
 import { TemplateDetail } from '@/studio/features/onboarding/TemplateDetail';
@@ -56,6 +61,7 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [versionStatus, setVersionStatus] = useState<WebsiteTemplateVersionStatusDto | null>(null);
 
   const canChange = hasMinRole(role, 'admin');
   const businessProfile = website?.business_profile;
@@ -92,6 +98,22 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
     };
   }, [website?.id]);
 
+  // Versi template designer yang terpasang vs versi terbit terbaru (update selalu eksplisit).
+  useEffect(() => {
+    if (!website?.id) return;
+    let cancelled = false;
+    fetchTemplateVersionStatus(website.id)
+      .then((result) => {
+        if (!cancelled) setVersionStatus(result);
+      })
+      .catch(() => {
+        if (!cancelled) setVersionStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [website?.id, website?.template_id, website?.template_runtime_version]);
+
   const recommendedIds = useMemo(() => new Set(
     templates
       .filter((template) => businessProfile && template.business_profiles.includes(businessProfile))
@@ -120,24 +142,39 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
   const detailTemplate = templates.find((template) => template.id === detailId) ?? null;
 
   const applyTemplate = async (template: WebsiteTemplateDto) => {
-    if (!website || !canChange || isPaidTemplate(template) || template.id === website.template_id || saving) return;
+    if (!website || !canChange || isPaidTemplate(template) || saving) return;
+    const latestVersion = versionStatus?.updateAvailable && versionStatus.templateId === template.id
+      ? versionStatus.latest
+      : null;
+    const updatingVersion = template.id === website.template_id && Boolean(latestVersion);
+    if (template.id === website.template_id && !updatingVersion) return;
     const accepted = await confirm({
-      title: 'Ganti template website?',
+      title: updatingVersion ? 'Perbarui versi template?' : 'Ganti template website?',
       description: (
         <span>
-          Tampilan website akan menggunakan <strong>{template.name}</strong>. Data halaman dan konten yang sudah
-          tersimpan tidak dihapus; section yang tidak didukung template baru mungkin tidak ditampilkan.
+          Tampilan website akan menggunakan <strong>{template.name}</strong>
+          {updatingVersion ? ` versi ${latestVersion?.version}` : ''}. Data halaman dan konten yang sudah
+          tersimpan tidak dihapus; section yang tidak didukung mungkin tidak ditampilkan.
         </span>
       ),
-      confirmLabel: 'Ganti template',
+      confirmLabel: updatingVersion ? 'Perbarui versi' : 'Ganti template',
     });
     if (!accepted) return;
 
     setSaving(true);
     try {
-      const saved = await updateWebsiteTemplate(website.id, template.id);
-      patchWebsite(website.id, { template_id: saved.template_id ?? template.id });
-      notify.success('Template website berhasil diganti.');
+      if (updatingVersion && latestVersion) {
+        const upgraded = await upgradeTemplateVersion(website.id, latestVersion.versionId);
+        setVersionStatus(upgraded);
+        patchWebsite(website.id, { template_runtime_version: upgraded.current?.version ?? latestVersion.version });
+      } else {
+        const saved = await updateWebsiteTemplate(website.id, template.id);
+        patchWebsite(website.id, {
+          template_id: saved.template_id ?? template.id,
+          template_runtime_version: saved.template_runtime_version ?? null,
+        });
+      }
+      notify.success(updatingVersion ? 'Versi template berhasil diperbarui.' : 'Template website berhasil diganti.');
     } catch (cause: unknown) {
       notify.error('Gagal mengganti template.', errorMessage(cause, 'Perubahan belum disimpan.'));
     } finally {
@@ -211,7 +248,37 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
                 <div>
                   <h3 className="text-xl font-semibold text-foreground">{activeTemplate.name}</h3>
                   <p className="mt-1 text-sm text-default-600">{activeTemplate.description || 'Template bawaan Bagdja'}</p>
+                  {versionStatus?.source === 'package' && versionStatus.current ? (
+                    <p className="mt-2 text-xs font-medium text-default-500">
+                      Dari designer · versi {versionStatus.current.version}
+                      {versionStatus.current.status === 'deprecated' ? ' · tidak lagi tersedia untuk pemasangan baru' : ''}
+                    </p>
+                  ) : null}
                 </div>
+                {versionStatus?.updateAvailable && versionStatus.latest ? (
+                  <div className="w-full rounded-xl border border-primary-200 bg-primary-50 p-3">
+                    <p className="text-sm font-semibold text-foreground">Versi baru tersedia: {versionStatus.latest.version}</p>
+                    <p className="mt-0.5 text-xs text-default-600">
+                      Sekarang {versionStatus.current?.version ?? '—'}. Versi tidak berubah sampai Anda memperbaruinya.
+                    </p>
+                    {versionStatus.latest.changelog ? (
+                      <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-default-700">{versionStatus.latest.changelog}</p>
+                    ) : null}
+                    {canChange ? (
+                      <Button
+                        size="sm"
+                        color="primary"
+                        className="mt-3"
+                        isDisabled={saving}
+                        onPress={() => void applyTemplate(activeTemplate)}
+                      >
+                        Perbarui ke {versionStatus.latest.version}
+                      </Button>
+                    ) : (
+                      <p className="mt-2 text-xs text-default-500">Minta admin website untuk memperbarui.</p>
+                    )}
+                  </div>
+                ) : null}
                 <p className="text-xs leading-relaxed text-default-500">
                   Untuk memilih desain lain atau mencari template premium, buka toko template.
                 </p>
@@ -237,9 +304,9 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
                 theme: website.theme,
               }}
               slug={website.slug}
-              isCurrent={detailTemplate.id === website.template_id}
+              isCurrent={detailTemplate.id === website.template_id && !versionStatus?.updateAvailable}
               canUse={canChange && !saving && !isPaidTemplate(detailTemplate)}
-              applyLabel="Terapkan template"
+              applyLabel={detailTemplate.id === website.template_id ? 'Perbarui versi template' : 'Terapkan template'}
               onBack={() => setDetailId(null)}
               onUse={() => void applyTemplate(detailTemplate)}
             />
