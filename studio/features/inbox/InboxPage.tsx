@@ -2,6 +2,7 @@
 
 import { Button, Chip, Textarea } from '@heroui/react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { StudioChatReferenceCard } from '@/studio/features/inbox/ChatReferenceCard';
@@ -506,6 +507,24 @@ function InboxWorkspace() {
                   <h2 className="truncate text-sm font-bold text-foreground">{getThreadHeadline(selectedThread)}</h2>
                   <p className="truncate text-xs text-default-500">{getThreadSubtitle(selectedThread)}</p>
                 </div>
+                {(() => {
+                  // Thread order/transaksi → buka record terkait (gathering lewat group_id dari metadata order).
+                  const record = selectedThread.gathering_group_id
+                    ? { href: `/studio/orders/gathering/${encodeURIComponent(selectedThread.gathering_group_id)}`, label: 'Lihat gathering', icon: 'calendar' as const }
+                    : selectedThread.transaction_id
+                      ? { href: `/studio/orders/${encodeURIComponent(selectedThread.transaction_id)}`, label: 'Lihat pesanan', icon: 'orders' as const }
+                      : null;
+                  return record ? (
+                    <Link
+                      href={record.href}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-default-200 bg-white px-2.5 text-xs font-semibold text-primary hover:bg-default-50"
+                      aria-label={record.label}
+                    >
+                      <Icon name={record.icon} size={15} />
+                      <span className="hidden sm:inline">{record.label}</span>
+                    </Link>
+                  ) : null;
+                })()}
                 <Chip size="sm" variant="flat" color={STATUS_COLORS[selectedThread.status ?? ''] ?? 'default'}>
                   {getChatStatusLabel(selectedThread.status)}
                 </Chip>

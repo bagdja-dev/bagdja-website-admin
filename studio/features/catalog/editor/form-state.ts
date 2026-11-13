@@ -32,6 +32,8 @@ export interface GatheringOptionDraft {
   description: string;
   availabilityNote: string;
   venueLocation: string;
+  venueAddress: string;
+  venueMapUrl: string;
   benefits: string;
   images: string[];
 }
@@ -120,7 +122,7 @@ export function emptyVariant(): VariantDraft {
 }
 
 export function emptyOption(): GatheringOptionDraft {
-  return { key: newKey('o'), group: '', label: '', description: '', availabilityNote: '', venueLocation: '', benefits: '', images: [] };
+  return { key: newKey('o'), group: '', label: '', description: '', availabilityNote: '', venueLocation: '', venueAddress: '', venueMapUrl: '', benefits: '', images: [] };
 }
 
 /** Default item baru. `requires_shipping` mengikuti tipe (Produk fisik saja yang dikirim kurir). */
@@ -211,6 +213,8 @@ function optionDraftsOf(product: CatalogProduct, options: GatheringProductOption
       description: o.description ?? '',
       availabilityNote: typeof o.availability_window?.note === 'string' ? o.availability_window.note : '',
       venueLocation: o.venue_location ?? '',
+      venueAddress: o.venue_address ?? '',
+      venueMapUrl: o.venue_map_url ?? '',
       benefits: (o.benefits ?? []).filter((b): b is string => typeof b === 'string').join('\n'),
       images: o.images ?? [],
     }));

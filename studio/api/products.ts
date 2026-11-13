@@ -112,6 +112,8 @@ export interface GatheringProductOption {
   max_attendees: number;
   availability_window: Record<string, unknown> | null;
   venue_location?: string | null;
+  venue_address?: string | null;
+  venue_map_url?: string | null;
   benefits: unknown[] | null;
   images?: string[] | null;
   cancellation_policy: Record<string, unknown> | null;
@@ -132,6 +134,10 @@ export interface GatheringOptionInput {
   max_attendees: number;
   availability_window: Record<string, unknown>;
   venue_location?: string;
+  /** Alamat lengkap (≤ 500). */
+  venue_address?: string;
+  /** Tautan Google Maps (https). */
+  venue_map_url?: string;
   benefits: string[];
   images: string[];
   cancellation_policy: Record<string, unknown>;

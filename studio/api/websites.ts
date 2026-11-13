@@ -52,3 +52,57 @@ export function updateWebsiteIdentity(websiteId: string, identity: WebsiteIdenti
     ...jsonBody(identity),
   });
 }
+
+/** Versi template designer — mirror `WebsiteTemplateVersionStatusResponseDto` (Website API). */
+export interface WebsiteTemplateVersionSummaryDto {
+  versionId: string;
+  version: string;
+  status: 'published' | 'deprecated' | 'revoked';
+  changelog: string | null;
+  publishedAt: string;
+}
+
+export interface WebsiteTemplateVersionStatusDto {
+  websiteId: string;
+  templateId: string | null;
+  source: 'builtin' | 'package' | null;
+  /** Versi yang terpasang; null untuk template bawaan. */
+  current: WebsiteTemplateVersionSummaryDto | null;
+  /** Versi published terbaru; null untuk template bawaan. */
+  latest: WebsiteTemplateVersionSummaryDto | null;
+  updateAvailable: boolean;
+  /** Palet bawaan versi terpasang (`manifest.theme`) untuk "Reset ke warna template"; null bila tidak ada. */
+  templateTheme: WebsiteThemeConfigDto | null;
+}
+
+export function fetchTemplateVersionStatus(websiteId: string): Promise<WebsiteTemplateVersionStatusDto> {
+  return studioRequest<WebsiteTemplateVersionStatusDto>(`${websitePath(websiteId)}/template-version`);
+}
+
+/** Pasang versi terbit tertentu (naik/turun) dari template package; menghentikan uji kandidat. */
+export function selectTemplateVersion(websiteId: string, versionId: string): Promise<WebsiteTemplateVersionStatusDto> {
+  return studioRequest<WebsiteTemplateVersionStatusDto>(`${websitePath(websiteId)}/template-version/select`, {
+    method: 'POST',
+    ...jsonBody({ versionId }),
+  });
+}
+
+/** Update eksplisit ke versi yang lebih baru — versi template tidak pernah naik otomatis. */
+export function upgradeTemplateVersion(websiteId: string, versionId: string): Promise<WebsiteTemplateVersionStatusDto> {
+  return studioRequest<WebsiteTemplateVersionStatusDto>(`${websitePath(websiteId)}/template-version/upgrade`, {
+    method: 'POST',
+    ...jsonBody({ versionId }),
+  });
+}
+
+/** `DELETE /api/websites/:id/sample-data` — `WebsiteSampleDataRemovalResponseDto`. */
+export interface WebsiteSampleDataRemovalDto {
+  removedProducts: number;
+  deactivatedProducts: number;
+  removedFaqs: number;
+}
+
+/** Hapus data contoh template (produk & FAQ ber-`is_seed`); produk yang sudah dirujuk dinonaktifkan. */
+export function removeWebsiteSampleData(websiteId: string): Promise<WebsiteSampleDataRemovalDto> {
+  return studioRequest<WebsiteSampleDataRemovalDto>(`${websitePath(websiteId)}/sample-data`, { method: 'DELETE' });
+}

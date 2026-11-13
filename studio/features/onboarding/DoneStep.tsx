@@ -14,12 +14,13 @@ export interface DoneStepProps {
   template: WebsiteTemplateDto | null;
   /** Label modul yang aktif (tanpa modul inti). */
   modules: string[];
+  candidateTrial?: boolean;
 }
 
 const CHECK = 'm4.5 12.75 6 6 9-13.5';
 
 /** Layar selesai (artboard Wizard-Selesai): URL + Salin, ringkasan isi & menu, Lihat / Mulai atur website. */
-export function DoneStep({ name, slug, template, modules }: DoneStepProps) {
+export function DoneStep({ name, slug, template, modules, candidateTrial = false }: DoneStepProps) {
   const url = buildTenantWebUrl(slug);
   const [copied, setCopied] = useState(false);
   const seeds = template ? templateSeedSummary(template) : [];
@@ -46,6 +47,11 @@ export function DoneStep({ name, slug, template, modules }: DoneStepProps) {
           <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-foreground sm:text-[30px]">Website kamu sudah jadi!</h1>
           <p className="text-base text-default-600">{name} sudah online dan bisa dibagikan.</p>
         </div>
+        {candidateTrial ? (
+          <p className="w-full rounded-xl border border-warning-200 bg-warning-50 p-3 text-left text-sm text-warning-800">
+            Mode uji versi kandidat aktif. Versi ini hanya terlihat saat Anda login; pengunjung tetap melihat versi terbit.
+          </p>
+        ) : null}
 
         <div className="flex w-full items-center gap-2.5 rounded-xl bg-default-100 py-2.5 pl-[18px] pr-2.5">
           <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-left text-[15px] font-semibold text-foreground no-underline">

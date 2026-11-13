@@ -23,6 +23,7 @@ import { CATEGORIES_PATH } from '../catalog-types';
 import { catalogColumns } from './catalog-columns';
 import type { CatalogRow } from './catalog-query';
 import { ChangeCategoryDialog } from './ChangeCategoryDialog';
+import { SampleDataBanner } from './SampleDataBanner';
 import { TypePickerDialog } from './TypePickerDialog';
 import { useCatalogList } from './use-catalog-list';
 
@@ -117,6 +118,7 @@ export function CatalogList() {
         }
       />
       <div className="flex flex-col gap-3.5 pb-20 md:pb-0">
+        <SampleDataBanner onRemoved={() => void c.reload()} />
         {(list.totalCount > 0 || list.hasActiveQuery) && (
           <DataToolbar
             search={list.search}

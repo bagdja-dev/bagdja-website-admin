@@ -300,7 +300,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
     }
   };
 
-  if (loading) return <div className="flex h-[100dvh] items-center justify-center">Memuat editor…</div>;
+  if (loading) return <div className="flex min-h-0 flex-1 items-center justify-center">Memuat editor…</div>;
   if (!page) {
     const back = [{ label: 'Kembali ke Tampilan Website', href: '/studio/appearance?tab=pages', variant: 'secondary' as const }];
     return loadError === 'error' ? (
@@ -327,7 +327,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
 
   return (
     <>
-    <div className="flex h-[100dvh] flex-col bg-default-50">
+    <div className="flex min-h-0 flex-1 flex-col bg-default-50">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-default-200 bg-white px-3 py-2.5 min-[1441px]:gap-3 min-[1441px]:px-6 min-[1441px]:py-3.5">
         <div className="flex items-center gap-3">
           <Button variant="light" radius="sm" size="sm" onPress={() => window.history.back()} className="shrink-0 px-2 min-[1441px]:px-3">

@@ -89,6 +89,7 @@ export function templateSeedSummary(template: WebsiteTemplateDto): string[] {
   const lines = [`${templatePages(template).length} halaman`];
   if (count('services') > 0) lines.push(`${count('services')} contoh jasa`);
   if (count('products') > 0) lines.push(`${count('products')} contoh produk`);
+  if (count('gatherings') > 0) lines.push(`${count('gatherings')} contoh gathering`);
   if (count('faqs') > 0) lines.push(`${count('faqs')} FAQ umum`);
   if (record(defaults?.location)) lines.push('1 lokasi utama');
   return lines;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import type { WebsiteTemplateDto } from '@/studio/api/types';
 import { buildTemplatePreviewUrl, type TemplatePreviewProfile } from '@/studio/lib/template-preview';
@@ -22,6 +22,14 @@ export interface TemplateDetailProps {
   isCurrent?: boolean;
   canUse?: boolean;
   applyLabel?: string;
+  /** Pemilih versi (template package) di atas tombol utama. */
+  versionPicker?: ReactNode;
+  /** Ganti panggung pratinjau (mis. pratinjau versi uji). */
+  previewOverride?: ReactNode;
+  /** Versi terbit yang dipratinjau (template package). */
+  previewVersion?: string;
+  /** Teks label tombol saat versi terpilih = yang dipakai. */
+  currentLabel?: string;
 }
 
 const SEG = (on: boolean): string =>
@@ -38,6 +46,10 @@ export function TemplateDetail({
   isCurrent = false,
   canUse = true,
   applyLabel = 'Pakai template ini',
+  versionPicker,
+  previewOverride,
+  previewVersion,
+  currentLabel = 'Sedang digunakan',
 }: TemplateDetailProps) {
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const author = templateAuthor(template);
@@ -45,10 +57,10 @@ export function TemplateDetail({
   const features = templateFeatures(template);
   const paid = isPaidTemplate(template);
   const price = templatePriceLabel(template);
-  const demoUrl = buildTemplatePreviewUrl(template, profile);
+  const demoUrl = buildTemplatePreviewUrl(template, profile, previewVersion);
 
   const cta = isCurrent ? (
-    <WizardButton disabled className="min-h-[50px] w-full">Sedang digunakan</WizardButton>
+    <WizardButton disabled className="min-h-[50px] w-full">{currentLabel}</WizardButton>
   ) : paid ? (
     <WizardButton disabled className="min-h-[50px] w-full">Beli · {price}</WizardButton>
   ) : (
@@ -85,7 +97,9 @@ export function TemplateDetail({
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <section aria-label="Pratinjau template" className="flex min-w-0 flex-[999_1_560px] justify-center rounded-2xl bg-default-200 p-3 sm:p-[18px]">
-          <TemplatePreviewFrame template={template} profile={profile} slug={slug} device={device} size="compact" height={600} />
+          {previewOverride ?? (
+            <TemplatePreviewFrame template={template} profile={profile} slug={slug} device={device} size="compact" height={600} version={previewVersion} />
+          )}
         </section>
 
         <aside aria-label="Detail template" className="flex w-full flex-col gap-3.5 lg:max-w-[360px] lg:flex-[1_1_300px]">
@@ -98,6 +112,7 @@ export function TemplateDetail({
               </span>
             </div>
             <span className={`text-[26px] font-extrabold ${paid ? 'text-foreground' : 'text-success'}`}>{price}</span>
+            {versionPicker}
             <div className="hidden md:block">{cta}</div>
             {paid && <p className="text-xs text-default-500">Template premium perlu dibeli sebelum dapat diterapkan. Pembelian belum tersedia.</p>}
             {demoUrl && (
@@ -124,7 +139,7 @@ export function TemplateDetail({
                   <dd className="font-semibold">{features.join(', ')}</dd>
                 </>
               )}
-              {template.manifest?.version && (
+              {template.manifest?.version && !versionPicker && (
                 <>
                   <dt className="text-default-600">Versi</dt>
                   <dd className="font-semibold">{template.manifest.version}</dd>

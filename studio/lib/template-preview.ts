@@ -23,22 +23,30 @@ export interface TemplatePreviewProfile {
   theme?: WebsiteThemeConfigDto | null;
 }
 
-/** Path demo renderer: `manifest.preview.demoPath`, atau `/templates/<slug>` untuk template bawaan. */
+/**
+ * Path demo renderer: `manifest.preview.demoPath`, `/templates/<slug>` untuk
+ * template bawaan, atau `/templates/package/<slug>` untuk template package
+ * (dirender runtime sandbox dari versi terbit terbaru dengan data contoh).
+ */
 function demoPathOf(template: WebsiteTemplateDto): string | null {
   const demoPath = template.manifest?.preview?.demoPath;
   if (demoPath) return demoPath.startsWith('/') ? demoPath : `/${demoPath}`;
-  if (template.manifest?.isBuiltin) return `/templates/${encodeURIComponent(template.slug)}`;
-  return null;
+  if (!template.manifest) return null;
+  const slug = encodeURIComponent(template.slug);
+  return template.manifest.isBuiltin ? `/templates/${slug}` : `/templates/package/${slug}`;
 }
 
 /** `null` bila template tidak punya pratinjau langsung (pakai gambar/thumbnail). */
 export function buildTemplatePreviewUrl(
   template: WebsiteTemplateDto,
   profile: TemplatePreviewProfile = {},
+  /** Versi terbit tertentu (pemilih versi Studio); hanya untuk template package. */
+  version?: string,
 ): string | null {
   const path = demoPathOf(template);
   if (!path) return null;
   const params = new URLSearchParams({ preview: '1', preview_version: PREVIEW_VERSION });
+  if (version && template.manifest && !template.manifest.isBuiltin) params.set('version', version);
   if (profile.name?.trim()) params.set('name', profile.name.trim());
   if (profile.tagline?.trim()) params.set('tagline', profile.tagline.trim());
   if (profile.logoUrl?.trim()) params.set('logo', profile.logoUrl.trim());

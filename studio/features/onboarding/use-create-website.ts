@@ -11,7 +11,7 @@ export interface CreateWebsiteState {
   submitting: boolean;
   error: string | null;
   created: CreatedWebsiteDto | null;
-  submit: (body: CreateWebsiteRequestDto) => Promise<boolean>;
+  submit: (body: CreateWebsiteRequestDto, trialSubmissionId?: string) => Promise<boolean>;
 }
 
 /**
@@ -24,11 +24,14 @@ export function useCreateWebsite(): CreateWebsiteState {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedWebsiteDto | null>(null);
 
-  const submit = async (body: CreateWebsiteRequestDto): Promise<boolean> => {
+  const submit = async (body: CreateWebsiteRequestDto, trialSubmissionId?: string): Promise<boolean> => {
     setSubmitting(true);
     setError(null);
     try {
-      const website = await createWebsite(body);
+      const website = await createWebsite({
+        ...body,
+        ...(trialSubmissionId ? { template_trial_submission_id: trialSubmissionId } : {}),
+      });
       await switchWebsite(website.id);
       setCreated(website);
       return true;

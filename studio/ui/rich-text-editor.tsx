@@ -36,6 +36,24 @@ interface RichTextEditorProps {
   hideToolbar?: boolean;
   websiteId?: string;
   uploadFolder?: string;
+  /**
+   * `basic`: keterangan singkat (mis. pilihan paket gathering) — tebal/miring/garis bawah/coret, daftar,
+   * tautan. Tanpa judul, gambar, tabel, dan mode kode; sesuai profil sanitasi `basic` Website API.
+   */
+  variant?: 'full' | 'basic';
+}
+
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Isi lama dari textarea (teks polos) → paragraf, agar baris tidak hilang saat dibuka di editor. */
+export function toEditorHtml(value: string): string {
+  const raw = value.trim();
+  if (!raw || raw.startsWith('<')) return raw;
+  return raw
+    .split(/\r?\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\r?\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 function ToolbarSeparator() {
@@ -76,11 +94,13 @@ function ToolbarButtons({
   disabled,
   uploading,
   onInsertImage,
+  basic,
 }: {
   editor: Editor;
   disabled: boolean;
   uploading: boolean;
   onInsertImage: () => void;
+  basic: boolean;
 }) {
   const setLink = () => {
     const previousUrl = (editor.getAttributes('link').href as string | undefined) ?? '';
@@ -110,6 +130,8 @@ function ToolbarButtons({
         S
       </ToolbarButton>
 
+      {!basic && (
+      <>
       <ToolbarSeparator />
 
       <ToolbarButton
@@ -128,6 +150,8 @@ function ToolbarButtons({
       >
         H3
       </ToolbarButton>
+      </>
+      )}
 
       <ToolbarSeparator />
 
@@ -153,6 +177,8 @@ function ToolbarButtons({
       <ToolbarButton title="Insert link" disabled={disabled} active={editor.isActive('link')} onClick={setLink}>
         🔗
       </ToolbarButton>
+      {!basic && (
+      <>
       <ToolbarButton title="Insert image" disabled={disabled || uploading} onClick={onInsertImage}>
         {uploading ? '…' : '🖼️'}
       </ToolbarButton>
@@ -185,6 +211,8 @@ function ToolbarButtons({
           </ToolbarButton>
         </>
       )}
+      </>
+      )}
 
       <ToolbarSeparator />
 
@@ -215,7 +243,9 @@ export function RichTextEditor({
   hideToolbar = false,
   websiteId,
   uploadFolder = 'content',
+  variant = 'full',
 }: RichTextEditorProps) {
+  const basic = variant === 'basic';
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [codeMode, setCodeMode] = useState(false);
@@ -223,23 +253,30 @@ export function RichTextEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] } }),
-      Underline,
-      Link.configure({ openOnClick: false, autolink: true }),
-      Image,
-      Placeholder.configure({ placeholder }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-    ],
-    content: value || '',
+    extensions: basic
+      ? [
+        StarterKit.configure({ heading: false, blockquote: false, codeBlock: false, code: false, horizontalRule: false }),
+        Underline,
+        Link.configure({ openOnClick: false, autolink: true }),
+        Placeholder.configure({ placeholder }),
+      ]
+      : [
+        StarterKit.configure({ heading: { levels: [2, 3] } }),
+        Underline,
+        Link.configure({ openOnClick: false, autolink: true }),
+        Image,
+        Placeholder.configure({ placeholder }),
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+      ],
+    content: toEditorHtml(value || ''),
     editable: !disabled,
     immediatelyRender: false,
     onUpdate: ({ editor: updated }) => onChange(updated.getHTML()),
     editorProps: {
-      attributes: { class: EDITOR_CONTENT_CLASS },
+      attributes: { class: basic ? EDITOR_CONTENT_CLASS.replace('min-h-[200px]', 'min-h-[96px]') : EDITOR_CONTENT_CLASS },
     },
   });
 
@@ -250,8 +287,9 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (!editor) return;
-    if (value !== editor.getHTML()) {
-      editor.commands.setContent(value || '', { emitUpdate: false });
+    const next = toEditorHtml(value || '');
+    if (next !== editor.getHTML()) {
+      editor.commands.setContent(next, { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor]);
@@ -295,18 +333,21 @@ export function RichTextEditor({
                 disabled={disabled}
                 uploading={uploading}
                 onInsertImage={() => fileInputRef.current?.click()}
+                basic={basic}
               />
-              <ToolbarSeparator />
+              {!basic && <ToolbarSeparator />}
             </>
           )}
-          <ToolbarButton
-            title={codeMode ? 'Kembali ke tampilan visual' : 'Edit kode HTML'}
-            active={codeMode}
-            disabled={disabled || !editor}
-            onClick={toggleCodeMode}
-          >
-            {'</>'}
-          </ToolbarButton>
+          {!basic && (
+            <ToolbarButton
+              title={codeMode ? 'Kembali ke tampilan visual' : 'Edit kode HTML'}
+              active={codeMode}
+              disabled={disabled || !editor}
+              onClick={toggleCodeMode}
+            >
+              {'</>'}
+            </ToolbarButton>
+          )}
         </div>}
 
         {codeMode ? (
@@ -336,9 +377,11 @@ export function RichTextEditor({
 
       {error && <p className="text-xs text-danger">{error}</p>}
       {description && <p className="text-xs leading-relaxed text-default-500">{description}</p>}
-      <p className="text-xs text-default-400">
-        Konten rich text ditampilkan dengan gaya independen — tidak mengikuti tema template.
-      </p>
+      {!basic && (
+        <p className="text-xs text-default-400">
+          Konten rich text ditampilkan dengan gaya independen — tidak mengikuti tema template.
+        </p>
+      )}
     </div>
   );
 }

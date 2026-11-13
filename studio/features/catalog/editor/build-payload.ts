@@ -4,6 +4,7 @@ import { moneyValue } from '../money';
 import { metaOf } from '../product-utils';
 import type { ProductForm } from './form-state';
 import { advancedFieldsFor, sectionsFor } from './section-registry';
+import { groupOptionDrafts } from './option-groups';
 
 /** Slug produk (maks. 255, tanpa batas 63 slug website). `typing` mempertahankan "-" di akhir. */
 export function slugifyProduct(text: string, typing = false): string {
@@ -153,7 +154,8 @@ export function buildGatheringOptions(form: ProductForm): GatheringOptionInput[]
   const price = moneyValue(form.price) ?? 0;
   const deposit = moneyValue(form.deposit) ?? 0;
   const policy = cancellationPolicy(form);
-  return activeOptionDrafts(form).map((o, index) => ({
+  // Disusun per kelompok (urutan kelompok = urutan tampil di Studio) agar sort_order berurutan per kelompok.
+  return groupOptionDrafts(activeOptionDrafts(form)).map((o, index) => ({
     id: o.id,
     option_group_key: slugifyProduct(o.group).slice(0, 64) || `group-${index + 1}`,
     option_key: o.optionKey || slugifyProduct(o.label).slice(0, 64) || `option-${index + 1}`,
@@ -166,6 +168,8 @@ export function buildGatheringOptions(form: ProductForm): GatheringOptionInput[]
     max_attendees: Number.parseInt(form.maxAttendees, 10),
     availability_window: o.availabilityNote.trim() ? { note: o.availabilityNote.trim() } : {},
     venue_location: o.venueLocation.trim() || undefined,
+    venue_address: o.venueAddress.trim() || undefined,
+    venue_map_url: o.venueMapUrl.trim() || undefined,
     benefits: o.benefits.split('\n').map((b) => b.trim()).filter(Boolean),
     images: o.images,
     cancellation_policy: policy,
