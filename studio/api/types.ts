@@ -116,6 +116,7 @@ export interface CreateWebsiteRequestDto {
   name: string;
   slug: string;
   template_id: string;
+  template_trial_submission_id?: string;
   business_profile: Exclude<BusinessProfileId, 'legacy'>;
   logo_url?: string;
   whatsapp?: string;

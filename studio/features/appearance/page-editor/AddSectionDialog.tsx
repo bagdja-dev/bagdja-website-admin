@@ -20,17 +20,28 @@ const CATEGORIES: ReadonlyArray<readonly [string, string]> = [
   ['blog', 'Blog'],
 ];
 
-/** Cache per template id: daftar type section yang didukung template (dari manifest). `null` = manifest belum tersedia. */
-const supportedCache = new Map<string, Promise<Set<string> | null>>();
+type SupportedSectionsState =
+  | { status: 'loading' }
+  | { status: 'ready'; templateId: string; types: Set<string> }
+  | { status: 'error'; templateId: string | null; message: string };
 
-function loadSupportedTypes(templateId: string): Promise<Set<string> | null> {
+/** Cache hanya hasil sukses; kegagalan harus dapat dicoba ulang. */
+const supportedCache = new Map<string, Promise<Set<string>>>();
+
+function loadSupportedTypes(templateId: string): Promise<Set<string>> {
   const cached = supportedCache.get(templateId);
   if (cached) return cached;
   const promise = fetchWebsiteTemplates()
-    .then((templates) => templates.find((t) => t.id === templateId)?.slug ?? null)
-    .then((slug) => (slug ? fetchTemplateManifest(slug) : null))
-    .then((manifest) => (manifest ? new Set(manifest.sections) : null))
-    .catch(() => null);
+    .then((templates) => {
+      const slug = templates.find((template) => template.id === templateId)?.slug;
+      if (!slug) throw new Error('Template aktif tidak ditemukan.');
+      return fetchTemplateManifest(slug);
+    })
+    .then((manifest) => new Set(manifest.sections))
+    .catch((error: unknown) => {
+      supportedCache.delete(templateId);
+      throw error;
+    });
   supportedCache.set(templateId, promise);
   return promise;
 }
@@ -57,7 +68,8 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
-  const [supported, setSupported] = useState<Set<string> | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const [supported, setSupported] = useState<SupportedSectionsState>({ status: 'loading' });
 
   useEffect(() => {
     if (!open) return;
@@ -65,22 +77,41 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
     setQuery('');
     setPicked(null);
     if (!templateId) {
-      setSupported(null);
+      setSupported({
+        status: 'error',
+        templateId: null,
+        message: 'Template aktif tidak ditemukan. Muat ulang halaman lalu coba lagi.',
+      });
       return;
     }
     let cancelled = false;
-    void loadSupportedTypes(templateId).then((types) => {
-      if (!cancelled) setSupported(types);
-    });
+    setSupported({ status: 'loading' });
+    void loadSupportedTypes(templateId)
+      .then((types) => {
+        if (!cancelled) setSupported({ status: 'ready', templateId, types });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSupported({
+            status: 'error',
+            templateId,
+            message: 'Dukungan section template gagal dimuat. Periksa koneksi lalu coba lagi.',
+          });
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, templateId]);
+  }, [open, templateId, retryKey]);
+
+  const supportReady = supported.status === 'ready' && supported.templateId === templateId;
+  const supportError = supported.status === 'error' && supported.templateId === templateId;
 
   const items = useMemo(() => {
+    if (!supportReady || supported.status !== 'ready') return [];
     const q = query.trim().toLowerCase();
     return schemas
-      .filter((s) => !supported || supported.has(s.type))
+      .filter((s) => supported.types.has(s.type))
       .filter((s) => category === 'all' || s.category === category)
       .filter((s) => !q || `${s.label} ${s.description ?? ''}`.toLowerCase().includes(q))
       .map((s) => {
@@ -95,9 +126,12 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
               : null,
         };
       });
-  }, [schemas, supported, category, query, hasModule, moduleLabel, existingTypes]);
+  }, [schemas, supported, supportReady, category, query, hasModule, moduleLabel, existingTypes]);
 
-  const pickedSchema = schemas.find((s) => s.type === picked) ?? null;
+  const pickedSchema =
+    supportReady && supported.status === 'ready' && picked && supported.types.has(picked)
+      ? schemas.find((s) => s.type === picked) ?? null
+      : null;
 
   return (
     <Modal isOpen={open} onClose={onClose} size="5xl" scrollBehavior="inside" hideCloseButton classNames={{ base: 'rounded-[20px]' }}>
@@ -154,7 +188,24 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
         </div>
 
         <div className="grid max-h-[60vh] grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3.5 overflow-y-auto bg-default-50 px-6 py-[18px]">
-          {items.map(({ schema, lockedReason }) => {
+          {!supportReady && !supportError && (
+            <p role="status" className="col-span-full my-6 text-center text-sm text-default-600">
+              Memuat section yang didukung template…
+            </p>
+          )}
+          {supportError && supported.status === 'error' && (
+            <div className="col-span-full my-6 flex flex-col items-center gap-3 text-center">
+              <p role="alert" className="text-sm text-danger">{supported.message}</p>
+              <button
+                type="button"
+                onClick={() => setRetryKey((key) => key + 1)}
+                className="min-h-10 rounded-[10px] border border-default-300 bg-white px-4 text-sm font-semibold text-foreground hover:bg-default-50"
+              >
+                Coba lagi
+              </button>
+            </div>
+          )}
+          {supportReady && items.map(({ schema, lockedReason }) => {
             const on = !lockedReason && picked === schema.type;
             return (
               <button
@@ -186,7 +237,7 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
               </button>
             );
           })}
-          {items.length === 0 && (
+          {supportReady && items.length === 0 && (
             <p className="col-span-full my-6 text-center text-sm text-default-600">
               {query.trim() ? `Tidak ada bagian yang cocok dengan "${query.trim()}".` : 'Tidak ada bagian di kategori ini.'}
             </p>
@@ -205,7 +256,7 @@ export function AddSectionDialog({ open, onClose, schemas, templateId, existingT
             </button>
             <button
               type="button"
-              disabled={!pickedSchema || busy}
+              disabled={!supportReady || !pickedSchema || busy}
               onClick={() => pickedSchema && onAdd(pickedSchema.type)}
               className="min-h-11 rounded-[10px] bg-primary px-5 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-50"
             >

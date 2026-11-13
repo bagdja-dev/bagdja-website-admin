@@ -121,9 +121,10 @@ export async function openGatheringInitiatorChat(
     throw new Error('Akun penyelenggara tidak tersedia untuk memulai chat.');
   }
   const label = `Gathering ${gathering.id.slice(0, 8)}`;
+  // id = order rencana (website membuka /cart/order/:id); href Studio tetap ke halaman gathering.
   const reference = {
     type: 'order',
-    id: gathering.id,
+    id: gathering.initiator_order_id ?? gathering.id,
     title: gathering.title || label,
     href: `/studio/orders/gathering/${encodeURIComponent(gathering.id)}`,
     meta: 'Detail acara gathering',

@@ -11,6 +11,9 @@ import { notify } from '@/studio/ui/primitives/Toast';
 import type { SectionProps } from '../editor-context';
 import { ADD_BTN, HINT, ICON_BTN, INPUT, IntField, MoneyField, Notice, TextAreaField, TextField } from '../fields';
 import { emptyOption, type GatheringOptionDraft, type PenaltyType, type ProductForm } from '../form-state';
+import { moveOptionGroup } from '../option-groups';
+import { isGoogleMapsUrl } from '@/studio/lib/google-maps-url';
+import { richTextToPlainText } from '@/studio/lib/rich-text';
 
 const PENALTY_LABEL: Record<PenaltyType, string> = { NONE: 'Tanpa penalti', FIXED: 'Nominal tetap', PERCENTAGE: 'Persentase' };
 const OPTION_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -546,11 +549,29 @@ function OptionDialog({
             {isEditing ? (
               <div className="flex flex-col gap-3">
                 <TextField label="Nama pilihan" placeholder="Contoh: Sate Padang" value={draft.label} onChange={(label) => updateDraft({ label })} maxLength={255} />
-                <TextAreaField label="Keterangan" placeholder="Jelaskan pilihan ini untuk peserta" rows={3} value={draft.description} onChange={(description) => updateDraft({ description })} />
+                <RichTextEditor
+                  variant="basic"
+                  label="Keterangan"
+                  placeholder="Jelaskan pilihan ini untuk peserta"
+                  description="Bisa tebal, miring, daftar berpoin/bernomor, dan tautan."
+                  value={draft.description}
+                  onChange={(description) => updateDraft({ description: richTextToPlainText(description) ? description : '' })}
+                />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <TextField label="Lokasi (opsional)" placeholder="Contoh: Lantai 2" value={draft.venueLocation} onChange={(venueLocation) => updateDraft({ venueLocation })} />
+                  <TextField label="Nama tempat (opsional)" placeholder="Contoh: Studio Tanah, Lantai 2" value={draft.venueLocation} onChange={(venueLocation) => updateDraft({ venueLocation })} />
                   <TextField label="Ketersediaan (opsional)" placeholder="Contoh: Tersedia selama acara" value={draft.availabilityNote} onChange={(availabilityNote) => updateDraft({ availabilityNote })} />
                 </div>
+                <TextAreaField label="Alamat (opsional)" placeholder="Contoh: Jl. Kemang Raya No. 12, Jakarta Selatan 12730" rows={2} hint="Maksimal 500 karakter." value={draft.venueAddress} onChange={(venueAddress) => updateDraft({ venueAddress })} />
+                <TextField
+                  label="Link Google Maps (opsional)"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://maps.app.goo.gl/…"
+                  hint="Di Google Maps: Bagikan → Salin link."
+                  error={draft.venueMapUrl.trim() && !isGoogleMapsUrl(draft.venueMapUrl) ? 'Gunakan link dari Google Maps.' : undefined}
+                  value={draft.venueMapUrl}
+                  onChange={(venueMapUrl) => updateDraft({ venueMapUrl })}
+                />
                 <TextAreaField label="Benefit (satu per baris, opsional)" placeholder={'Contoh:\nTermasuk minuman\nArea khusus keluarga'} rows={3} value={draft.benefits} onChange={(benefits) => updateDraft({ benefits })} />
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -602,12 +623,18 @@ function OptionDialog({
               <div className="flex flex-col gap-4">
                 <div>
                   <p className="text-lg font-bold">{activeOption.label || 'Pilihan tanpa nama'}</p>
-                  {activeOption.description ? <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-default-700">{activeOption.description}</p> : <p className="mt-1 text-sm italic text-default-500">Belum ada keterangan.</p>}
+                  {richTextToPlainText(activeOption.description) ? <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-default-700">{richTextToPlainText(activeOption.description)}</p> : <p className="mt-1 text-sm italic text-default-500">Belum ada keterangan.</p>}
                 </div>
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-default-200 bg-white p-3">
                     <dt className="text-xs font-semibold text-default-500">Lokasi</dt>
                     <dd className="mt-1 text-sm">{activeOption.venueLocation || 'Belum diisi'}</dd>
+                    {activeOption.venueAddress ? <dd className="mt-1 text-xs text-default-600">{activeOption.venueAddress}</dd> : null}
+                    {activeOption.venueMapUrl && isGoogleMapsUrl(activeOption.venueMapUrl) ? (
+                      <dd className="mt-1 text-xs">
+                        <a href={activeOption.venueMapUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">Buka di Google Maps</a>
+                      </dd>
+                    ) : null}
                   </div>
                   <div className="rounded-lg border border-default-200 bg-white p-3">
                     <dt className="text-xs font-semibold text-default-500">Ketersediaan</dt>
@@ -665,6 +692,9 @@ function OptionGroupCard({
   onRename,
   onChange,
   onRemove,
+  onRemoveGroup,
+  onMoveUp,
+  onMoveDown,
 }: {
   group: string;
   options: GatheringOptionDraft[];
@@ -674,6 +704,10 @@ function OptionGroupCard({
   onRename: (name: string) => void;
   onChange: (option: GatheringOptionDraft) => void;
   onRemove: (key: string) => void;
+  onRemoveGroup: () => void;
+  /** Kosong = sudah di urutan pertama/terakhir. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const [dialogOption, setDialogOption] = useState<GatheringOptionDraft | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -736,7 +770,13 @@ function OptionGroupCard({
             maxLength={64}
           />
         </div>
-        <button type="button" className={`${ICON_BTN} text-danger`} aria-label={`Hapus kelompok ${group || 'tanpa nama'}`} onClick={() => options.forEach((option) => onRemove(option.key))}>
+        <button type="button" className={ICON_BTN} aria-label={`Naikkan kelompok ${group || 'tanpa nama'}`} title="Naikkan urutan" disabled={!onMoveUp} onClick={onMoveUp}>
+          <Icon name="arrowUp" size={14} />
+        </button>
+        <button type="button" className={ICON_BTN} aria-label={`Turunkan kelompok ${group || 'tanpa nama'}`} title="Turunkan urutan" disabled={!onMoveDown} onClick={onMoveDown}>
+          <Icon name="arrowDown" size={14} />
+        </button>
+        <button type="button" className={`${ICON_BTN} text-danger`} aria-label={`Hapus kelompok ${group || 'tanpa nama'}`} onClick={onRemoveGroup}>
           <Icon name="trash" size={14} />
         </button>
       </div>
@@ -813,6 +853,10 @@ export function EventSection({ form, set, errors, websiteId, canEdit }: SectionP
     setPendingNewOptionKey(firstOption.key);
   };
   const removeOption = (key: string) => set({ gatheringOptions: options.filter((option) => option.key !== key) });
+  // Satu set() untuk seluruh kelompok (memanggil removeOption per opsi hanya menghapus opsi terakhir).
+  const removeGroup = (group: string) => set({ gatheringOptions: options.filter((option) => option.group !== group) });
+  const moveGroup = (group: string, delta: -1 | 1) => set({ gatheringOptions: moveOptionGroup(options, group, delta) });
+  const groupNames = [...groups.keys()];
 
   return (
     <>
@@ -829,7 +873,7 @@ export function EventSection({ form, set, errors, websiteId, canEdit }: SectionP
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-bold">Kelompok & pilihan</h3>
-            <p className={HINT}>Buat kelompok, lalu masukkan pilihan di dalamnya. Contoh: kelompok “Menu” berisi “Sate Padang” dan “Nasi Campur”. Harga dan kuota berlaku sama untuk semua pilihan.</p>
+            <p className={HINT}>Urutan kelompok di sini = urutan tampil di website (atur dengan tombol ↑ ↓). Buat kelompok, lalu masukkan pilihan di dalamnya. Contoh: kelompok “Menu” berisi “Sate Padang” dan “Nasi Campur”. Harga dan kuota berlaku sama untuk semua pilihan.</p>
           </div>
           <button type="button" className={ADD_BTN} onClick={() => setIsAddingGroup(true)}>+ Tambah kelompok</button>
         </div>
@@ -852,6 +896,9 @@ export function EventSection({ form, set, errors, websiteId, canEdit }: SectionP
                 onRename={(name) => renameGroup(group, name)}
                 onChange={(option) => patchOption(option.key, option)}
                 onRemove={removeOption}
+                onRemoveGroup={() => removeGroup(group)}
+                onMoveUp={groupNames.indexOf(group) > 0 ? () => moveGroup(group, -1) : undefined}
+                onMoveDown={groupNames.indexOf(group) < groupNames.length - 1 ? () => moveGroup(group, 1) : undefined}
               />
             ))}
           </ul>

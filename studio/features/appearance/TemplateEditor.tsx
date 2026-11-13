@@ -10,15 +10,30 @@ import { fetchWebsiteTemplates } from '@/studio/api/templates';
 import type { WebsiteTemplateDto } from '@/studio/api/types';
 import {
   fetchTemplateVersionStatus,
+  selectTemplateVersion,
   updateWebsiteTemplate,
   upgradeTemplateVersion,
   type WebsiteTemplateVersionStatusDto,
 } from '@/studio/api/websites';
+import {
+  fetchTemplateVersionOptions,
+  fetchWebsiteTemplateTrial,
+  startWebsiteTemplateTrial,
+  type TemplateVersionOptionsDto,
+  type WebsiteTemplateTrialDto,
+} from '@/studio/api/template-trials';
+import {
+  CandidateVersionPreview,
+  TemplateVersionPicker,
+  sameChoice,
+  type TemplateVersionChoice,
+} from '@/studio/features/appearance/TemplateVersionPicker';
 import { hasMinRole } from '@/studio/lib/roles';
 import { isPaidTemplate } from '@/studio/features/onboarding/use-template-catalog';
 import { TemplateDetail } from '@/studio/features/onboarding/TemplateDetail';
 import { TemplatePreviewFrame, type PreviewDevice } from '@/studio/features/onboarding/TemplatePreviewFrame';
 import { TemplateThumb } from '@/studio/features/onboarding/TemplateThumb';
+import { ActiveTemplateTrialBanner, CandidateTemplateSection } from '@/studio/features/appearance/TemplateTrialPanel';
 import { templatePriceLabel } from '@/studio/features/onboarding/template-meta';
 import { useActiveRole, useActiveWebsite, useWebsiteStore } from '@/studio/stores/website-store';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
@@ -62,6 +77,9 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [versionStatus, setVersionStatus] = useState<WebsiteTemplateVersionStatusDto | null>(null);
+  const [versionOptions, setVersionOptions] = useState<TemplateVersionOptionsDto | null>(null);
+  const [versionChoice, setVersionChoice] = useState<TemplateVersionChoice | null>(null);
+  const [websiteTrial, setWebsiteTrial] = useState<WebsiteTemplateTrialDto | null>(null);
 
   const canChange = hasMinRole(role, 'admin');
   const businessProfile = website?.business_profile;
@@ -140,6 +158,103 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
   );
   const activeTemplate = templates.find((template) => template.id === website?.template_id) ?? null;
   const detailTemplate = templates.find((template) => template.id === detailId) ?? null;
+  const detailIsPackage = Boolean(detailTemplate?.manifest && !detailTemplate.manifest.isBuiltin);
+  const installedVersionId = detailTemplate && detailTemplate.id === website?.template_id
+    ? versionStatus?.current?.versionId ?? null
+    : null;
+  const trialSubmissionId = websiteTrial?.candidate && websiteTrial.candidate.slug === detailTemplate?.slug
+    ? websiteTrial.candidate.submissionId
+    : null;
+
+  // Pemilih versi (template package): semua versi terbit + versi uji milik user.
+  useEffect(() => {
+    if (!website?.id || !detailTemplate || !detailIsPackage) {
+      setVersionOptions(null);
+      setVersionChoice(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      fetchTemplateVersionOptions(detailTemplate.slug),
+      fetchWebsiteTemplateTrial(website.id).catch(() => null),
+    ])
+      .then(([options, trial]) => {
+        if (cancelled) return;
+        setVersionOptions(options);
+        setWebsiteTrial(trial);
+        const trialId = trial?.candidate && trial.candidate.slug === detailTemplate.slug ? trial.candidate.submissionId : null;
+        const trialCandidate = options.candidates.find((candidate) => candidate.submissionId === trialId);
+        const installed = detailTemplate.id === website.template_id
+          ? options.published.find((version) => version.versionId === versionStatus?.current?.versionId)
+          : undefined;
+        const latest = options.published[0];
+        setVersionChoice(trialCandidate
+          ? { kind: 'candidate', submissionId: trialCandidate.submissionId, version: trialCandidate.version }
+          : installed ?? latest
+            ? { kind: 'published', versionId: (installed ?? latest)!.versionId, version: (installed ?? latest)!.version }
+            : options.candidates[0]
+              ? { kind: 'candidate', submissionId: options.candidates[0].submissionId, version: options.candidates[0].version }
+              : null);
+      })
+      .catch(() => {
+        if (!cancelled) setVersionOptions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Pilihan default dihitung ulang hanya saat template detail / website berganti.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [website?.id, detailTemplate?.id, detailIsPackage]);
+
+  const choiceIsCurrent = versionChoice
+    ? versionChoice.kind === 'published'
+      ? versionChoice.versionId === installedVersionId
+      : versionChoice.submissionId === trialSubmissionId
+    : false;
+
+  const applyVersionChoice = async (template: WebsiteTemplateDto, choice: TemplateVersionChoice) => {
+    if (!website || !canChange || saving || choiceIsCurrent) return;
+    const candidate = choice.kind === 'candidate';
+    const installedVersion = template.id === website.template_id ? versionStatus?.current?.version : null;
+    const accepted = await confirm({
+      title: candidate ? `Uji ${template.name} versi ${choice.version}?` : `Pakai ${template.name} versi ${choice.version}?`,
+      description: candidate ? (
+        <span>
+          Versi ini belum terbit. Website tampil dengan versi ini <strong>hanya untuk Anda saat login</strong>; pengunjung
+          lain tetap melihat template terpasang. Uji berhenti otomatis bila diminta revisi/ditolak.
+        </span>
+      ) : (
+        <span>
+          Semua pengunjung akan melihat <strong>{template.name} {choice.version}</strong>
+          {installedVersion ? ` (sebelumnya ${installedVersion})` : ''}. Versi tidak berubah otomatis; Anda bisa memilih versi
+          lain kapan saja. Konten website yang tersimpan tidak dihapus.
+        </span>
+      ),
+      confirmLabel: candidate ? 'Mulai uji' : 'Pakai versi ini',
+    });
+    if (!accepted) return;
+
+    setSaving(true);
+    try {
+      if (choice.kind === 'candidate') {
+        setWebsiteTrial(await startWebsiteTemplateTrial(website.id, choice.submissionId));
+        notify.success('Uji versi dimulai.', 'Buka website Anda dalam keadaan login untuk mencobanya.');
+      } else {
+        const status = await selectTemplateVersion(website.id, choice.versionId);
+        setVersionStatus(status);
+        setWebsiteTrial((current) => (current ? { ...current, candidate: null } : current));
+        patchWebsite(website.id, {
+          template_id: template.id,
+          template_runtime_version: status.current?.version ?? choice.version,
+        });
+        notify.success(`${template.name} versi ${choice.version} dipakai.`);
+      }
+    } catch (cause: unknown) {
+      notify.error(candidate ? 'Uji versi gagal dimulai.' : 'Gagal memakai versi template.', errorMessage(cause, 'Perubahan belum disimpan.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const applyTemplate = async (template: WebsiteTemplateDto) => {
     if (!website || !canChange || isPaidTemplate(template) || saving) return;
@@ -198,6 +313,8 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
             </div>
             <Button as={Link} href={STORE_URL} color="primary">Ganti template</Button>
           </header>
+
+          <ActiveTemplateTrialBanner websiteId={website.id} websiteSlug={website.slug} canChange={canChange} />
 
           {status === 'loading' && (
             <div className="flex min-h-36 items-center justify-center rounded-[14px] border border-default-200 bg-white">
@@ -304,11 +421,41 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
                 theme: website.theme,
               }}
               slug={website.slug}
-              isCurrent={detailTemplate.id === website.template_id && !versionStatus?.updateAvailable}
-              canUse={canChange && !saving && !isPaidTemplate(detailTemplate)}
-              applyLabel={detailTemplate.id === website.template_id ? 'Perbarui versi template' : 'Terapkan template'}
+              {...(detailIsPackage && versionOptions ? {
+                isCurrent: choiceIsCurrent,
+                currentLabel: versionChoice?.kind === 'candidate' ? 'Sedang diuji' : 'Sedang digunakan',
+                canUse: canChange && !saving && Boolean(versionChoice),
+                applyLabel: versionChoice?.kind === 'candidate'
+                  ? `Uji versi ${versionChoice.version} (hanya Anda)`
+                  : versionChoice
+                    ? `Pakai versi ${versionChoice.version}`
+                    : 'Pilih versi',
+                onUse: () => {
+                  if (versionChoice) void applyVersionChoice(detailTemplate, versionChoice);
+                },
+                previewVersion: versionChoice?.kind === 'published' ? versionChoice.version : undefined,
+                previewOverride: versionChoice?.kind === 'candidate'
+                  ? <CandidateVersionPreview submissionId={versionChoice.submissionId} />
+                  : undefined,
+                versionPicker: (
+                  <TemplateVersionPicker
+                    options={versionOptions}
+                    value={versionChoice}
+                    onChange={(choice) => {
+                      if (!sameChoice(choice, versionChoice)) setVersionChoice(choice);
+                    }}
+                    installedVersionId={installedVersionId}
+                    trialSubmissionId={trialSubmissionId}
+                    disabled={saving}
+                  />
+                ),
+              } : {
+                isCurrent: detailTemplate.id === website.template_id && !versionStatus?.updateAvailable,
+                canUse: canChange && !saving && !isPaidTemplate(detailTemplate),
+                applyLabel: detailTemplate.id === website.template_id ? 'Perbarui versi template' : 'Terapkan template',
+                onUse: () => void applyTemplate(detailTemplate),
+              })}
               onBack={() => setDetailId(null)}
-              onUse={() => void applyTemplate(detailTemplate)}
             />
           ) : (
             <>
@@ -355,6 +502,8 @@ export function TemplateEditor({ view = 'active' }: { view?: 'active' | 'store' 
               </div>
             )}
           </div>
+
+          <CandidateTemplateSection websiteId={website.id} canChange={canChange} businessProfile={businessProfile} />
 
           {status === 'loading' && (
             <div className="flex min-h-36 items-center justify-center rounded-[14px] border border-default-200 bg-white">

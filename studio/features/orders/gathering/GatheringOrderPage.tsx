@@ -473,7 +473,23 @@ function GatheringOrderContent({ groupId }: { groupId: string }) {
 
   return (
     <>
-      <PageHeader title={gathering.title} description="Detail acara gathering" back={back} />
+      <PageHeader
+        title={gathering.title}
+        description="Detail acara gathering"
+        back={back}
+        actions={gathering.initiator_user_id ? (
+          // Web: CTA chat di header (HP memakai tombol chat di bar bawah).
+          <Button
+            variant="bordered"
+            className="hidden rounded-[12px] border-[#7A1E48] font-bold text-[#7A1E48] md:inline-flex"
+            startContent={<Icon name="chat" size={18} />}
+            onPress={() => void chatInitiator()}
+            isLoading={chatBusy}
+          >
+            Chat penyelenggara
+          </Button>
+        ) : undefined}
+      />
       <main className="mx-auto flex w-full max-w-[920px] flex-col gap-4 px-3 pb-28 md:px-0 md:pb-20">
         <GatheringHeader gathering={gathering} />
         <GatheringProgress gathering={gathering} />

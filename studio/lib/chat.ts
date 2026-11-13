@@ -121,6 +121,9 @@ export function getChatReferenceLabel(type: ChatReference['type']): string {
 
 export function resolveStudioChatReferenceHref(reference: ChatReference, websiteSlug?: string | null): string | null {
   const stored = reference.href?.trim() ?? '';
+  // Kartu dari detail gathering Studio: href /studio/orders/gathering/:groupId.
+  const gatheringGroupId = stored.match(/\/studio\/orders\/gathering\/([^/?#]+)/)?.[1];
+  if (gatheringGroupId) return `/studio/orders/gathering/${gatheringGroupId}`;
   const fromOrderHref = stored.match(/\/(?:order|orders)\/([^/?#]+)/)?.[1];
   if (reference.type === 'order') {
     const draftId = stored.match(/\/cart\/order\/([^/?#]+)/)?.[1];
