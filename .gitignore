@@ -2,8 +2,6 @@ node_modules/
 .next/
 out/
 build/
-.env
-.env.local
 .DS_Store
 *.log
 next-env.d.ts
@@ -14,3 +12,4 @@ graphify-out/
 
 # CSS Studio hasil kompilasi Tailwind CLI (npm run studio:css)
 studio/theme/studio.generated.css
+config.bat
