@@ -4,13 +4,15 @@
   "private": true,
   "description": "CMS panel for Bagdja Website Builder (Next.js App Router + HeroUI)",
   "scripts": {
-    "dev": "node init && npm run studio:css && (tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css --watch=always & next dev -p 5004)",
+    "dev": "npm run studio:css && (tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css --watch=always & next dev -p 5004)",
     "studio:css": "tailwindcss -c tailwind.studio.config.ts -i studio/theme/studio.source.css -o studio/theme/studio.generated.css",
     "prebuild": "npm run studio:css",
-    "build": "node init && next build",
-    "start": "node init && next start -p 5004",
+    "build": "next build",
+    "start": "next start -p 5004",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:template-preview-url": "node --test test/template-preview-url.test.mjs",
+    "test:option-groups": "node --test test/option-groups.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
