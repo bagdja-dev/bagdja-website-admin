@@ -18,6 +18,8 @@ export interface TemplatePreviewFrameProps {
   size?: 'compact' | 'regular';
   /** Tinggi area situs (px). */
   height?: number;
+  /** Versi terbit tertentu untuk template package (pemilih versi). */
+  version?: string;
 }
 
 /** Bingkai browser artboard (3 titik + kolom alamat) berisi iframe renderer `?preview=1`. */
@@ -28,8 +30,9 @@ export function TemplatePreviewFrame({
   device = 'desktop',
   size = 'regular',
   height = 560,
+  version,
 }: TemplatePreviewFrameProps) {
-  const url = buildTemplatePreviewUrl(template, profile);
+  const url = buildTemplatePreviewUrl(template, profile, version);
   const host = displayHost(slug?.trim() ? slug : 'nama-bisnis');
   const compact = size === 'compact';
   const dot = compact ? 'h-[9px] w-[9px]' : 'h-2.5 w-2.5';

@@ -18,6 +18,11 @@ import { useStudioBootstrap } from './shell/use-studio-bootstrap';
 const ONBOARDING_PATH = '/studio/onboarding';
 /** Rute wizard layar penuh (tanpa sidebar/topbar). */
 const FULLSCREEN_PATHS: readonly string[] = [ONBOARDING_PATH, '/studio/websites/new'];
+/**
+ * Rute ruang kerja (editor halaman): tetap memakai sidebar/topbar, tetapi area konten mengisi sisa
+ * tinggi layar tanpa padding sehingga panel editor yang menggulir sendiri — bukan halaman.
+ */
+const WORKSPACE_PATH = /^\/studio\/appearance\/pages\/[^/]+\/?$/;
 
 function ShellFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -27,9 +32,10 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const retryModules = useModulesStore((s) => s.refresh);
 
   useEffect(() => setDrawerOpen(false), [pathname]);
+  const isWorkspace = WORKSPACE_PATH.test(pathname);
 
   return (
-    <div className="flex min-h-screen bg-default-100">
+    <div className={`flex bg-default-100 ${isWorkspace ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
       <aside
         className={`sticky top-0 hidden h-screen shrink-0 border-r border-default-200 transition-[width] duration-200 lg:block ${
           sidebarCollapsed ? 'w-[72px]' : 'w-64'
@@ -56,9 +62,15 @@ function ShellFrame({ children }: { children: ReactNode }) {
         </DrawerContent>
       </Drawer>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col ${isWorkspace ? 'min-h-0' : ''}`}>
         <Topbar onOpenMenu={() => setDrawerOpen(true)} />
-        <main className="w-full min-w-0 flex-1 px-3 pb-8 pt-3 sm:px-8 sm:pt-5">
+        <main
+          className={
+            isWorkspace
+              ? 'flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto'
+              : 'w-full min-w-0 flex-1 px-3 pb-8 pt-3 sm:px-8 sm:pt-5'
+          }
+        >
           {modulesError && <ModulesErrorBanner message={modulesError} onRetry={() => void retryModules()} />}
           <ModuleGate>{children}</ModuleGate>
         </main>

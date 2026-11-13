@@ -12,6 +12,9 @@ export interface ChatThread {
   customer_email?: string | null;
   product_id?: string | null;
   order_id?: string | null;
+  transaction_id?: string | null;
+  /** Kelompok gathering dari metadata order thread (Website API) → /studio/orders/gathering/:id. */
+  gathering_group_id?: string | null;
   status?: string | null;
   last_message_at?: string | null;
   last_message_preview?: string | null;

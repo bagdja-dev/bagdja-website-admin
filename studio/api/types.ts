@@ -116,6 +116,7 @@ export interface CreateWebsiteRequestDto {
   name: string;
   slug: string;
   template_id: string;
+  template_trial_submission_id?: string;
   business_profile: Exclude<BusinessProfileId, 'legacy'>;
   logo_url?: string;
   whatsapp?: string;
@@ -218,6 +219,7 @@ export interface WebsiteDto {
   domain?: string | null;
   domain_verified_at?: string | null;
   template_id?: string | null;
+  template_runtime_version?: string | null;
   tagline?: string | null;
   logo_url?: string | null;
   whatsapp?: string | null;

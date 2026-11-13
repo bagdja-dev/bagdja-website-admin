@@ -3,6 +3,7 @@ import { activeOptionDrafts, slugifyProduct, usesVariantPricing } from './build-
 import type { FormErrors } from './editor-context';
 import type { ProductForm } from './form-state';
 import { advancedFieldsFor, sectionsFor, type SectionContext, type SectionId } from './section-registry';
+import { isGoogleMapsUrl } from '@/studio/lib/google-maps-url';
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const isInt = (v: string): boolean => /^\d+$/.test(v.trim());
@@ -97,6 +98,14 @@ function validateEvent(form: ProductForm, ctx: ValidationContext, e: FormErrors)
   else {
     const keys = drafts.map((o, i) => `${slugifyProduct(o.group) || `group-${i + 1}`}:${o.optionKey || slugifyProduct(o.label) || `option-${i + 1}`}`);
     if (new Set(keys).size !== keys.length) e.options = 'Nama pilihan dalam satu kelompok harus unik.';
+    else if (drafts.some((o) => o.venueMapUrl.trim() && !isGoogleMapsUrl(o.venueMapUrl))) {
+      e.options = 'Link lokasi harus dari Google Maps (Bagikan → Salin link), mis. https://maps.app.goo.gl/…';
+    } else if (drafts.some((o) => o.venueAddress.trim().length > 500)) {
+      e.options = 'Alamat lokasi maksimal 500 karakter.';
+    } else if (drafts.some((o) => o.description.length > 5000)) {
+      // Batas HTML keterangan (termasuk tag format) — sama dengan DTO Website API.
+      e.options = 'Keterangan pilihan terlalu panjang. Persingkat atau kurangi format.';
+    }
   }
 
   const prepare = Number(form.prepareDays);

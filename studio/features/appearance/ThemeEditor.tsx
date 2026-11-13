@@ -2,16 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { Button, Select, SelectItem } from '@heroui/react';
+import { Button, Select, SelectItem, Spinner } from '@heroui/react';
 
-import { updateWebsiteTheme } from '@/studio/api/websites';
+import { errorMessage } from '@/studio/api/client';
+import { fetchWebsiteTemplates } from '@/studio/api/templates';
+import { fetchWebsiteTemplateTrial } from '@/studio/api/template-trials';
+import { fetchTemplateVersionStatus, updateWebsiteTheme } from '@/studio/api/websites';
 import type {
   ThemeAccentDto,
   ThemeFontDto,
   ThemeModeDto,
   ThemePresetDto,
+  WebsiteTemplateDto,
   WebsiteThemeConfigDto,
 } from '@/studio/api/types';
+import { TemplatePreviewFrame, type PreviewDevice } from '@/studio/features/onboarding/TemplatePreviewFrame';
 import { useActiveRole, useActiveWebsite, useWebsiteStore } from '@/studio/stores/website-store';
 import { hasMinRole } from '@/studio/lib/roles';
 import { notify } from '@/studio/ui/primitives/Toast';
@@ -129,6 +134,50 @@ function normalizeTheme(raw: WebsiteThemeConfigDto | null | undefined): WebsiteT
   };
 }
 
+/** Field tema yang membentuk skema warna (tipografi tidak termasuk). */
+const COLOR_SCHEME_KEYS = ['mode', 'accent', 'preset', 'colors', 'components'] as const;
+
+/**
+ * Skema warna bawaan template untuk website ini — urutan sama dengan renderer (tenantTemplateTheme):
+ * versi uji yang sedang dilihat user → versi terpasang (`manifest.theme`) → `structure.theme` katalog.
+ */
+function templateColorScheme(raw: unknown): WebsiteThemeConfigDto {
+  if (!raw || typeof raw !== 'object') return {};
+  const source = raw as WebsiteThemeConfigDto;
+  const scheme: WebsiteThemeConfigDto = {};
+  if (isThemeMode(source.mode)) scheme.mode = source.mode;
+  if (source.accent && ACCENTS.some((item) => item.value === source.accent)) scheme.accent = source.accent;
+  if (source.preset) scheme.preset = source.preset;
+  if (source.colors && typeof source.colors === 'object') scheme.colors = { ...source.colors };
+  if (source.components && typeof source.components === 'object') scheme.components = { ...source.components };
+  return scheme;
+}
+
+/** Tanpa override warna website → renderer memakai skema warna template. */
+function followsTemplateColors(theme: WebsiteThemeConfigDto): boolean {
+  return COLOR_SCHEME_KEYS.every((key) => theme[key] === undefined);
+}
+
+function withoutColorScheme(theme: WebsiteThemeConfigDto): WebsiteThemeConfigDto {
+  const next: WebsiteThemeConfigDto = { ...theme };
+  for (const key of COLOR_SCHEME_KEYS) delete next[key];
+  return next;
+}
+
+/** Gabungan template + override website, mengikuti urutan `resolveTheme` renderer. */
+function effectiveColorTheme(template: WebsiteThemeConfigDto, website: WebsiteThemeConfigDto): WebsiteThemeConfigDto {
+  const merged: WebsiteThemeConfigDto = { ...template, ...website };
+  if (website.colors) merged.colors = { ...template.colors, ...website.colors };
+  if (template.components || website.components) {
+    merged.components = {
+      header: { ...template.components?.header, ...website.components?.header },
+      footer: { ...template.components?.footer, ...website.components?.footer },
+      button: { ...template.components?.button, ...website.components?.button },
+    };
+  }
+  return merged;
+}
+
 function resolveColors(theme: WebsiteThemeConfigDto): Record<string, string> {
   const mode = isThemeMode(theme.mode) ? theme.mode : 'dark';
   const accent = ACCENTS.find((item) => item.value === theme.accent) ?? ACCENTS[0];
@@ -228,22 +277,86 @@ export function ThemeEditor() {
   const website = websiteEntry?.website;
   const [theme, setTheme] = useState<WebsiteThemeConfigDto>(() => normalizeTheme(website?.theme));
   const [savedTheme, setSavedTheme] = useState<WebsiteThemeConfigDto>(() => normalizeTheme(website?.theme));
+  const [templates, setTemplates] = useState<WebsiteTemplateDto[]>([]);
+  // Palet versi yang benar-benar dipakai website (bukan versi terbaru katalog).
+  const [versionTheme, setVersionTheme] = useState<WebsiteThemeConfigDto | null>(null);
+  const [trialTheme, setTrialTheme] = useState<WebsiteThemeConfigDto | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
   const [saving, setSaving] = useState(false);
 
   const canSave = hasMinRole(role, 'admin');
   const isDirty = JSON.stringify(theme) !== JSON.stringify(savedTheme);
-  const colors = useMemo(() => resolveColors(theme), [theme]);
+  const activeTemplate = templates.find((template) => template.id === website?.template_id) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!website?.id) return () => {
+      cancelled = true;
+    };
+    Promise.all([
+      fetchTemplateVersionStatus(website.id).catch(() => null),
+      fetchWebsiteTemplateTrial(website.id).catch(() => null),
+    ]).then(([status, trial]) => {
+      if (cancelled) return;
+      setVersionTheme(status?.templateTheme ?? null);
+      setTrialTheme(trial?.candidate?.theme ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [website?.id, website?.template_id, website?.template_runtime_version]);
+
+  const templateScheme = useMemo(
+    () => templateColorScheme(trialTheme ?? versionTheme ?? activeTemplate?.structure?.theme),
+    [activeTemplate, trialTheme, versionTheme],
+  );
+  const effectiveTheme = useMemo(() => effectiveColorTheme(templateScheme, theme), [templateScheme, theme]);
+  const colors = useMemo(() => resolveColors(effectiveTheme), [effectiveTheme]);
   const componentDefaults = useMemo(() => getComponentDefaults(colors), [colors]);
+  const usesTemplateColors = followsTemplateColors(theme);
   const headingFont = theme.typography?.headingFont ?? (isThemeFont(theme.font) ? theme.font : 'Inter');
   const bodyFont = theme.typography?.bodyFont ?? (isThemeFont(theme.font) ? theme.font : 'Inter');
-  const selectedPreset = theme.preset ?? theme.mode ?? 'dark';
-  const selectedAccent = theme.accent ?? 'amber';
+  const selectedPreset = effectiveTheme.preset ?? effectiveTheme.mode ?? 'dark';
+  const templateAccentColor = effectiveTheme.colors?.accent?.toLowerCase();
+  const selectedAccent =
+    ACCENTS.find((item) => item.value === effectiveTheme.accent)?.value ??
+    ACCENTS.find((item) => item.color.toLowerCase() === templateAccentColor)?.value ??
+    (templateAccentColor ? undefined : 'amber');
 
   useEffect(() => {
     const nextTheme = normalizeTheme(website?.theme);
     setTheme(nextTheme);
     setSavedTheme(nextTheme);
   }, [website?.id, website?.theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!website?.id) {
+      setTemplates([]);
+      setTemplateError(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setTemplateError(null);
+    fetchWebsiteTemplates()
+      .then((items) => {
+        if (!cancelled) setTemplates(items);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setTemplateError(errorMessage(cause, 'Template aktif gagal dimuat untuk pratinjau.'));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [website?.id]);
+
+  const resetToTemplateColors = () => {
+    setTheme((current) => withoutColorScheme(current));
+  };
 
   const selectPreset = (preset: Exclude<ThemePresetDto, 'custom'>) => {
     setTheme((current) => ({
@@ -354,10 +467,26 @@ export function ThemeEditor() {
             <h2 className="text-lg font-bold text-foreground">Tema & Warna</h2>
             <p className="mt-1 text-sm text-default-600">Atur palet, warna aksen, dan tipografi untuk website {website.name}.</p>
           </div>
-          <Button color="primary" isDisabled={!canSave || !isDirty || saving} isLoading={saving} onPress={() => void save()}>
-            Simpan perubahan
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="bordered"
+              isDisabled={!canSave || saving || usesTemplateColors}
+              onPress={resetToTemplateColors}
+            >
+              Reset ke warna template
+            </Button>
+            <Button color="primary" isDisabled={!canSave || !isDirty || saving} isLoading={saving} onPress={() => void save()}>
+              Simpan perubahan
+            </Button>
+          </div>
         </div>
+        <p className={`mt-3 rounded-[10px] px-3 py-2 text-xs ${
+          usesTemplateColors ? 'bg-default-100 text-default-600' : 'bg-primary-50 text-primary'
+        }`}>
+          {usesTemplateColors
+            ? `Mengikuti skema warna template${activeTemplate ? ` ${activeTemplate.name}` : ''}. Ubah warna di bawah untuk membuat palet sendiri.`
+            : 'Website memakai palet sendiri. Tekan “Reset ke warna template” lalu simpan untuk kembali ke warna bawaan template. Font tidak ikut direset.'}
+        </p>
         {!canSave && (
           <p className="mt-3 rounded-[10px] bg-warning-50 px-3 py-2 text-xs text-warning-700">
             Hanya admin atau pemilik yang dapat menyimpan pengaturan tema.
@@ -394,7 +523,7 @@ export function ThemeEditor() {
                 ))}
                 {selectedPreset === 'custom' && (
                   <div className="sm:col-span-2 rounded-[10px] border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-medium text-primary">
-                    Palet khusus aktif — pilih preset untuk mengembalikan warna default.
+                    Palet khusus aktif — pilih preset, atau reset ke warna template.
                   </div>
                 )}
               </div>
@@ -497,7 +626,7 @@ export function ThemeEditor() {
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {COMPONENT_COLOR_FIELDS[group].map((field) => {
                         const override = getComponentOverride(theme, group, field.key);
-                        const effectiveColor = override ?? colors[field.fallback];
+                        const effectiveColor = getComponentOverride(effectiveTheme, group, field.key) ?? colors[field.fallback];
                         return (
                           <div key={`${group}-${field.key}`} className="flex min-h-[58px] items-center gap-2 rounded-[10px] border border-default-200 bg-white px-2.5 py-2">
                             <input
@@ -535,73 +664,59 @@ export function ThemeEditor() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Pratinjau tema</h3>
-              <p className="mt-1 text-xs text-default-500">Contoh langsung dari pilihan warna dan font sebelum disimpan.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Pratinjau tema</h3>
+                <p className="mt-1 text-xs text-default-500">Template aktif dengan perubahan tema draft sebelum disimpan.</p>
+              </div>
+              <div className="flex rounded-lg bg-default-100 p-1" role="group" aria-label="Ukuran pratinjau tema">
+                {(['desktop', 'mobile'] as const).map((device) => (
+                  <button
+                    key={device}
+                    type="button"
+                    aria-pressed={previewDevice === device}
+                    onClick={() => setPreviewDevice(device)}
+                    className={`min-h-8 rounded-md px-3 text-xs font-medium ${
+                      previewDevice === device ? 'bg-white text-foreground shadow-sm' : 'text-default-600'
+                    }`}
+                  >
+                    {device === 'desktop' ? 'Desktop' : 'HP'}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div
-              className="overflow-hidden rounded-[14px] border shadow-sm"
-              style={{
-                backgroundColor: colors.background,
-                borderColor: colors.border,
-                color: colors.text,
-                fontFamily: `'${bodyFont}', system-ui, sans-serif`,
-              }}
-            >
-              <div
-                className="flex items-center justify-between border-b px-4 py-3"
-                style={{
-                  backgroundColor: theme.components?.header?.background ?? colors.background,
-                  borderColor: theme.components?.header?.border ?? colors.accent,
-                  color: theme.components?.header?.text ?? colors.text,
-                }}
-              >
-                <span className="text-sm font-bold" style={{ fontFamily: `'${headingFont}', system-ui, sans-serif` }}>{website.name}</span>
-                <span className="text-xs" style={{ color: theme.components?.header?.text ?? colors.text }}>Beranda&nbsp;&nbsp; Tentang</span>
-              </div>
-              <div className="p-5">
-                <div className="rounded-[11px] border p-4" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.accent }}>Tampilan website</p>
-                  <h4 className="mt-2 text-xl font-bold" style={{ fontFamily: `'${headingFont}', system-ui, sans-serif`, color: colors.text }}>
-                    Ceritakan keunggulan bisnis Anda
-                  </h4>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: colors.textMuted }}>
-                    Gunakan warna dan tipografi yang konsisten agar pengunjung mudah mengenali brand Anda.
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-4 rounded-[8px] px-3.5 py-2 text-xs font-bold"
-                    style={{
-                      backgroundColor: theme.components?.button?.primaryBackground ?? colors.accent,
-                      color: theme.components?.button?.primaryText ?? colors.onAccent,
-                    }}
-                  >
-                    Hubungi Kami
-                  </button>
-                  <button
-                    type="button"
-                    className="ml-2 mt-4 rounded-[8px] border px-3.5 py-2 text-xs font-semibold"
-                    style={{
-                      borderColor: theme.components?.button?.secondaryBorder ?? colors.border,
-                      color: theme.components?.button?.secondaryText ?? colors.text,
-                    }}
-                  >
-                    Selengkapnya
-                  </button>
+            <div className="min-h-[280px] overflow-hidden rounded-[14px] border border-default-200 bg-default-100 p-2">
+              {templateError ? (
+                <p role="alert" className="p-4 text-sm text-danger-700">{templateError}</p>
+              ) : !activeTemplate ? (
+                <div className="flex min-h-[260px] items-center justify-center">
+                  {templates.length === 0 ? (
+                    <Spinner label="Memuat template aktif..." />
+                  ) : (
+                    <p className="px-4 text-center text-sm text-default-600">Template aktif tidak ditemukan di katalog.</p>
+                  )}
                 </div>
-              </div>
-              <div
-                className="border-t px-4 py-3 text-xs"
-                style={{
-                  backgroundColor: theme.components?.footer?.background ?? colors.background,
-                  borderColor: theme.components?.footer?.border ?? colors.border,
-                  color: theme.components?.footer?.text ?? colors.textMuted,
-                }}
-              >
-                © {new Date().getFullYear()} {website.name}
-                <span className="ml-3" style={{ color: theme.components?.footer?.link ?? colors.textMuted }}>Kebijakan Privasi</span>
-                <span className="ml-3 font-semibold" style={{ color: theme.components?.footer?.heading ?? colors.accent }}>Kontak</span>
-              </div>
+              ) : (
+                <div className="mx-auto w-full max-w-[760px]">
+                  <TemplatePreviewFrame
+                    template={activeTemplate}
+                    profile={{
+                      name: website.name,
+                      tagline: website.tagline,
+                      logoUrl: website.logo_url,
+                      whatsapp: website.whatsapp ?? undefined,
+                      phone: website.phone,
+                      email: website.email,
+                      footerSettings: website.footer_settings,
+                      theme,
+                    }}
+                    slug={website.slug}
+                    device={previewDevice}
+                    size="compact"
+                    height={520}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="rounded-[12px] border border-default-200 bg-white p-4">
@@ -613,18 +728,18 @@ export function ThemeEditor() {
                 <ContrastCheck label="Teks tombol / aksen" foreground={colors.onAccent} background={colors.accent} />
                 <ContrastCheck
                   label="Teks header / latar"
-                  foreground={theme.components?.header?.text ?? colors.text}
-                  background={theme.components?.header?.background ?? colors.background}
+                  foreground={effectiveTheme.components?.header?.text ?? colors.text}
+                  background={effectiveTheme.components?.header?.background ?? colors.background}
                 />
                 <ContrastCheck
                   label="Teks footer / latar"
-                  foreground={theme.components?.footer?.text ?? colors.textMuted}
-                  background={theme.components?.footer?.background ?? colors.background}
+                  foreground={effectiveTheme.components?.footer?.text ?? colors.textMuted}
+                  background={effectiveTheme.components?.footer?.background ?? colors.background}
                 />
                 <ContrastCheck
                   label="Tombol utama / latar"
-                  foreground={theme.components?.button?.primaryText ?? colors.onAccent}
-                  background={theme.components?.button?.primaryBackground ?? colors.accent}
+                  foreground={effectiveTheme.components?.button?.primaryText ?? colors.onAccent}
+                  background={effectiveTheme.components?.button?.primaryBackground ?? colors.accent}
                 />
               </div>
             </div>
