@@ -80,3 +80,43 @@ export function buildPreviewDocument(html: string, clientScript: string | null, 
     + `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`
     + `${scripts}</head><body style="margin:0">${html}${client}</body></html>`;
 }
+
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (character) =>
+    `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
+/**
+ * Pratinjau mode client (template-client-rendering-plan §8): browser.js (SHA-256 sudah dicocokkan pemanggil)
+ * merender props fixture di iframe yang sama ketatnya dengan pratinjau SSR (tanpa jaringan, origin opaque).
+ * `runClientScript` = false → hanya HTML hasil render, client.js template tidak dijalankan.
+ */
+export function buildClientPreviewDocument(
+  bundleSource: string,
+  props: Record<string, unknown>,
+  runClientScript: boolean,
+): string {
+  const render = `(function () {
+  try {
+    var template = globalThis.BagdjaTemplate;
+    var data = document.getElementById('bagdja-preview-props');
+    if (!template || typeof template.render !== 'function' || !data) throw new Error('browser.js tidak memuat BagdjaTemplate.render');
+    var html = template.render(JSON.parse(data.textContent || '{}'));
+    document.body.innerHTML = html;
+    if (${runClientScript ? 'true' : 'false'} && typeof template.clientSource === 'string' && template.clientSource) {
+      var client = document.createElement('script');
+      client.textContent = template.clientSource;
+      document.body.appendChild(client);
+    }
+  } catch (error) {
+    document.body.innerHTML = '<p style="font:14px/1.5 system-ui,sans-serif;padding:24px;color:#b91c1c">' +
+      'Template gagal dirender di browser: ' + String(error && error.message || error).replace(/[<&]/g, '') + '</p>';
+  }
+})();`;
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1">`
+    + `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`
+    + `<script>${GUARD_SCRIPT}</script></head><body style="margin:0">`
+    + `<script type="application/json" id="bagdja-preview-props">${scriptJson(props)}</script>`
+    + `<script>${escapeScript(bundleSource)}</script><script>${render}</script></body></html>`;
+}

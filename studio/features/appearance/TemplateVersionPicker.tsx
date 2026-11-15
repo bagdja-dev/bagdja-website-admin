@@ -12,8 +12,7 @@ import { useEffect, useState } from 'react';
 import { Spinner } from '@heroui/react';
 
 import type { TemplateVersionOptionsDto } from '@/studio/api/template-trials';
-import { buildPreviewDocument } from '@/studio/lib/template-preview-document';
-import { fetchTemplateCandidatePreview } from '@/studio/api/template-trials';
+import { loadTemplateCandidatePreviewDocument } from '@/studio/lib/template-candidate-preview';
 
 export type TemplateVersionChoice =
   | { kind: 'published'; versionId: string; version: string }
@@ -118,9 +117,9 @@ export function CandidateVersionPreview({ submissionId, height = 600 }: { submis
     let cancelled = false;
     setDocument(null);
     setFailed(false);
-    fetchTemplateCandidatePreview(submissionId)
-      .then((preview) => {
-        if (!cancelled) setDocument(buildPreviewDocument(preview.html, preview.clientScript, true));
+    loadTemplateCandidatePreviewDocument(submissionId)
+      .then((previewDocument) => {
+        if (!cancelled) setDocument(previewDocument);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
