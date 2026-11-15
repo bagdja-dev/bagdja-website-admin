@@ -55,6 +55,8 @@ interface StepFieldState {
   required: boolean;
   optionsText: string;
   maxFiles: string;
+  /** Diatur dari Studio; diteruskan apa adanya agar tidak hilang saat disimpan di sini. */
+  calendarRole?: 'start' | 'end';
 }
 
 interface StepState {
@@ -108,6 +110,7 @@ function loadStepsFromFlow(flow: FulfillmentFlow): { praorder: StepState[]; pasc
       required: f.required ?? false,
       optionsText: (f.options ?? []).join(', '),
       maxFiles: String(f.max_files ?? 5),
+      calendarRole: f.calendar_role,
     })),
   });
   return {
@@ -280,6 +283,8 @@ export default function FulfillmentFlowsManagement() {
                         max_files: ['pdf', 'foto', 'video'].includes(f.type)
                           ? Math.max(1, Math.min(20, parseInt(f.maxFiles, 10) || 5))
                           : undefined,
+                  calendar_role:
+                    f.type === 'tanggal' || f.type === 'tanggal_waktu' ? f.calendarRole : undefined,
                 }))
             : undefined,
         })),

@@ -23,7 +23,11 @@ export interface FulfillmentStepFormField {
   required?: boolean;
   options?: string[];
   max_files?: number;
+  /** Hanya untuk tanggal/tanggal_waktu: nilai field jadi jadwal pesanan di kalender. */
+  calendar_role?: FulfillmentStepCalendarRole;
 }
+
+export type FulfillmentStepCalendarRole = 'start' | 'end';
 
 export interface FulfillmentFlowStep {
   id?: string;

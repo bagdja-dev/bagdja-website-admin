@@ -3,7 +3,7 @@
 import { Checkbox, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
 import { useState } from 'react';
 
-import type { FulfillmentStepFieldType } from '@/studio/api/fulfillment-flows';
+import type { FulfillmentStepCalendarRole, FulfillmentStepFieldType } from '@/studio/api/fulfillment-flows';
 import { Icon } from '@/studio/ui/icons';
 
 export interface FlowStepFieldDraft {
@@ -13,6 +13,8 @@ export interface FlowStepFieldDraft {
   required: boolean;
   options: string[];
   maxFiles: string;
+  /** '' = tidak tampil di kalender. */
+  calendarRole: FulfillmentStepCalendarRole | '';
 }
 
 const FIELD_TYPES: { value: FulfillmentStepFieldType; label: string }[] = [
@@ -29,11 +31,21 @@ const FIELD_TYPES: { value: FulfillmentStepFieldType; label: string }[] = [
 ];
 
 function emptyField(): FlowStepFieldDraft {
-  return { key: '', label: '', type: 'text', required: false, options: [], maxFiles: '5' };
+  return { key: '', label: '', type: 'text', required: false, options: [], maxFiles: '5', calendarRole: '' };
 }
 
 function fieldTypeLabel(type: FulfillmentStepFieldType): string {
   return FIELD_TYPES.find((fieldType) => fieldType.value === type)?.label ?? type;
+}
+
+const CALENDAR_ROLES: { value: FulfillmentStepCalendarRole | ''; label: string }[] = [
+  { value: '', label: 'Tidak tampil di kalender' },
+  { value: 'start', label: 'Mulai jadwal' },
+  { value: 'end', label: 'Selesai jadwal' },
+];
+
+export function dateField(type: FulfillmentStepFieldType): boolean {
+  return type === 'tanggal' || type === 'tanggal_waktu';
 }
 
 function mediaField(type: FulfillmentStepFieldType): boolean {
@@ -105,6 +117,12 @@ export function FlowStepFieldsEditor({
     if (normalized.some((field) => !field.key || !field.label)) {
       setError('Setiap field harus memiliki key dan label.');
       return;
+    }
+    for (const role of ['start', 'end'] as const) {
+      if (normalized.filter((field) => dateField(field.type) && field.calendarRole === role).length > 1) {
+        setError(`Hanya satu field tanggal yang boleh menjadi ${role === 'start' ? 'mulai' : 'selesai'} jadwal dalam satu step.`);
+        return;
+      }
     }
     if (normalized.some((field) => field.type === 'select' && field.options.length === 0)) {
       setError('Tambahkan minimal satu pilihan pada setiap field bertipe Pilihan.');
@@ -280,6 +298,22 @@ export function FlowStepFieldsEditor({
                           variant="bordered"
                           description="1–20 file; default 5."
                         />
+                      )}
+                      {dateField(activeField.type) && (
+                        <Select
+                          label="Jadwal di kalender"
+                          labelPlacement="outside"
+                          selectedKeys={[activeField.calendarRole || 'none']}
+                          onSelectionChange={(keys) => {
+                            const [value] = Array.from(keys);
+                            const role = CALENDAR_ROLES.find((option) => (option.value || 'none') === value);
+                            if (role) updateActiveField({ calendarRole: role.value });
+                          }}
+                          variant="bordered"
+                          description="Tanggal ini akan muncul di Kalender Studio dan kalender pembeli sebagai jadwal jasa."
+                        >
+                          {CALENDAR_ROLES.map((option) => <SelectItem key={option.value || 'none'}>{option.label}</SelectItem>)}
+                        </Select>
                       )}
                       {activeField.type === 'select' && (
                         <div className="flex flex-col gap-2 rounded-lg border border-default-200 bg-white p-3">
