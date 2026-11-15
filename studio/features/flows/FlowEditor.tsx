@@ -1,7 +1,24 @@
 'use client';
 
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Input, Select, SelectItem, Switch, Textarea } from '@heroui/react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import type {
   FulfillmentFlow,
@@ -20,6 +37,8 @@ import { dateField, FlowStepFieldsEditor, type FlowStepFieldDraft } from './Flow
 type FieldForm = FlowStepFieldDraft;
 
 interface StepForm {
+  /** Kunci lokal untuk urutan seret (tidak dikirim ke API). */
+  key: string;
   status_name: string;
   description: string;
   process_day: string;
@@ -48,8 +67,15 @@ function firstStepSelection(form: FlowForm): StepSelection {
     : { phase: 'PASCAORDER', index: 0 };
 }
 
+let stepKeySequence = 0;
+function newStepKey(): string {
+  stepKeySequence += 1;
+  return `step-${stepKeySequence}`;
+}
+
 function emptyStep(): StepForm {
   return {
+    key: newStepKey(),
     status_name: '',
     description: '',
     process_day: '',
@@ -66,6 +92,7 @@ function emptyFlow(): FlowForm {
 
 function stepToForm(step: FulfillmentFlowStep): StepForm {
   return {
+    key: step.id ?? newStepKey(),
     status_name: step.status_name,
     description: step.description ?? '',
     process_day: step.process_day == null ? '' : String(step.process_day),
@@ -117,6 +144,46 @@ function parseOptionalInteger(value: string, label: string, min: number): number
     throw new Error(`${label} harus berupa bilangan bulat.`);
   }
   return number;
+}
+
+/** Baris timeline yang bisa diseret (pegangan ⠿ di kiri; keyboard: spasi lalu panah atas/bawah). */
+function SortableTimelineRow({
+  id,
+  label,
+  disabled,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  disabled: boolean;
+  className: string;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`${className} ${isDragging ? 'relative z-10 shadow-lg' : ''}`}
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        disabled={disabled}
+        aria-label={`Seret untuk memindahkan ${label}`}
+        className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-default-400 hover:bg-default-100 hover:text-default-600 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Icon name="grip" size={14} />
+      </button>
+      {children}
+    </div>
+  );
 }
 
 function toDraft(form: FlowForm): FulfillmentFlowDraft {
@@ -218,18 +285,30 @@ export function FlowEditor({ flow, onSave, onCancel }: FlowEditorProps) {
     }));
   };
 
-  const moveStep = (phase: FulfillmentFlowPhase, index: number, direction: -1 | 1) => {
+  /** Pindahkan step dalam satu fase; step yang sedang diedit tetap terpilih di posisi barunya. */
+  const reorderStep = (phase: FulfillmentFlowPhase, from: number, to: number) => {
     const key = phase === 'PRAORDER' ? 'praorder' : 'pascaorder';
     const currentSteps = form[key];
-    const target = index + direction;
-    if (target < 0 || target >= currentSteps.length) return;
-    const next = [...currentSteps];
-    [next[index], next[target]] = [next[target], next[index]];
+    if (from === to || from < 0 || to < 0 || from >= currentSteps.length || to >= currentSteps.length) return;
+    const activeKey = activeStep.phase === phase ? currentSteps[activeStep.index]?.key : undefined;
+    const next = arrayMove(currentSteps, from, to);
     setForm((current) => ({ ...current, [key]: next }));
-    if (activeStep.phase === phase) {
-      if (activeStep.index === index) setActiveStep({ phase, index: target });
-      else if (activeStep.index === target) setActiveStep({ phase, index });
-    }
+    if (activeKey) setActiveStep({ phase, index: next.findIndex((step) => step.key === activeKey) });
+  };
+
+  const moveStep = (phase: FulfillmentFlowPhase, index: number, direction: -1 | 1) => {
+    reorderStep(phase, index, index + direction);
+  };
+
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (phase: FulfillmentFlowPhase) => ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const steps = phase === 'PRAORDER' ? form.praorder : form.pascaorder;
+    reorderStep(phase, steps.findIndex((step) => step.key === active.id), steps.findIndex((step) => step.key === over.id));
   };
 
   const removeStep = (phase: FulfillmentFlowPhase, index: number) => {
@@ -301,63 +380,80 @@ export function FlowEditor({ flow, onSave, onCancel }: FlowEditorProps) {
     return (
       <section key={phase} className="w-full min-w-0">
         <h3 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-default-500">{title}</h3>
-        <div className="flex w-full flex-col gap-1.5">
-          {steps.length === 0 && (
-            <button
-              type="button"
-              onClick={() => insertStep(phase, 0)}
-              disabled={isSubmitting}
-              className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-dashed border-default-300 bg-white px-2.5 text-left text-[12px] font-semibold text-primary hover:border-primary hover:bg-primary-50 disabled:opacity-50"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-primary"><Icon name="plus" size={12} /></span>
-              Tambah step
-            </button>
-          )}
-          {steps.map((step, index) => {
-            const selected = activeStep.phase === phase && activeStep.index === index;
-            const isOnlyStep = form.praorder.length + form.pascaorder.length <= 1;
-            return (
-              <div
-                key={`${phase}-${index}`}
-                className={`flex min-h-11 w-full items-center gap-1 rounded-lg border px-1.5 transition-colors ${selected ? 'border-primary-200 bg-primary-50' : 'border-default-200 bg-white hover:border-default-300'}`}
-              >
+        <DndContext
+          sensors={dragSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd(phase)}
+          accessibility={{
+            screenReaderInstructions: {
+              draggable: 'Tekan spasi untuk mengangkat, panah atas/bawah untuk memindah, spasi lagi untuk meletakkan, Escape untuk batal.',
+            },
+          }}
+        >
+          <SortableContext items={steps.map((step) => step.key)} strategy={verticalListSortingStrategy}>
+            <div className="flex w-full flex-col gap-1.5">
+              {steps.length === 0 && (
                 <button
                   type="button"
-                  aria-current={selected ? 'step' : undefined}
-                  onClick={() => {
-                    setActiveStep({ phase, index });
-                    setMobileTimelineOpen(false);
-                  }}
+                  onClick={() => insertStep(phase, 0)}
                   disabled={isSubmitting}
-                  className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-2 text-left text-[12px] disabled:opacity-50 ${selected ? 'font-bold text-primary' : 'font-medium text-default-600'}`}
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-dashed border-default-300 bg-white px-2.5 text-left text-[12px] font-semibold text-primary hover:border-primary hover:bg-primary-50 disabled:opacity-50"
                 >
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-primary bg-primary text-white' : 'border-default-300 bg-white'}`}>
-                    {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : <span className="text-[9px]">{index + 1}</span>}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{step.status_name.trim() || 'Step baru'}</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-primary"><Icon name="plus" size={12} /></span>
+                  Tambah step
                 </button>
-                <button
-                  type="button"
-                  aria-label={`Tambah step setelah ${step.status_name.trim() || `step ${index + 1}`} di ${title}`}
-                  onClick={() => insertStep(phase, index + 1)}
-                  disabled={isSubmitting}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-primary hover:bg-primary-100 disabled:opacity-40"
-                >
-                  <Icon name="plus" size={15} />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Hapus ${step.status_name.trim() || `step ${index + 1}`} di ${title}`}
-                  onClick={() => removeStep(phase, index)}
-                  disabled={isSubmitting || isOnlyStep}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-danger hover:bg-danger-50 disabled:cursor-not-allowed disabled:opacity-35"
-                >
-                  <Icon name="trash" size={14} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              )}
+              {steps.map((step, index) => {
+                const selected = activeStep.phase === phase && activeStep.index === index;
+                const isOnlyStep = form.praorder.length + form.pascaorder.length <= 1;
+                const stepLabel = step.status_name.trim() || `step ${index + 1}`;
+                return (
+                  <SortableTimelineRow
+                    key={step.key}
+                    id={step.key}
+                    label={stepLabel}
+                    disabled={isSubmitting || steps.length < 2}
+                    className={`flex min-h-11 w-full items-center gap-1 rounded-lg border px-1 transition-colors ${selected ? 'border-primary-200 bg-primary-50' : 'border-default-200 bg-white hover:border-default-300'}`}
+                  >
+                    <button
+                      type="button"
+                      aria-current={selected ? 'step' : undefined}
+                      onClick={() => {
+                        setActiveStep({ phase, index });
+                        setMobileTimelineOpen(false);
+                      }}
+                      disabled={isSubmitting}
+                      className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-2 text-left text-[12px] disabled:opacity-50 ${selected ? 'font-bold text-primary' : 'font-medium text-default-600'}`}
+                    >
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-primary bg-primary text-white' : 'border-default-300 bg-white'}`}>
+                        {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : <span className="text-[9px]">{index + 1}</span>}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{step.status_name.trim() || 'Step baru'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Tambah step setelah ${step.status_name.trim() || `step ${index + 1}`} di ${title}`}
+                      onClick={() => insertStep(phase, index + 1)}
+                      disabled={isSubmitting}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-primary hover:bg-primary-100 disabled:opacity-40"
+                    >
+                      <Icon name="plus" size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Hapus ${step.status_name.trim() || `step ${index + 1}`} di ${title}`}
+                      onClick={() => removeStep(phase, index)}
+                      disabled={isSubmitting || isOnlyStep}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-danger hover:bg-danger-50 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </SortableTimelineRow>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       </section>
     );
   };
@@ -387,7 +483,7 @@ export function FlowEditor({ flow, onSave, onCancel }: FlowEditorProps) {
       </div>
       {!mobile && (
         <p className="mt-3 hidden px-1 text-[11px] leading-relaxed text-default-500 lg:block">
-          Pilih step untuk mengedit, atau gunakan + dan hapus pada kartu.
+          Pilih step untuk mengedit. Seret ikon ≡ untuk mengubah urutan, atau gunakan + dan hapus pada kartu.
         </p>
       )}
     </aside>
