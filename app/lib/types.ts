@@ -485,6 +485,8 @@ export interface FulfillmentStepFormField {
   filled_by?: FulfillmentStepFormFieldFilledBy;
   options?: string[];
   max_files?: number;
+  /** Hanya untuk tanggal/tanggal_waktu: jadwal pesanan di kalender (diatur dari Studio). */
+  calendar_role?: 'start' | 'end';
 }
 
 export interface FulfillmentFlowStep {

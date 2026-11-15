@@ -15,7 +15,7 @@ import { Icon } from '@/studio/ui/icons';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { PageHeader } from '@/studio/ui/primitives/PageHeader';
 import { useUnsavedGuard } from '@/studio/features/catalog/editor/use-unsaved-guard';
-import { FlowStepFieldsEditor, type FlowStepFieldDraft } from './FlowStepFieldsEditor';
+import { dateField, FlowStepFieldsEditor, type FlowStepFieldDraft } from './FlowStepFieldsEditor';
 
 type FieldForm = FlowStepFieldDraft;
 
@@ -79,6 +79,7 @@ function stepToForm(step: FulfillmentFlowStep): StepForm {
       required: field.required ?? false,
       options: [...(field.options ?? [])],
       maxFiles: String(field.max_files ?? 5),
+      calendarRole: field.calendar_role ?? '',
     })),
   };
 }
@@ -164,6 +165,7 @@ function toDraft(form: FlowForm): FulfillmentFlowDraft {
           max_files: mediaField(field.type)
             ? Math.max(1, Math.min(20, Number.parseInt(field.maxFiles, 10) || 5))
             : undefined,
+          calendar_role: dateField(field.type) && field.calendarRole ? field.calendarRole : undefined,
         };
       });
 

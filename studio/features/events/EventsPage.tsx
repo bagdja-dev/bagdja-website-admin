@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { fetchGatheringCalendar, type GatheringCalendarItem, type GatheringOccurrenceStatus } from '@/studio/api/gatherings';
 import { errorMessage } from '@/studio/api/client';
+import {
+  fetchServiceSchedule,
+  serviceScheduleHref,
+  type ServiceScheduleItem,
+  type ServiceScheduleStatus,
+} from '@/studio/api/service-schedule';
 import { useActiveWebsiteId } from '@/studio/stores/website-store';
 import { EmptyState } from '@/studio/ui/primitives/EmptyState';
 import { PageHeader } from '@/studio/ui/primitives/PageHeader';
@@ -60,11 +66,83 @@ function statusTone(status: EventStatus): string {
   return 'bg-default-100 text-default-700';
 }
 
-function groupByDate(rows: GatheringCalendarItem[]): Array<[string, GatheringCalendarItem[]]> {
-  const groups = new Map<string, GatheringCalendarItem[]>();
-  for (const row of rows) {
-    const key = localDateKey(row.occurrence.final_schedule);
-    groups.set(key, [...(groups.get(key) ?? []), row]);
+const SERVICE_LABEL: Record<ServiceScheduleStatus, string> = {
+  proposed: 'Diusulkan',
+  scheduled: 'Terjadwal',
+  done: 'Selesai',
+};
+
+function serviceTone(status: ServiceScheduleStatus): string {
+  if (status === 'scheduled') return 'bg-sky-50 text-sky-800';
+  if (status === 'proposed') return 'bg-amber-50 text-amber-800';
+  return 'bg-default-100 text-default-700';
+}
+
+/** Satu baris agenda: acara gathering atau jasa terjadwal (field flow bertanda kalender). */
+type AgendaEntry =
+  | { kind: 'gathering'; id: string; startAt: string | null; row: GatheringCalendarItem }
+  | { kind: 'service'; id: string; startAt: string; service: ServiceScheduleItem };
+
+function isServiceAgendaItem(item: ServiceScheduleItem, includePlans: boolean, includePast: boolean, today: string): boolean {
+  if (item.status === 'proposed' && !includePlans) return false;
+  const lastDay = localDateKey(item.end_at ?? item.start_at);
+  return includePast || lastDay >= today;
+}
+
+/** Tanggal-tanggal (kunci lokal) yang dilalui jadwal jasa; dibatasi 62 hari agar sel kalender tetap ringan. */
+function serviceDateKeys(item: ServiceScheduleItem): string[] {
+  const start = new Date(item.start_at);
+  const end = item.end_at ? new Date(item.end_at) : start;
+  if (Number.isNaN(start.getTime())) return [];
+  const keys: string[] = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = localDateKey(Number.isNaN(end.getTime()) ? start : end);
+  while (keys.length < 62) {
+    const key = localDateKey(cursor);
+    keys.push(key);
+    if (key >= last) break;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return keys;
+}
+
+function formatServiceSchedule(item: ServiceScheduleItem): string {
+  const start = new Date(item.start_at);
+  if (Number.isNaN(start.getTime())) return item.start_at;
+  const end = item.end_at ? new Date(item.end_at) : null;
+  if (item.all_day) {
+    const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' });
+    return end && localDateKey(end) !== localDateKey(start)
+      ? `${dateFormat.format(start)} – ${dateFormat.format(end)}`
+      : `${dateFormat.format(start)} · sepanjang hari`;
+  }
+  const dateTime = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+  if (!end) return dateTime.format(start);
+  return localDateKey(end) === localDateKey(start)
+    ? `${dateTime.format(start)} – ${new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(end)}`
+    : `${dateTime.format(start)} – ${dateTime.format(end)}`;
+}
+
+/** Rentang jadwal jasa yang dimuat: bulan tampil (± 1 minggu grid) atau ~setahun ke depan untuk mode daftar. */
+function serviceRange(viewMode: 'calendar' | 'list', month: Date, includePast: boolean): { from: Date; to: Date } {
+  const day = 24 * 60 * 60 * 1000;
+  if (viewMode === 'calendar') {
+    return {
+      from: new Date(month.getFullYear(), month.getMonth(), 1 - 7),
+      to: new Date(month.getFullYear(), month.getMonth() + 1, 1 + 7),
+    };
+  }
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const from = new Date(today.getTime() - (includePast ? 180 : 31) * day);
+  return { from, to: new Date(from.getTime() + 399 * day) };
+}
+
+function groupByDate(entries: AgendaEntry[]): Array<[string, AgendaEntry[]]> {
+  const groups = new Map<string, AgendaEntry[]>();
+  for (const entry of entries) {
+    const key = localDateKey(entry.startAt);
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
   }
   return Array.from(groups.entries()).sort(([a], [b]) => {
     if (a === 'unscheduled') return 1;
@@ -255,8 +333,46 @@ function AgendaCard({ row }: { row: GatheringCalendarItem }) {
   );
 }
 
-function CalendarView({ rows, month, onMonthChange }: {
+function ServiceAgendaCard({ item }: { item: ServiceScheduleItem }) {
+  return (
+    <article className="rounded-2xl border border-default-200 bg-white p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex min-w-0 items-start gap-3">
+        {item.product_image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.product_image} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+        ) : (
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700"><Icon name="calendar" size={18} /></span>
+        )}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-[15px] font-bold text-foreground">{item.product_name}</h3>
+            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-800">Jasa</span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${serviceTone(item.status)}`}>{SERVICE_LABEL[item.status]}</span>
+          </div>
+          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-default-600">
+            <Icon name="calendar" size={15} /> {formatServiceSchedule(item)}
+          </p>
+          <p className="mt-1 text-xs text-default-500">
+            {item.buyer_identifier ? `Pembeli: ${item.buyer_identifier}` : 'Pembeli'} · {item.quantity} item
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex gap-2 sm:mt-0">
+        <Link href={serviceScheduleHref(item)} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-[#7A1E48] px-3 text-center text-sm font-bold text-white hover:bg-[#641838] sm:flex-none">
+          {item.transaction_id ? 'Buka pesanan' : 'Buka penawaran'}
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function AgendaEntryCard({ entry }: { entry: AgendaEntry }) {
+  return entry.kind === 'gathering' ? <AgendaCard row={entry.row} /> : <ServiceAgendaCard item={entry.service} />;
+}
+
+function CalendarView({ rows, services, month, onMonthChange }: {
   rows: GatheringCalendarItem[];
+  services: ServiceScheduleItem[];
   month: Date;
   onMonthChange: (month: Date) => void;
 }) {
@@ -269,6 +385,13 @@ function CalendarView({ rows, month, onMonthChange }: {
     });
     return groups;
   }, [rows]);
+  const servicesByDate = useMemo(() => {
+    const groups = new Map<string, ServiceScheduleItem[]>();
+    services.forEach((item) => {
+      serviceDateKeys(item).forEach((key) => groups.set(key, [...(groups.get(key) ?? []), item]));
+    });
+    return groups;
+  }, [services]);
   const unscheduled = rows.filter((row) => !row.occurrence.final_schedule);
   const weekdays = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
@@ -290,8 +413,8 @@ function CalendarView({ rows, month, onMonthChange }: {
           <button type="button" onClick={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Bulan berikutnya" className="flex h-10 w-10 items-center justify-center rounded-xl border border-default-300 text-lg text-foreground hover:bg-default-50">›</button>
         </div>
       </div>
-      {rows.length === 0 && (
-        <EmptyState compact icon="calendar" title="Belum ada acara mendatang" description="Acara terkonfirmasi yang akan datang akan muncul di kalender." />
+      {rows.length === 0 && services.length === 0 && (
+        <EmptyState compact icon="calendar" title="Belum ada acara mendatang" description="Acara terkonfirmasi dan jasa terjadwal yang akan datang akan muncul di kalender." />
       )}
       <div className="grid grid-cols-7 border-b border-default-200 bg-default-50">
         {weekdays.map((day) => <div key={day} className="px-1 py-2 text-center text-[11px] font-bold text-default-600 sm:px-2 sm:text-xs">{day}</div>)}
@@ -300,6 +423,9 @@ function CalendarView({ rows, month, onMonthChange }: {
         {dates.map((date) => {
           const dateKey = localDateKey(date);
           const dayRows = eventsByDate.get(dateKey) ?? [];
+          const dayServices = servicesByDate.get(dateKey) ?? [];
+          const visibleServices = dayServices.slice(0, Math.max(0, 3 - dayRows.length));
+          const hiddenCount = dayRows.length + dayServices.length - Math.min(dayRows.length, 3) - visibleServices.length;
           const inMonth = date.getMonth() === month.getMonth();
           const isToday = dateKey === localDateKey(new Date());
           return (
@@ -314,7 +440,13 @@ function CalendarView({ rows, month, onMonthChange }: {
                     <span className="hidden truncate sm:block">{formatTime(row.occurrence.final_schedule)} · {LABEL[row.occurrence.status]}</span>
                   </Link>
                 ))}
-                {dayRows.length > 3 && <span className="px-1 text-[10px] text-default-600">+{dayRows.length - 3} acara</span>}
+                {visibleServices.map((item) => (
+                  <Link key={item.order_id} href={serviceScheduleHref(item)} title={`${item.product_name} · ${SERVICE_LABEL[item.status]}`} className="rounded-md bg-sky-50 px-1.5 py-1 text-[10px] leading-tight text-sky-800 hover:bg-sky-100 sm:text-xs">
+                    <span className="block truncate font-semibold">{item.product_name}</span>
+                    <span className="hidden truncate sm:block">{item.all_day ? 'Sepanjang hari' : formatTime(item.start_at)} · {SERVICE_LABEL[item.status]}</span>
+                  </Link>
+                ))}
+                {hiddenCount > 0 && <span className="px-1 text-[10px] text-default-600">+{hiddenCount} lainnya</span>}
               </div>
             </div>
           );
@@ -424,6 +556,8 @@ function MobileCalendarNav({
 export function EventsPage() {
   const websiteId = useActiveWebsiteId();
   const [rows, setRows] = useState<GatheringCalendarItem[]>([]);
+  const [services, setServices] = useState<ServiceScheduleItem[]>([]);
+  const [servicesError, setServicesError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPlans, setShowPlans] = useState(false);
@@ -447,9 +581,34 @@ export function EventsPage() {
     }
   }, [websiteId]);
 
+  const serviceRangeKey = useMemo(() => {
+    const range = serviceRange(viewMode, displayMonth, showPast);
+    return `${range.from.toISOString()}|${range.to.toISOString()}`;
+  }, [viewMode, displayMonth, showPast]);
+
+  const loadServices = useCallback(async () => {
+    if (!websiteId) return;
+    const [from, to] = serviceRangeKey.split('|').map((value) => new Date(value));
+    setServicesError('');
+    try {
+      setServices(await fetchServiceSchedule(websiteId, from, to));
+    } catch (reason) {
+      setServicesError(errorMessage(reason, 'Gagal memuat jadwal jasa.'));
+    }
+  }, [websiteId, serviceRangeKey]);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadServices();
+  }, [loadServices]);
+
+  const reloadAll = useCallback(() => {
+    void load();
+    void loadServices();
+  }, [load, loadServices]);
 
   const today = localDateKey(new Date());
   const filteredRows = useMemo(() => rows
@@ -459,13 +618,23 @@ export function EventsPage() {
       const bDate = b.occurrence.final_schedule ? new Date(b.occurrence.final_schedule).getTime() : Number.MAX_SAFE_INTEGER;
       return aDate - bDate;
     }), [rows, showPlans, showPast, today]);
-  const agenda = useMemo(() => {
-    return groupByDate(filteredRows);
-  }, [filteredRows]);
+  const filteredServices = useMemo(
+    () => services.filter((item) => isServiceAgendaItem(item, showPlans, showPast, today)),
+    [services, showPlans, showPast, today],
+  );
+  const agendaEntries = useMemo<AgendaEntry[]>(() => [
+    ...filteredRows.map((row) => ({ kind: 'gathering' as const, id: `g:${row.id}`, startAt: row.occurrence.final_schedule, row })),
+    ...filteredServices.map((service) => ({ kind: 'service' as const, id: `s:${service.order_id}`, startAt: service.start_at, service })),
+  ].sort((a, b) => {
+    const aTime = a.startAt ? new Date(a.startAt).getTime() : Number.MAX_SAFE_INTEGER;
+    const bTime = b.startAt ? new Date(b.startAt).getTime() : Number.MAX_SAFE_INTEGER;
+    return aTime - bTime;
+  }), [filteredRows, filteredServices]);
+  const agenda = useMemo(() => groupByDate(agendaEntries), [agendaEntries]);
 
   return (
     <>
-      <PageHeader title="Kalender" description="Lihat agenda acara dan buka pintasan check-in." />
+      <PageHeader title="Kalender" description="Lihat agenda acara, jadwal jasa, dan buka pintasan check-in." />
       <main className="mx-auto flex w-full max-w-[1080px] flex-col gap-4 px-3 pb-36 md:px-0 md:pb-20">
         <div className="hidden flex-wrap items-center justify-between gap-3 rounded-2xl border border-default-200 bg-white p-4 md:flex">
           <div className="flex rounded-xl bg-default-100 p-1" role="group" aria-label="Mode tampilan kalender">
@@ -496,7 +665,7 @@ export function EventsPage() {
             />
             Tampilkan acara sebelumnya
           </label>
-          <button type="button" onClick={() => void load()} disabled={loading} className="min-h-10 rounded-xl border border-default-300 px-3 text-sm font-semibold text-foreground hover:bg-default-50 disabled:opacity-50">
+          <button type="button" onClick={reloadAll} disabled={loading} className="min-h-10 rounded-xl border border-default-300 px-3 text-sm font-semibold text-foreground hover:bg-default-50 disabled:opacity-50">
             {loading ? 'Memuat…' : 'Muat ulang'}
           </button>
         </div>
@@ -506,18 +675,24 @@ export function EventsPage() {
             <button type="button" onClick={() => void load()} className="font-semibold underline">Coba lagi</button>
           </div>
         )}
+        {servicesError && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span>Jadwal jasa gagal dimuat: {servicesError}</span>
+            <button type="button" onClick={() => void loadServices()} className="font-semibold underline">Coba lagi</button>
+          </div>
+        )}
         {loading && rows.length === 0 ? (
           <div className="flex flex-col gap-3" aria-busy="true">{[1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl bg-default-100" />)}</div>
         ) : viewMode === 'calendar' ? (
-          <CalendarView rows={filteredRows} month={displayMonth} onMonthChange={setDisplayMonth} />
-        ) : filteredRows.length === 0 ? (
+          <CalendarView rows={filteredRows} services={filteredServices} month={displayMonth} onMonthChange={setDisplayMonth} />
+        ) : agendaEntries.length === 0 ? (
           <div className="rounded-2xl border border-default-200 bg-white">
-            <EmptyState compact icon="calendar" title="Belum ada acara mendatang" description={showPlans ? 'Rencana dan acara yang akan datang akan muncul di sini.' : 'Acara terkonfirmasi yang akan datang akan muncul di sini.'} />
+            <EmptyState compact icon="calendar" title="Belum ada acara mendatang" description={showPlans ? 'Rencana, acara, dan jasa yang akan datang akan muncul di sini.' : 'Acara terkonfirmasi dan jasa terjadwal yang akan datang akan muncul di sini.'} />
           </div>
         ) : agenda.map(([date, items]) => (
           <section key={date} aria-label={groupTitle(date)}>
             <h2 className="mb-2 text-sm font-bold capitalize text-default-700">{groupTitle(date)}</h2>
-            <div className="flex flex-col gap-2.5">{items.map((row) => <AgendaCard key={row.id} row={row} />)}</div>
+            <div className="flex flex-col gap-2.5">{items.map((entry) => <AgendaEntryCard key={entry.id} entry={entry} />)}</div>
           </section>
         ))}
       </main>
@@ -529,7 +704,7 @@ export function EventsPage() {
         showPast={showPast}
         onShowPastChange={setShowPast}
         loading={loading}
-        onReload={() => void load()}
+        onReload={reloadAll}
         month={displayMonth}
         onMonthChange={setDisplayMonth}
       />
