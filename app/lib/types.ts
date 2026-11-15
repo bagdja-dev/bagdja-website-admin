@@ -480,7 +480,7 @@ export type FulfillmentStepFormFieldFilledBy = 'seller' | 'buyer';
 export interface FulfillmentStepFormField {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'textarea' | 'select' | 'pdf' | 'foto' | 'video' | 'lokasi';
+  type: 'text' | 'number' | 'textarea' | 'select' | 'tanggal' | 'tanggal_waktu' | 'pdf' | 'foto' | 'video' | 'lokasi';
   required?: boolean;
   filled_by?: FulfillmentStepFormFieldFilledBy;
   options?: string[];

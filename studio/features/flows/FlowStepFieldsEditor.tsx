@@ -20,6 +20,8 @@ const FIELD_TYPES: { value: FulfillmentStepFieldType; label: string }[] = [
   { value: 'number', label: 'Angka' },
   { value: 'textarea', label: 'Teks panjang' },
   { value: 'select', label: 'Pilihan' },
+  { value: 'tanggal', label: 'Tanggal' },
+  { value: 'tanggal_waktu', label: 'Tanggal & waktu' },
   { value: 'pdf', label: 'Dokumen PDF' },
   { value: 'foto', label: 'Foto' },
   { value: 'video', label: 'Video' },

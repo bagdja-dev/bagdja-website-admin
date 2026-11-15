@@ -97,6 +97,18 @@ export function FulfillmentFieldInput({ field, value, onChange, websiteId }: Ful
     return <FormTextarea label={field.label} required={field.required} value={textValue} onChange={onChange} rows={3} />;
   }
 
+  if (field.type === 'tanggal' || field.type === 'tanggal_waktu') {
+    return (
+      <FormInput
+        label={field.label}
+        required={field.required}
+        value={textValue}
+        onChange={onChange}
+        type={field.type === 'tanggal' ? 'date' : 'datetime-local'}
+      />
+    );
+  }
+
   if (field.type === 'lokasi') {
     return (
       <div className="flex flex-col gap-1.5">
