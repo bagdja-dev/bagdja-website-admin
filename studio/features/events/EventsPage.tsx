@@ -67,30 +67,39 @@ function statusTone(status: EventStatus): string {
 }
 
 const SERVICE_LABEL: Record<ServiceScheduleStatus, string> = {
-  proposed: 'Diusulkan',
-  scheduled: 'Terjadwal',
-  done: 'Selesai',
+  planning: 'Perencanaan',
+  payment: 'Menunggu pembayaran',
+  confirmed: 'Dikonfirmasi',
+  completed: 'Selesai',
 };
 
 function serviceTone(status: ServiceScheduleStatus): string {
-  if (status === 'scheduled') return 'bg-sky-50 text-sky-800';
-  if (status === 'proposed') return 'bg-amber-50 text-amber-800';
+  if (status === 'confirmed') return 'bg-green-50 text-green-700';
+  if (status === 'payment') return 'bg-amber-50 text-amber-800';
+  if (status === 'planning') return 'bg-sky-50 text-sky-800';
   return 'bg-default-100 text-default-700';
+}
+
+/** Tahap sebelum dibayar — tampil bila "Tampilkan rencana" aktif, sama dengan rencana gathering. */
+function isServicePlan(status: ServiceScheduleStatus): boolean {
+  return status === 'planning' || status === 'payment';
 }
 
 /** Satu baris agenda: acara gathering atau jasa terjadwal (field flow bertanda kalender). */
 type AgendaEntry =
   | { kind: 'gathering'; id: string; startAt: string | null; row: GatheringCalendarItem }
-  | { kind: 'service'; id: string; startAt: string; service: ServiceScheduleItem };
+  | { kind: 'service'; id: string; startAt: string | null; service: ServiceScheduleItem };
 
 function isServiceAgendaItem(item: ServiceScheduleItem, includePlans: boolean, includePast: boolean, today: string): boolean {
-  if (item.status === 'proposed' && !includePlans) return false;
+  if (isServicePlan(item.status) && !includePlans) return false;
+  if (!item.start_at) return item.status !== 'completed' || includePast;
   const lastDay = localDateKey(item.end_at ?? item.start_at);
-  return includePast || lastDay >= today;
+  return includePast || (item.status !== 'completed' && lastDay >= today);
 }
 
 /** Tanggal-tanggal (kunci lokal) yang dilalui jadwal jasa; dibatasi 62 hari agar sel kalender tetap ringan. */
 function serviceDateKeys(item: ServiceScheduleItem): string[] {
+  if (!item.start_at) return [];
   const start = new Date(item.start_at);
   const end = item.end_at ? new Date(item.end_at) : start;
   if (Number.isNaN(start.getTime())) return [];
@@ -107,6 +116,7 @@ function serviceDateKeys(item: ServiceScheduleItem): string[] {
 }
 
 function formatServiceSchedule(item: ServiceScheduleItem): string {
+  if (!item.start_at) return 'Jadwal belum ditentukan';
   const start = new Date(item.start_at);
   if (Number.isNaN(start.getTime())) return item.start_at;
   const end = item.end_at ? new Date(item.end_at) : null;
@@ -393,6 +403,7 @@ function CalendarView({ rows, services, month, onMonthChange }: {
     return groups;
   }, [services]);
   const unscheduled = rows.filter((row) => !row.occurrence.final_schedule);
+  const unscheduledServices = services.filter((item) => !item.start_at);
   const weekdays = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
   return (
@@ -452,10 +463,13 @@ function CalendarView({ rows, services, month, onMonthChange }: {
           );
         })}
       </div>
-      {unscheduled.length > 0 && (
+      {unscheduled.length + unscheduledServices.length > 0 && (
         <section className="border-t border-default-200 p-4">
           <h3 className="mb-2 text-sm font-bold text-default-700">Jadwal belum ditentukan</h3>
-          <div className="flex flex-col gap-2">{unscheduled.map((row) => <AgendaCard key={row.id} row={row} />)}</div>
+          <div className="flex flex-col gap-2">
+            {unscheduled.map((row) => <AgendaCard key={row.id} row={row} />)}
+            {unscheduledServices.map((item) => <ServiceAgendaCard key={item.order_id} item={item} />)}
+          </div>
         </section>
       )}
     </div>
