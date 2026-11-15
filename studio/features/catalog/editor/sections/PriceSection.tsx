@@ -43,12 +43,16 @@ export function PriceSection({ form, set, errors, hasModule, moduleLabel }: Sect
             <span className="text-sm font-bold">Harga lewat penawaran</span>
             <span className="text-[13px] text-default-600">
               Pelanggan minta penawaran dulu sebelum bayar.
-              {!quotesOn && (
-                <>
-                  {' '}Butuh fitur {moduleLabel('quotes')} — <Link href={FEATURES_PATH}>aktifkan</Link>.
-                </>
-              )}
             </span>
+            {!quotesOn && (
+              // Toggle terkunci sampai modul Penawaran aktif — tautan dibuat jelas bisa diklik.
+              <span className="mt-1 text-[13px] text-default-600">
+                Butuh fitur {moduleLabel('quotes')}.{' '}
+                <Link href={FEATURES_PATH} className="font-bold text-primary-700 underline underline-offset-2 hover:text-primary-800">
+                  Aktifkan di menu Fitur
+                </Link>
+              </span>
+            )}
           </span>
           <StatusSwitch
             isSelected={form.quotable}

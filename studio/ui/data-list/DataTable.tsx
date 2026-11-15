@@ -21,6 +21,11 @@ export interface DataTableProps<T extends DataRow> {
   isRowSelectable?: (row: T) => boolean;
   /** Klik di area kosong baris membuka item (mis. detail pesanan). Klik pada kontrol di baris diabaikan. */
   onRowClick?: (row: T) => void;
+  /**
+   * Lebar minimum tabel (px). Di layar sempit tabel tidak dipadatkan sampai kolom terpotong — area tabel
+   * bisa di-scroll horizontal. Default 760.
+   */
+  minWidth?: number;
 }
 
 type HeaderCell = { key: string; header: string; align?: 'start' | 'center' | 'end'; hideHeader?: boolean };
@@ -40,6 +45,7 @@ export function DataTable<T extends DataRow>({
   isRowMuted,
   isRowSelectable,
   onRowClick,
+  minWidth = 760,
 }: DataTableProps<T>) {
   const pageIds = rows.filter((r) => isRowSelectable?.(r) ?? true).map((r) => r.id);
   const selectedOnPage = pageIds.filter((id) => selection.selectedIds.has(id)).length;
@@ -52,62 +58,66 @@ export function DataTable<T extends DataRow>({
   const columnByKey = new Map(columns.map((c) => [c.key, c]));
 
   return (
-    <Table
-      aria-label={ariaLabel}
-      removeWrapper
-      classNames={{
-        th: 'h-10 bg-default-50 text-xs font-semibold text-default-600 first:rounded-none last:rounded-none first:pl-4 last:pr-4',
-        td: 'py-3 align-middle text-sm first:pl-4 last:pr-4',
-        tr: 'border-t border-default-100',
-      }}
-    >
-      <TableHeader columns={headers}>
-        {(col) => (
-          <TableColumn key={col.key} align={col.align} className={col.key === SELECT_KEY ? 'w-10' : undefined}>
-            {col.key === SELECT_KEY ? (
-              <Checkbox
-                aria-label="Pilih semua di halaman ini"
-                isSelected={allSelected}
-                isIndeterminate={selectedOnPage > 0 && !allSelected}
-                onValueChange={(value) => selection.setMany(pageIds, value)}
-              />
-            ) : col.hideHeader ? (
-              <span className="sr-only">{col.header}</span>
-            ) : (
-              col.header
-            )}
-          </TableColumn>
-        )}
-      </TableHeader>
-      <TableBody items={rows}>
-        {(row) => (
-          <TableRow
-            key={row.id}
-            onClick={rowClickHandler(row, onRowClick)}
-            className={`${selection.selectedIds.has(row.id) ? 'bg-primary-50' : isRowMuted?.(row) ? 'bg-default-50' : ''} ${
-              onRowClick ? 'cursor-pointer hover:bg-default-50' : ''
-            }`}
-          >
-            {(columnKey) => {
-              const key = String(columnKey);
-              if (key === SELECT_KEY) {
-                if (isRowSelectable && !isRowSelectable(row)) return <TableCell>{null}</TableCell>;
-                return (
-                  <TableCell>
-                    <Checkbox
-                      aria-label={`Pilih ${getRowLabel(row)}`}
-                      isSelected={selection.selectedIds.has(row.id)}
-                      onValueChange={() => selection.toggle(row.id)}
-                    />
-                  </TableCell>
-                );
-              }
-              const column = columnByKey.get(key);
-              return <TableCell>{column ? column.render(row, ctx) : null}</TableCell>;
-            }}
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+    // Scroll horizontal di sini (bukan di kartu pembungkus yang overflow-hidden untuk sudut membulat).
+    <div className="w-full overflow-x-auto overscroll-x-contain">
+      <Table
+        aria-label={ariaLabel}
+        removeWrapper
+        style={{ minWidth }}
+        classNames={{
+          th: 'h-10 bg-default-50 text-xs font-semibold text-default-600 first:rounded-none last:rounded-none first:pl-4 last:pr-4',
+          td: 'py-3 align-middle text-sm first:pl-4 last:pr-4',
+          tr: 'border-t border-default-100',
+        }}
+      >
+        <TableHeader columns={headers}>
+          {(col) => (
+            <TableColumn key={col.key} align={col.align} className={col.key === SELECT_KEY ? 'w-10' : undefined}>
+              {col.key === SELECT_KEY ? (
+                <Checkbox
+                  aria-label="Pilih semua di halaman ini"
+                  isSelected={allSelected}
+                  isIndeterminate={selectedOnPage > 0 && !allSelected}
+                  onValueChange={(value) => selection.setMany(pageIds, value)}
+                />
+              ) : col.hideHeader ? (
+                <span className="sr-only">{col.header}</span>
+              ) : (
+                col.header
+              )}
+            </TableColumn>
+          )}
+        </TableHeader>
+        <TableBody items={rows}>
+          {(row) => (
+            <TableRow
+              key={row.id}
+              onClick={rowClickHandler(row, onRowClick)}
+              className={`${selection.selectedIds.has(row.id) ? 'bg-primary-50' : isRowMuted?.(row) ? 'bg-default-50' : ''} ${
+                onRowClick ? 'cursor-pointer hover:bg-default-50' : ''
+              }`}
+            >
+              {(columnKey) => {
+                const key = String(columnKey);
+                if (key === SELECT_KEY) {
+                  if (isRowSelectable && !isRowSelectable(row)) return <TableCell>{null}</TableCell>;
+                  return (
+                    <TableCell>
+                      <Checkbox
+                        aria-label={`Pilih ${getRowLabel(row)}`}
+                        isSelected={selection.selectedIds.has(row.id)}
+                        onValueChange={() => selection.toggle(row.id)}
+                      />
+                    </TableCell>
+                  );
+                }
+                const column = columnByKey.get(key);
+                return <TableCell>{column ? column.render(row, ctx) : null}</TableCell>;
+              }}
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
