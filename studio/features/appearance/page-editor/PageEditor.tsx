@@ -31,6 +31,7 @@ import { SortableSections } from './SortableSections';
 import { ArticlePickerField } from './ArticlePickerField';
 import { ProductPickerField } from './ProductPickerField';
 import { FaqCategoryPickerField } from './FaqCategoryPickerField';
+import { ProductCategoryPickerField } from './ProductCategoryPickerField';
 import { GalleryUploadField, ImageUploadField } from './SectionImageFields';
 import { normalizeLegacyCta } from './fields/cta-legacy';
 import { EmailField } from './fields/EmailField';
@@ -812,6 +813,8 @@ function SectionFieldInput({
       );
     case 'faqCategoryPicker':
       return <FaqCategoryPickerField value={str} websiteId={websiteId} onChange={onChange} />;
+    case 'productCategoryPicker':
+      return <ProductCategoryPickerField value={value} websiteId={websiteId} label={field.label} onChange={onChange} />;
     case 'select':
       if (field.display === 'segmented' && !field.multiple) {
         return <SegmentedField field={field} value={value} onChange={onChange} />;
