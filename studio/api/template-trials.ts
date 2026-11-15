@@ -54,8 +54,12 @@ export interface TemplateCandidatePreviewDto {
   submissionId: string;
   digest: string;
   fixture: string;
+  /** `client`: render di iframe dari browserBundle + props (tanpa container runtime). Tidak ada = API lama (SSR). */
+  mode?: 'ssr' | 'client';
   html: string;
   clientScript: string | null;
+  props?: Record<string, unknown> | null;
+  browserBundle?: { url: string; sha256: string } | null;
 }
 
 /** `GET /api/template-candidates` — kandidat yang boleh diuji user ini. */
@@ -63,10 +67,13 @@ export function fetchTemplateCandidates(): Promise<TemplateCandidateDto[]> {
   return studioRequest<TemplateCandidateDto[]>('/api/template-candidates');
 }
 
-/** `GET /api/template-candidates/:id/preview` — SSR fixture standar + client.js. */
+/**
+ * `GET /api/template-candidates/:id/preview?mode=client` — kandidat dengan browser.js dijawab props fixture +
+ * browserBundle (template-client-rendering-plan §8); selain itu SSR fixture standar + client.js.
+ */
 export function fetchTemplateCandidatePreview(submissionId: string, fixture = 'home'): Promise<TemplateCandidatePreviewDto> {
   return studioRequest<TemplateCandidatePreviewDto>(
-    `/api/template-candidates/${encodeURIComponent(submissionId)}/preview?fixture=${encodeURIComponent(fixture)}`,
+    `/api/template-candidates/${encodeURIComponent(submissionId)}/preview?fixture=${encodeURIComponent(fixture)}&mode=client`,
   );
 }
 

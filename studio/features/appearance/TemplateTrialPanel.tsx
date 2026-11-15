@@ -14,7 +14,6 @@ import { Button, Spinner } from '@heroui/react';
 
 import { errorMessage } from '@/studio/api/client';
 import {
-  fetchTemplateCandidatePreview,
   fetchTemplateCandidates,
   fetchWebsiteTemplateTrial,
   startWebsiteTemplateTrial,
@@ -22,7 +21,7 @@ import {
   type TemplateCandidateDto,
   type WebsiteTemplateTrialDto,
 } from '@/studio/api/template-trials';
-import { buildPreviewDocument } from '@/studio/lib/template-preview-document';
+import { loadTemplateCandidatePreviewDocument } from '@/studio/lib/template-candidate-preview';
 import { buildTenantWebUrl } from '@/studio/lib/template-preview';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { notify } from '@/studio/ui/primitives/Toast';
@@ -46,9 +45,9 @@ function CandidateThumb({ candidate }: { candidate: TemplateCandidateDto }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchTemplateCandidatePreview(candidate.submissionId)
-      .then((preview) => {
-        if (!cancelled) setDocument(buildPreviewDocument(preview.html, preview.clientScript, true));
+    loadTemplateCandidatePreviewDocument(candidate.submissionId)
+      .then((previewDocument) => {
+        if (!cancelled) setDocument(previewDocument);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
