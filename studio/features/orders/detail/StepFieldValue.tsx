@@ -1,5 +1,7 @@
 import type { StepFormField } from '@/studio/api/order-detail';
 
+import { formatFlowDateValue } from '@/studio/lib/flow-date-value';
+
 import { normalizeMedia } from './step-form';
 
 /** Isian langkah yang sudah dikirim (foto/video/PDF/lokasi/teks), dipakai di timeline. */
@@ -54,6 +56,9 @@ function StepFieldValue({ field, value }: { field: StepFormField; value: unknown
         ))}
       </div>
     );
+  }
+  if (field.type === 'tanggal' || field.type === 'tanggal_waktu') {
+    return <span className="text-foreground">{formatFlowDateValue(field.type, value) ?? String(value ?? '')}</span>;
   }
   const text = typeof value === 'string' || typeof value === 'number' ? String(value) : items[0]?.url ?? '';
   if (field.type === 'lokasi') {

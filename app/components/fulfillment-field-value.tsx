@@ -20,6 +20,19 @@ function normalizeMediaValues(value: unknown): MediaValue[] {
   return typeof value === 'string' && value ? [{ url: value, description: '' }] : [];
 }
 
+/** Salinan studio/lib/flow-date-value.ts (dashboard lama tidak boleh mengimpor Studio). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+function formatFlowDateValue(type: string, value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match;
+  const monthLabel = MONTHS[Number(month) - 1];
+  if (!monthLabel) return null;
+  const date = `${Number(day)} ${monthLabel} ${year}`;
+  return type === 'tanggal_waktu' && hour !== undefined ? `${date}, ${hour}.${minute}` : date;
+}
+
 export function FulfillmentFieldValue({
   field,
   value,
@@ -27,6 +40,10 @@ export function FulfillmentFieldValue({
   field: FulfillmentStepFormField;
   value: unknown;
 }) {
+  if (field.type === 'tanggal' || field.type === 'tanggal_waktu') {
+    const formatted = formatFlowDateValue(field.type, value);
+    return formatted || typeof value === 'string' ? <span>{formatted ?? String(value)}</span> : null;
+  }
   const values = normalizeMediaValues(value);
   if (values.length === 0) return null;
   const text = values[0].url;
