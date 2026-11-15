@@ -59,6 +59,15 @@ export function StepFieldInput({ field, value, onChange, websiteId, disabled }: 
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
+      ) : field.type === 'tanggal' || field.type === 'tanggal_waktu' ? (
+        <input
+          id={id}
+          type={field.type === 'tanggal' ? 'date' : 'datetime-local'}
+          value={text}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="min-h-10 w-full rounded-[10px] border border-default-300 bg-white px-3 text-sm"
+        />
       ) : (
         <Input id={id} value={text} onValueChange={onChange} isDisabled={disabled} inputMode={field.type === 'number' ? 'decimal' : undefined} />
       )}

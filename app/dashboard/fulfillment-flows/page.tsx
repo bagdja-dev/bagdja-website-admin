@@ -18,6 +18,8 @@ const FIELD_TYPE_OPTIONS: FormSelectOption[] = [
   { value: 'number', label: 'Angka' },
   { value: 'textarea', label: 'Teks panjang' },
   { value: 'select', label: 'Pilihan (dropdown)' },
+  { value: 'tanggal', label: 'Tanggal' },
+  { value: 'tanggal_waktu', label: 'Tanggal & waktu' },
   { value: 'pdf', label: 'Dokumen PDF' },
   { value: 'foto', label: 'Foto' },
   { value: 'video', label: 'Video' },

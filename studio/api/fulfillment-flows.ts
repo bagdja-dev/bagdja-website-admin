@@ -7,6 +7,10 @@ export type FulfillmentStepFieldType =
   | 'number'
   | 'textarea'
   | 'select'
+  /** Tanggal saja, nilai `YYYY-MM-DD`. */
+  | 'tanggal'
+  /** Tanggal & jam lokal bisnis, nilai `YYYY-MM-DDTHH:mm`. */
+  | 'tanggal_waktu'
   | 'pdf'
   | 'foto'
   | 'video'

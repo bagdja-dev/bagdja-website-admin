@@ -5,7 +5,17 @@
  */
 import { jsonBody, studioRequest, websitePath } from './client';
 
-export type StepFieldType = 'text' | 'number' | 'textarea' | 'select' | 'pdf' | 'foto' | 'video' | 'lokasi';
+export type StepFieldType =
+  | 'text'
+  | 'number'
+  | 'textarea'
+  | 'select'
+  | 'tanggal'
+  | 'tanggal_waktu'
+  | 'pdf'
+  | 'foto'
+  | 'video'
+  | 'lokasi';
 
 export interface StepFormField {
   key: string;
