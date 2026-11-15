@@ -47,6 +47,8 @@ export interface CatalogProduct {
   price: number | string;
   images: string[] | null;
   video_url: string | null;
+  /** Semua video (urut tampil); bisa tidak ada pada API lama → pakai video_url. */
+  video_urls?: string[] | null;
   model3d_url: string | null;
   metadata: Record<string, unknown> | null;
   specifications: Record<string, string> | null;
@@ -80,6 +82,7 @@ export interface ProductWriteRequest {
   price?: number;
   images?: string[];
   video_url?: string | null;
+  video_urls?: string[];
   model3d_url?: string | null;
   metadata?: Record<string, unknown>;
   specifications?: Record<string, string>;

@@ -62,7 +62,8 @@ export interface ProductForm {
   description: string;
   detail: string;
   images: GalleryImage[];
-  videoUrl: string;
+  /** Video produk (urut tampil); video pertama juga dikirim sebagai video_url untuk klien lama. */
+  videoUrls: string[];
   model3dUrl: string;
   price: string;
   quotable: boolean;
@@ -137,7 +138,7 @@ export function emptyForm(type: string): ProductForm {
     description: '',
     detail: '',
     images: [],
-    videoUrl: '',
+    videoUrls: [],
     model3dUrl: '',
     price: '',
     quotable: false,
@@ -250,7 +251,7 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
     description: product.description ?? '',
     detail: product.detail ?? '',
     images: galleryOf(product),
-    videoUrl: product.video_url ?? '',
+    videoUrls: product.video_urls?.length ? [...product.video_urls] : product.video_url ? [product.video_url] : [],
     model3dUrl: product.model3d_url ?? '',
     price: moneyFromApi(product.price),
     quotable: product.quotable ?? false,
