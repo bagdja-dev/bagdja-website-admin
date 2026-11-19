@@ -5,6 +5,10 @@ export interface WebsiteBlogPost {
   website_id: string;
   title: string;
   slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   excerpt?: string | null;
   content?: string | null;
   cover_image?: string | null;
@@ -18,6 +22,10 @@ export interface WebsiteBlogPost {
 export interface CreateBlogPostRequest {
   title: string;
   slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   excerpt?: string | null;
   content?: string | null;
   cover_image?: string | null;

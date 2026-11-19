@@ -41,6 +41,10 @@ export interface CatalogProduct {
   location_ids?: string[];
   name: string;
   slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   description: string | null;
   detail: string | null;
   /** API mengirim number (transformer), tetapi dibaca defensif karena kolom decimal. */
@@ -77,6 +81,10 @@ export interface ProductWriteRequest {
   parent_product_id?: string | null;
   name?: string;
   slug?: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   description?: string | null;
   detail?: string | null;
   price?: number;

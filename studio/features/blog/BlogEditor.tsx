@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Drawer, DrawerBody, DrawerContent, DrawerHeader, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Switch } from '@heroui/react';
+import { Button, Drawer, DrawerBody, DrawerContent, DrawerHeader, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Switch, Textarea } from '@heroui/react';
 
 import { useActiveWebsiteId } from '@/studio/stores/website-store';
 import { fetchBlogPosts, createBlogPost, updateBlogPost, type WebsiteBlogPost } from '@/studio/api/blog-posts';
@@ -35,6 +35,10 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
   const [slug, setSlug] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
+  const [seoImage, setSeoImage] = useState('');
+  const [seoNoIndex, setSeoNoIndex] = useState(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
@@ -68,6 +72,10 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
         setSlug(found.slug);
         setExcerpt(found.excerpt ?? '');
         setContent(found.content ?? '');
+        setSeoTitle(found.seo_title ?? '');
+        setSeoDescription(found.seo_description ?? '');
+        setSeoImage(found.seo_image ?? '');
+        setSeoNoIndex(found.seo_no_index ?? false);
         setCoverImage(found.cover_image ?? null);
         setIsPublished(found.is_published);
         setRelatedIds((found.related_product_ids ?? []).filter(Boolean));
@@ -145,6 +153,10 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
           saved = await createBlogPost(websiteId, {
             title: title.trim(),
             slug: slug.trim(),
+            seo_title: seoTitle.trim() || null,
+            seo_description: seoDescription.trim() || null,
+            seo_image: seoImage.trim() || null,
+            seo_no_index: seoNoIndex,
             excerpt: excerpt.trim() || null,
             content: content.trim() || null,
             cover_image: coverImage,
@@ -156,6 +168,10 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
           saved = await updateBlogPost(websiteId, post!.id, {
             title: title.trim(),
             slug: slug.trim(),
+            seo_title: seoTitle.trim() || null,
+            seo_description: seoDescription.trim() || null,
+            seo_image: seoImage.trim() || null,
+            seo_no_index: seoNoIndex,
             excerpt: excerpt.trim() || null,
             content: content.trim() || null,
             cover_image: coverImage,
@@ -175,7 +191,7 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
         setSaving(false);
       }
     },
-    [websiteId, isNew, post, title, slug, excerpt, content, coverImage, relatedIds],
+    [websiteId, isNew, post, title, slug, seoTitle, seoDescription, seoImage, seoNoIndex, excerpt, content, coverImage, relatedIds],
   );
 
   const handleCoverUpload = async (file: File) => {
@@ -228,6 +244,41 @@ export function BlogEditor({ isNew, postId }: BlogEditorProps) {
             max={160}
           />
           <p className="text-[11px] text-default-500">Maks. 160 karakter (hanya petunjuk, tidak diblokir).</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-[12px] font-medium text-foreground">Judul SEO</label>
+          <Input
+            size="sm"
+            value={seoTitle}
+            maxLength={255}
+            placeholder={title || 'Judul artikel'}
+            onValueChange={(value) => { setSeoTitle(value); setDirty(true); }}
+          />
+          <p className="text-[11px] text-default-500">{seoTitle.length}/255 · Kosongkan untuk memakai judul artikel.</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-[12px] font-medium text-foreground">Deskripsi SEO</label>
+          <Textarea
+            size="sm"
+            value={seoDescription}
+            maxLength={500}
+            minRows={2}
+            placeholder={excerpt || 'Ringkasan artikel'}
+            onValueChange={(value) => { setSeoDescription(value); setDirty(true); }}
+          />
+          <p className="text-[11px] text-default-500">{seoDescription.length}/500 · Kosongkan untuk memakai ringkasan.</p>
+        </div>
+        <Input
+          size="sm"
+          label="URL gambar share"
+          value={seoImage}
+          maxLength={1000}
+          placeholder={coverImage ?? 'https://...'}
+          onValueChange={(value) => { setSeoImage(value); setDirty(true); }}
+        />
+        <div className="flex items-center gap-2">
+          <Switch isSelected={seoNoIndex} onValueChange={(value) => { setSeoNoIndex(value); setDirty(true); }} />
+          <span className="text-[13px] text-default-600">Jangan indeks artikel ini</span>
         </div>
         <div className="flex flex-col gap-2">
           <label className="text-[12px] font-medium text-foreground">Pratinjau di Google</label>

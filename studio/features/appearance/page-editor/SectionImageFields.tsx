@@ -18,12 +18,13 @@ interface SectionImage {
 
 interface ImageUploadFieldProps {
   value: string;
+  alt?: string;
   websiteId: string;
   label: string;
   onChange: (url: string) => void;
 }
 
-export function ImageUploadField({ value, websiteId, label, onChange }: ImageUploadFieldProps) {
+export function ImageUploadField({ value, alt, websiteId, label, onChange }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export function ImageUploadField({ value, websiteId, label, onChange }: ImageUpl
       {value ? (
         <div className="relative overflow-hidden rounded-xl border border-default-200 bg-default-50">
           {/* eslint-disable-next-line @next/next/no-img-element -- URL gambar dari storage service */}
-          <img src={value} alt={label} className="max-h-56 w-full object-contain" />
+          <img src={value} alt={alt?.trim() || label} className="max-h-56 w-full object-contain" />
           <button
             type="button"
             onClick={() => {

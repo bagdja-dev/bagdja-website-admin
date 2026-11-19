@@ -132,7 +132,7 @@ function SpecificationDialog({
   );
 }
 
-/** Bagian "Lanjutan" (tertutup): slug, specifications, estimation, model3d_url — isi per tipe dari registry. */
+/** Bagian "Lanjutan" (tertutup): slug, SEO, specifications, estimation, model3d_url — isi per tipe dari registry. */
 export function AdvancedSection({ form, set, errors, product, websiteId, canEdit }: SectionProps) {
   const [open, setOpen] = useState(Boolean(errors.slug || errors.estimation) || !canEdit);
   const [specDialog, setSpecDialog] = useState<{ index: number; isNew: boolean } | null>(null);
@@ -157,7 +157,7 @@ export function AdvancedSection({ form, set, errors, product, websiteId, canEdit
   return (
     <>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center justify-between gap-3 text-left">
-        <span className="text-[13px] text-default-600">Alamat URL{fields.includes('specifications') ? ', spesifikasi' : ''}{fields.includes('estimation') ? ', estimasi biaya tambahan' : ''}{fields.includes('model3d') ? ', model 3D' : ''}</span>
+        <span className="text-[13px] text-default-600">Alamat URL, SEO{fields.includes('specifications') ? ', spesifikasi' : ''}{fields.includes('estimation') ? ', estimasi biaya tambahan' : ''}{fields.includes('model3d') ? ', model 3D' : ''}</span>
         <Icon name="chevronDown" size={18} className={open ? 'rotate-180' : ''} />
       </button>
       {open && (
@@ -170,6 +170,41 @@ export function AdvancedSection({ form, set, errors, product, websiteId, canEdit
             hint={product ? 'Mengubah alamat membuat tautan lama ke item ini tidak berlaku.' : 'Dibuat otomatis dari nama.'}
             maxLength={255}
           />
+          <div className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-3.5">
+            <div>
+              <span className="text-[13px] font-bold">SEO produk</span>
+              <p className={HINT}>Kosongkan judul/deskripsi untuk menggunakan nama dan deskripsi produk.</p>
+            </div>
+            <TextField
+              label="Judul SEO"
+              value={form.seoTitle}
+              onChange={(seoTitle) => set({ seoTitle })}
+              maxLength={255}
+              hint={`${form.seoTitle.length}/255`}
+            />
+            <TextAreaField
+              label="Deskripsi SEO"
+              value={form.seoDescription}
+              onChange={(seoDescription) => set({ seoDescription })}
+              maxLength={500}
+            />
+            <TextField
+              label="URL gambar share"
+              value={form.seoImage}
+              onChange={(seoImage) => set({ seoImage })}
+              maxLength={1000}
+              hint="Kosongkan untuk menggunakan foto utama produk."
+            />
+            <label className="flex items-center gap-2 text-[13px] text-default-700">
+              <input
+                type="checkbox"
+                checked={form.seoNoIndex}
+                onChange={(event) => set({ seoNoIndex: event.target.checked })}
+                className="h-4 w-4 accent-primary"
+              />
+              Jangan indeks halaman produk ini
+            </label>
+          </div>
           {fields.includes('specifications') && (
             <div className="flex flex-col gap-2">
               <div>

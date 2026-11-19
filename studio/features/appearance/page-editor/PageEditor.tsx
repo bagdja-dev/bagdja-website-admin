@@ -8,6 +8,7 @@ import { Button, Input, Select, SelectItem, Switch, Textarea } from '@heroui/rea
 
 import {
   fetchPageAndSections,
+  updatePage,
   type WebsitePage,
   type WebsiteSection,
 } from '@/studio/api/pages';
@@ -61,6 +62,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
   const { confirm, dialog: confirmDialog } = useConfirm();
 
   const [page, setPage] = useState<WebsitePage | null>(null);
+  const [savedSeo, setSavedSeo] = useState('');
   /** Draft (belum disimpan) — dikirim ke pratinjau lewat protokol preview v1. */
   const [sections, setSections] = useState<WebsiteSection[]>([]);
   /** Versi tersimpan di API — pembanding untuk dirty & simpan. */
@@ -131,6 +133,12 @@ export function PageEditor({ pageId }: PageEditorProps) {
       }
       if (pageRes.status === 'fulfilled') {
         setPage(pageRes.value.page);
+        setSavedSeo(JSON.stringify([
+          pageRes.value.page.seo_title,
+          pageRes.value.page.seo_description,
+          pageRes.value.page.seo_image,
+          pageRes.value.page.seo_no_index,
+        ]));
         const sections = pageRes.value.sections.map((section) => normalizeLegacyCta(normalizeLegacyFeatures(section)));
         setSections(sections);
         setSavedSections(sections);
@@ -159,7 +167,9 @@ export function PageEditor({ pageId }: PageEditorProps) {
     const saved = new Map(savedSections.map((s) => [s.id, JSON.stringify(s.content ?? {})]));
     return new Set(sections.filter((s) => saved.get(s.id) !== JSON.stringify(s.content ?? {})).map((s) => s.id));
   }, [sections, savedSections]);
-  const dirty = changedIds.size > 0;
+  const pageSeo = page ? JSON.stringify([page.seo_title, page.seo_description, page.seo_image, page.seo_no_index]) : '';
+  const seoDirty = pageSeo !== savedSeo;
+  const dirty = changedIds.size > 0 || seoDirty;
 
   const previewUrl = useMemo(
     () => (website && page ? buildPagePreviewUrl(website, page, device) : null),
@@ -284,17 +294,34 @@ export function PageEditor({ pageId }: PageEditorProps) {
   /** Simpan sekali untuk semua section yang berubah, lalu muat ulang pratinjau (versi tersimpan). */
   const handleSave = async () => {
     const changed = sections.filter((s) => changedIds.has(s.id));
-    if (changed.length === 0) return;
+    if (changed.length === 0 && !seoDirty) return;
     setSaving(true);
     try {
-      const updated = await Promise.all(
-        changed.map((s) => updateSection(websiteId, pageId, s.id, { content: s.content })),
-      );
+      const [updated, savedPage] = await Promise.all([
+        Promise.all(changed.map((s) => updateSection(websiteId, pageId, s.id, { content: s.content }))),
+        seoDirty && page
+          ? updatePage(websiteId, pageId, {
+              seo_title: page.seo_title || null,
+              seo_description: page.seo_description || null,
+              seo_image: page.seo_image || null,
+              seo_no_index: page.seo_no_index,
+            })
+          : Promise.resolve(page),
+      ]);
       const byId = new Map(updated.map((s) => [s.id, s]));
       setSections((current) => current.map((s) => byId.get(s.id) ?? s));
       setSavedSections((current) => current.map((s) => byId.get(s.id) ?? s));
+      setPage(savedPage);
+      if (savedPage) {
+        setSavedSeo(JSON.stringify([
+          savedPage.seo_title,
+          savedPage.seo_description,
+          savedPage.seo_image,
+          savedPage.seo_no_index,
+        ]));
+      }
       reloadPreview();
-      notify.success(changed.length > 1 ? `${changed.length} section disimpan.` : 'Section disimpan.');
+      notify.success('Pengaturan SEO dan perubahan halaman disimpan.');
     } catch {
       notify.error('Gagal menyimpan section.');
     } finally {
@@ -461,6 +488,10 @@ export function PageEditor({ pageId }: PageEditorProps) {
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-5">
+            <PageSeoFields
+              page={page}
+              onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
+            />
             {!selected ? (
               <div className="py-20 text-center text-[12px] text-default-500">
                 Pilih section di panel kiri untuk mengedit propertinya.
@@ -616,6 +647,10 @@ export function PageEditor({ pageId }: PageEditorProps) {
                     )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
+                    <PageSeoFields
+                      page={page}
+                      onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
+                    />
                     {!selected ? (
                       <div className="py-12 text-center text-sm text-default-500">Pilih section untuk mengedit propertinya.</div>
                     ) : !selectedSchema ? (
@@ -651,6 +686,54 @@ export function PageEditor({ pageId }: PageEditorProps) {
       onAdd={(type) => void handleAddSection(type)}
     />
     </>
+  );
+}
+
+function PageSeoFields({
+  page,
+  onChange,
+}: {
+  page: WebsitePage;
+  onChange: (patch: Partial<WebsitePage>) => void;
+}) {
+  return (
+    <section className="mb-5 flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-3.5">
+      <div>
+        <h3 className="text-[13px] font-semibold text-foreground">SEO halaman</h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-default-600">
+          Kosongkan judul atau deskripsi untuk memakai judul halaman dan konten sebagai nilai otomatis.
+        </p>
+      </div>
+      <Input
+        size="sm"
+        label="Judul SEO"
+        value={page.seo_title ?? ''}
+        maxLength={255}
+        onValueChange={(seo_title) => onChange({ seo_title })}
+      />
+      <Textarea
+        size="sm"
+        label="Deskripsi SEO"
+        value={page.seo_description ?? ''}
+        maxLength={500}
+        minRows={2}
+        onValueChange={(seo_description) => onChange({ seo_description })}
+      />
+      <Input
+        size="sm"
+        label="URL gambar share (opsional)"
+        value={page.seo_image ?? ''}
+        maxLength={1000}
+        onValueChange={(seo_image) => onChange({ seo_image })}
+      />
+      <Switch
+        size="sm"
+        isSelected={Boolean(page.seo_no_index)}
+        onValueChange={(seo_no_index) => onChange({ seo_no_index })}
+      >
+        <span className="text-xs">Minta mesin pencari tidak mengindeks halaman ini</span>
+      </Switch>
+    </section>
   );
 }
 
@@ -690,6 +773,7 @@ function SectionPropertiesForm({
             <SectionFieldInput
               field={field}
               value={values[field.key]}
+              alt={typeof values[`${field.key}_alt`] === 'string' ? values[`${field.key}_alt`] as string : ''}
               websiteId={websiteId}
               onChange={(v) => handleFieldChange(field.key, v)}
             />
@@ -743,11 +827,13 @@ function normalizeLegacyFeatures(section: WebsiteSection): WebsiteSection {
 function SectionFieldInput({
   field,
   value,
+  alt,
   websiteId,
   onChange,
 }: {
   field: TemplateManifestField;
   value: unknown;
+  alt?: string;
   websiteId: string;
   onChange: (v: unknown) => void;
 }) {
@@ -844,7 +930,7 @@ function SectionFieldInput({
       return <Switch isSelected={Boolean(value)} onValueChange={onChange} />;
     case 'image':
       return (
-        <ImageUploadField value={str} websiteId={websiteId} label={field.label} onChange={onChange} />
+        <ImageUploadField value={str} alt={alt} websiteId={websiteId} label={field.label} onChange={onChange} />
       );
     case 'gallery':
       return <GalleryUploadField value={value} websiteId={websiteId} onChange={onChange} />;

@@ -84,11 +84,11 @@ export function IntField(props: TextProps) {
   return <TextField inputMode="numeric" {...props} onChange={(v) => props.onChange(v.replace(/[^\d]/g, ''))} />;
 }
 
-export function TextAreaField({ label, value, onChange, hint, error, rows = 3, placeholder, disabled }: { label: string; value: string; onChange: (v: string) => void; hint?: ReactNode; error?: string | null; rows?: number; placeholder?: string; disabled?: boolean }) {
+export function TextAreaField({ label, value, onChange, hint, error, rows = 3, placeholder, disabled, maxLength }: { label: string; value: string; onChange: (v: string) => void; hint?: ReactNode; error?: string | null; rows?: number; placeholder?: string; disabled?: boolean; maxLength?: number }) {
   const id = useId();
   return (
     <Field label={label} hint={hint} error={error} htmlFor={id}>
-      <textarea id={id} rows={rows} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={`${INPUT} resize-y`} />
+      <textarea id={id} rows={rows} value={value} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onChange={(e) => onChange(e.target.value)} className={`${INPUT} resize-y`} />
     </Field>
   );
 }

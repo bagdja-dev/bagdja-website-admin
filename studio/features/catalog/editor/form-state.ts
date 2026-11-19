@@ -59,6 +59,10 @@ export interface ProductForm {
   slugTouched: boolean;
   categoryId: string;
   uomId: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoImage: string;
+  seoNoIndex: boolean;
   description: string;
   detail: string;
   images: GalleryImage[];
@@ -135,6 +139,10 @@ export function emptyForm(type: string): ProductForm {
     slugTouched: false,
     categoryId: '',
     uomId: '',
+    seoTitle: '',
+    seoDescription: '',
+    seoImage: '',
+    seoNoIndex: false,
     description: '',
     detail: '',
     images: [],
@@ -248,6 +256,10 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
     slugTouched: true,
     categoryId: product.category_id ?? '',
     uomId: product.uom_id ?? '',
+    seoTitle: product.seo_title ?? '',
+    seoDescription: product.seo_description ?? '',
+    seoImage: product.seo_image ?? '',
+    seoNoIndex: product.seo_no_index ?? false,
     description: product.description ?? '',
     detail: product.detail ?? '',
     images: galleryOf(product),

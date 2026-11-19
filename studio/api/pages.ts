@@ -8,6 +8,10 @@ export interface WebsitePage {
   website_id: string;
   title: string;
   slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   is_home: boolean;
   placement: 'regular' | 'header' | 'footer';
   sort_order: number;
@@ -18,6 +22,10 @@ export interface WebsitePage {
 export interface CreatePageRequest {
   title: string;
   slug?: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
   is_home?: boolean;
 }
 
