@@ -218,6 +218,8 @@ export interface WebsiteDto {
   slug: string;
   domain?: string | null;
   domain_verified_at?: string | null;
+  search_console_verification_filename?: string | null;
+  search_console_verification_content?: string | null;
   template_id?: string | null;
   template_runtime_version?: string | null;
   tagline?: string | null;

@@ -53,6 +53,17 @@ export function updateWebsiteIdentity(websiteId: string, identity: WebsiteIdenti
   });
 }
 
+/** `PATCH /api/websites/:id` — Google Search Console HTML-file verification. */
+export function updateWebsiteSearchConsoleVerification(
+  websiteId: string,
+  verification: { search_console_verification_filename: string | null; search_console_verification_content: string | null },
+): Promise<WebsiteDto> {
+  return studioRequest<WebsiteDto>(websitePath(websiteId), {
+    method: 'PATCH',
+    ...jsonBody(verification),
+  });
+}
+
 /** Versi template designer — mirror `WebsiteTemplateVersionStatusResponseDto` (Website API). */
 export interface WebsiteTemplateVersionSummaryDto {
   versionId: string;

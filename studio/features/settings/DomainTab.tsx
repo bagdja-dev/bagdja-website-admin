@@ -1,11 +1,17 @@
 'use client';
 
-import { Button, Input } from '@heroui/react';
+import { useEffect, useState } from 'react';
 
+import { Button, Input, Textarea } from '@heroui/react';
+
+import { errorMessage } from '@/studio/api/client';
 import type { DnsRecordDto } from '@/studio/api/domain';
+import { updateWebsiteSearchConsoleVerification } from '@/studio/api/websites';
 import type { WebsiteDto } from '@/studio/api/types';
 import { buildTenantWebUrl, displayHost, slugAddressParts } from '@/studio/lib/template-preview';
 import { formatDate } from '@/studio/lib/format';
+import { useWebsiteStore } from '@/studio/stores/website-store';
+import { notify } from '@/studio/ui/primitives/Toast';
 
 import { CopyButton, FIELD_CLASSES, SettingsCard, StatusPill } from './parts';
 import { useDomain } from './use-domain';
@@ -19,6 +25,116 @@ const SLUG_HINT: Record<SlugCheck, { text: string; cls: string } | null> = {
   taken: { text: 'Sudah dipakai website lain.', cls: 'text-danger' },
   error: { text: 'Gagal mengecek alamat. Coba lagi.', cls: 'text-warning-700' },
 };
+
+const GOOGLE_VERIFICATION_FILENAME = /^google[a-zA-Z0-9_-]+\.html$/;
+
+function SearchConsoleCard({ website }: { website: WebsiteDto }) {
+  const patchWebsite = useWebsiteStore((s) => s.patchWebsite);
+  const [filename, setFilename] = useState(website.search_console_verification_filename ?? '');
+  const [content, setContent] = useState(website.search_console_verification_content ?? '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFilename(website.search_console_verification_filename ?? '');
+    setContent(website.search_console_verification_content ?? '');
+  }, [website.id, website.search_console_verification_filename, website.search_console_verification_content]);
+
+  const trimmedFilename = filename.trim();
+  const trimmedContent = content.trim();
+  const empty = !trimmedFilename && !trimmedContent;
+  const valid = empty || (
+    GOOGLE_VERIFICATION_FILENAME.test(trimmedFilename) &&
+    trimmedContent === `google-site-verification: ${trimmedFilename}`
+  );
+  const dirty =
+    trimmedFilename !== (website.search_console_verification_filename ?? '') ||
+    trimmedContent !== (website.search_console_verification_content ?? '');
+  const host = website.domain && website.domain_verified_at
+    ? `https://${website.domain}`
+    : buildTenantWebUrl(website.slug);
+  const verificationUrl = `${host.replace(/\/$/, '')}/${trimmedFilename}`;
+
+  const save = async (): Promise<void> => {
+    if (!valid || !dirty || saving) return;
+    setSaving(true);
+    try {
+      const updated = await updateWebsiteSearchConsoleVerification(website.id, {
+        search_console_verification_filename: empty ? null : trimmedFilename,
+        search_console_verification_content: empty ? null : trimmedContent,
+      });
+      patchWebsite(website.id, {
+        search_console_verification_filename: updated.search_console_verification_filename ?? null,
+        search_console_verification_content: updated.search_console_verification_content ?? null,
+      });
+      notify.success(empty ? 'Verifikasi Search Console dihapus.' : 'Pengaturan verifikasi Search Console disimpan.');
+    } catch (error) {
+      notify.error('Gagal menyimpan verifikasi Search Console.', errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SettingsCard
+      title="Google Search Console"
+      description="Metode file HTML: simpan nama dan isi file dari Google. File akan dilayani di root alamat website dan custom domain yang aktif."
+    >
+      <div className="flex flex-col gap-3">
+        <Input
+          label="Nama file verifikasi"
+          labelPlacement="outside"
+          value={filename}
+          onValueChange={setFilename}
+          maxLength={255}
+          placeholder="google9bbe81680154a078.html"
+          classNames={FIELD_CLASSES}
+          autoComplete="off"
+          spellCheck="false"
+        />
+        <Textarea
+          label="Isi file verifikasi"
+          labelPlacement="outside"
+          value={content}
+          onValueChange={setContent}
+          maxLength={1000}
+          minRows={2}
+          placeholder="google-site-verification: google9bbe81680154a078.html"
+          classNames={FIELD_CLASSES}
+          spellCheck="false"
+        />
+        {!valid && (
+          <p role="alert" className="text-sm text-danger">
+            Masukkan nama file dan isi verifikasi yang cocok persis seperti yang diberikan Google.
+          </p>
+        )}
+        {valid && trimmedFilename && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <a href={verificationUrl} target="_blank" rel="noreferrer" className="min-w-0 break-all text-primary hover:underline">
+              {verificationUrl}
+            </a>
+            <CopyButton value={verificationUrl} />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button color="primary" isDisabled={!valid || !dirty} isLoading={saving} onPress={() => void save()}>
+            Simpan verifikasi
+          </Button>
+          {dirty && (
+            <Button variant="bordered" isDisabled={saving} onPress={() => {
+              setFilename(website.search_console_verification_filename ?? '');
+              setContent(website.search_console_verification_content ?? '');
+            }}>
+              Batal
+            </Button>
+          )}
+        </div>
+        {(website.search_console_verification_filename || website.search_console_verification_content) && (
+          <p className="text-xs text-default-500">Kosongkan kedua field lalu simpan untuk menghapus file verifikasi.</p>
+        )}
+      </div>
+    </SettingsCard>
+  );
+}
 
 function DefaultAddressCard({ website }: { website: WebsiteDto }) {
   const s = useSlugChange(website);
@@ -157,6 +273,7 @@ export function DomainTab({ website }: { website: WebsiteDto }) {
     <div className="flex flex-col gap-5">
       <DefaultAddressCard website={website} />
       <CustomDomainCard website={website} />
+      <SearchConsoleCard website={website} />
     </div>
   );
 }
