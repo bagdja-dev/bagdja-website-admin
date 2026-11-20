@@ -198,16 +198,29 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '⭐',
     defaults: {
       title: 'Kenapa Pilih Kami',
+      visual_mode: 'icon',
       features: [],
     },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text' },
+      {
+        key: 'visual_mode',
+        label: 'Tampilan ilustrasi',
+        type: 'select',
+        default: 'icon',
+        options: [
+          { value: 'icon', label: 'Ikon' },
+          { value: 'image', label: 'Gambar' },
+        ],
+      },
       {
         key: 'features',
         label: 'Daftar keunggulan',
         type: 'list',
         itemFields: [
           { key: 'icon', label: 'Ikon', type: 'iconPicker', default: '⭐' },
+          { key: 'image', label: 'Gambar', type: 'image', description: 'Opsional — digunakan saat tampilan ilustrasi diatur ke Gambar.' },
+          { key: 'image_alt', label: 'Teks alternatif gambar', type: 'text', placeholder: 'Deskripsi singkat gambar' },
           { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
           { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
         ],

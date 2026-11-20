@@ -886,24 +886,50 @@ function SectionPropertiesForm({
 
 function normalizeSectionSchema(schema: TemplateManifestSection): TemplateManifestSection {
   if (schema.type !== 'features_grid') return schema;
+  const featuresField = schema.fields.find((field) => field.key === 'features');
+  const itemFields = featuresField?.itemFields ?? [];
+  const itemFieldByKey = new Map(itemFields.map((field) => [field.key, field]));
+  const normalizedItemFields: TemplateManifestField[] = [
+    itemFieldByKey.get('icon') ?? { key: 'icon', label: 'Ikon', type: 'iconPicker', default: '⭐' },
+    itemFieldByKey.get('image') ?? {
+      key: 'image',
+      label: 'Gambar',
+      type: 'image',
+      description: 'Opsional — digunakan saat tampilan ilustrasi diatur ke Gambar.',
+    },
+    itemFieldByKey.get('image_alt') ?? { key: 'image_alt', label: 'Teks alternatif gambar', type: 'text', placeholder: 'Deskripsi singkat gambar' },
+    itemFieldByKey.get('title') ?? { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
+    itemFieldByKey.get('desc') ?? { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+  ];
   const defaults = Object.fromEntries(
     Object.entries(schema.defaults).filter(([key]) => !/^feature_[1-4]_(icon|title|desc)$/.test(key)),
   );
+  const fields = schema.fields.filter((field) => field.key !== 'features' && !/^feature_[1-4]_(icon|title|desc)$/.test(field.key));
+  if (!fields.some((field) => field.key === 'visual_mode')) {
+    fields.push({
+      key: 'visual_mode',
+      label: 'Tampilan ilustrasi',
+      type: 'select',
+      default: 'icon',
+      display: 'segmented',
+      options: [
+        { value: 'icon', label: 'Ikon' },
+        { value: 'image', label: 'Gambar' },
+      ],
+    });
+  }
   return {
     ...schema,
     description: 'Tambahkan alasan pelanggan memilih kamu, mis. Gratis Ongkir atau Garansi.',
-    defaults: { ...defaults, title: 'Kenapa Pilih Kami', features: [] },
+    defaults: { ...defaults, title: 'Kenapa Pilih Kami', visual_mode: 'icon', features: [] },
     fields: [
-      ...schema.fields.filter((field) => field.key !== 'features' && !/^feature_[1-4]_(icon|title|desc)$/.test(field.key)),
+      ...fields,
       {
+        ...featuresField,
         key: 'features',
         label: 'Daftar keunggulan',
         type: 'list',
-        itemFields: [
-          { key: 'icon', label: 'Ikon', type: 'iconPicker', default: '⭐' },
-          { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
-          { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
-        ],
+        itemFields: normalizedItemFields,
       },
     ],
   };

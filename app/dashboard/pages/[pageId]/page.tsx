@@ -81,6 +81,15 @@ function SectionFormFields({
                         onChange={(value) => updateItem(index, itemField.key, value)}
                       />
                     </>
+                  ) : itemField.type === 'image' ? (
+                    <CoverImageUpload
+                      label={itemField.label}
+                      description={itemField.description}
+                      value={typeof item[itemField.key] === 'string' ? item[itemField.key] as string : ''}
+                      onChange={(value) => updateItem(index, itemField.key, value)}
+                      websiteId={websiteId}
+                      uploadFolder="sections"
+                    />
                   ) : itemField.type === 'textarea' ? (
                     <FormTextarea
                       label={itemField.label}
