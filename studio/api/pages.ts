@@ -12,6 +12,8 @@ export interface WebsitePage {
   seo_description?: string | null;
   seo_image?: string | null;
   seo_no_index?: boolean;
+  link_mode?: 'internal' | 'external';
+  external_url?: string | null;
   is_home: boolean;
   placement: 'regular' | 'header' | 'footer';
   sort_order: number;
@@ -26,6 +28,8 @@ export interface CreatePageRequest {
   seo_description?: string | null;
   seo_image?: string | null;
   seo_no_index?: boolean;
+  link_mode?: 'internal' | 'external';
+  external_url?: string | null;
   is_home?: boolean;
 }
 

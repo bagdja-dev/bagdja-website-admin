@@ -138,6 +138,8 @@ export function PageEditor({ pageId }: PageEditorProps) {
           pageRes.value.page.seo_description,
           pageRes.value.page.seo_image,
           pageRes.value.page.seo_no_index,
+          pageRes.value.page.link_mode,
+          pageRes.value.page.external_url,
         ]));
         const sections = pageRes.value.sections.map((section) => normalizeLegacyCta(normalizeLegacyFeatures(section)));
         setSections(sections);
@@ -167,7 +169,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
     const saved = new Map(savedSections.map((s) => [s.id, JSON.stringify(s.content ?? {})]));
     return new Set(sections.filter((s) => saved.get(s.id) !== JSON.stringify(s.content ?? {})).map((s) => s.id));
   }, [sections, savedSections]);
-  const pageSeo = page ? JSON.stringify([page.seo_title, page.seo_description, page.seo_image, page.seo_no_index]) : '';
+  const pageSeo = page ? JSON.stringify([page.seo_title, page.seo_description, page.seo_image, page.seo_no_index, page.link_mode, page.external_url]) : '';
   const seoDirty = pageSeo !== savedSeo;
   const dirty = changedIds.size > 0 || seoDirty;
 
@@ -305,6 +307,8 @@ export function PageEditor({ pageId }: PageEditorProps) {
               seo_description: page.seo_description || null,
               seo_image: page.seo_image || null,
               seo_no_index: page.seo_no_index,
+              link_mode: page.link_mode ?? 'internal',
+              external_url: page.link_mode === 'external' ? page.external_url?.trim() || null : null,
             })
           : Promise.resolve(page),
       ]);
@@ -318,6 +322,8 @@ export function PageEditor({ pageId }: PageEditorProps) {
           savedPage.seo_description,
           savedPage.seo_image,
           savedPage.seo_no_index,
+          savedPage.link_mode,
+          savedPage.external_url,
         ]));
       }
       reloadPreview();
@@ -704,6 +710,28 @@ function PageSeoFields({
           Kosongkan judul atau deskripsi untuk memakai judul halaman dan konten sebagai nilai otomatis.
         </p>
       </div>
+      <Select
+        size="sm"
+        label="Jenis halaman"
+        selectedKeys={[page.link_mode ?? 'internal']}
+        onSelectionChange={(keys) => {
+          const link_mode = Array.from(keys)[0]?.toString() as 'internal' | 'external';
+          onChange(link_mode === 'external' ? { link_mode, external_url: page.external_url ?? '' } : { link_mode, external_url: null });
+        }}
+      >
+        <SelectItem key="internal">Halaman internal</SelectItem>
+        <SelectItem key="external">Tautan eksternal</SelectItem>
+      </Select>
+      {(page.link_mode ?? 'internal') === 'external' && (
+        <Input
+          size="sm"
+          label="URL eksternal"
+          value={page.external_url ?? ''}
+          maxLength={1000}
+          placeholder="https://..."
+          onValueChange={(external_url) => onChange({ external_url })}
+        />
+      )}
       <Input
         size="sm"
         label="Judul SEO"

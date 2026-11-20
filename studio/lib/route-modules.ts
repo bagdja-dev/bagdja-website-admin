@@ -12,6 +12,7 @@ export const STUDIO_ROUTE_MODULES: ReadonlyArray<{ prefix: string; module: Modul
   { prefix: '/studio/wallet', module: 'wallet' },
   { prefix: '/studio/subscription', module: 'subscription' },
   { prefix: '/studio/locations', module: 'locations' },
+  { prefix: '/studio/partners', module: 'vendors' },
   { prefix: '/studio/vendors', module: 'vendors' },
   { prefix: '/studio/orders', module: 'orders' },
   { prefix: '/studio/quotes', module: 'quotes' },
