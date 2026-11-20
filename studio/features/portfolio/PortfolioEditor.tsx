@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button, Input, Select, SelectItem, Switch, Textarea } from '@heroui/react';
 
 import { errorMessage } from '@/studio/api/client';
-import { createPortfolioProject, fetchLanguages, fetchPortfolioProject, removePortfolioProject, updatePortfolioProject, upsertPortfolioTranslation, type PortfolioPhotoDto, type PortfolioTranslationDto, type WebsiteLanguageDto } from '@/studio/api/company-profile';
+import { createPortfolioProject, fetchLanguages, fetchPortfolioCategories, fetchPortfolioProject, removePortfolioProject, updatePortfolioProject, upsertPortfolioTranslation, type PortfolioCategoryDto, type PortfolioPhotoDto, type PortfolioTranslationDto, type WebsiteLanguageDto } from '@/studio/api/company-profile';
 import { uploadAsset } from '@/studio/lib/upload-asset';
 import { uploadVideo, videoUploadProblem } from '@/studio/lib/upload-video';
 import { useActiveWebsiteId } from '@/studio/stores/website-store';
+import { Icon } from '@/studio/ui/icons';
 import { RichTextEditor } from '@/studio/ui/rich-text-editor';
 import { PageHeader } from '@/studio/ui/primitives/PageHeader';
 import { StatusScreen } from '@/studio/ui/primitives/StatusScreen';
@@ -61,6 +63,9 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
   const [languagesLoading, setLanguagesLoading] = useState(false);
   const [uploading, setUploading] = useState<'photo' | 'video' | 'model' | null>(null);
   const [languages, setLanguages] = useState<WebsiteLanguageDto[]>([]);
+  const [portfolioCategories, setPortfolioCategories] = useState<PortfolioCategoryDto[]>([]);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [locale, setLocale] = useState('id');
   const [translationDrafts, setTranslationDrafts] = useState<Record<string, PortfolioTranslationDraft>>({});
   const [tags, setTags] = useState<string[]>([]);
@@ -71,6 +76,7 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
   const [videoUrl, setVideoUrl] = useState('');
   const [model3dUrl, setModel3dUrl] = useState('');
   const [projectUrl, setProjectUrl] = useState('');
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const currentTranslation = translationDrafts[locale] ?? EMPTY_TRANSLATION;
   const { title, slug, excerpt, detail, is_published: published } = currentTranslation;
 
@@ -114,13 +120,29 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
   }, [loadLanguages]);
 
   useEffect(() => {
-    if (!websiteId || isNew) return;
+    if (!websiteId) return;
+    let cancelled = false;
+    setCategoriesLoading(true);
+    fetchPortfolioCategories(websiteId)
+      .then((items) => { if (!cancelled) setPortfolioCategories(items); })
+      .catch((error) => { if (!cancelled) notify.error('Gagal memuat kategori portofolio.', errorMessage(error)); })
+      .finally(() => { if (!cancelled) setCategoriesLoading(false); });
+    return () => { cancelled = true; };
+  }, [websiteId]);
+
+  useEffect(() => {
+    if (isNew) {
+      setCategoryIds([]);
+      return;
+    }
+    if (!websiteId) return;
     setLoading(true);
     void fetchPortfolioProject(websiteId, projectId as string).then((project) => {
       setTranslationDrafts(Object.fromEntries(
         (project.translations ?? []).map((translation) => [translation.locale, toTranslationDraft(translation)]),
       ));
       setTags(project.tags ?? []);
+      setCategoryIds(project.category_ids ?? []);
       setProjectName(project.name);
       setTagInput('');
       setTagError('');
@@ -245,6 +267,7 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
         model3d_url: model3dUrl.trim() || null,
         project_url: projectUrl.trim() || null,
         tags: normalizedTags,
+        category_ids: categoryIds,
         is_published: published,
       };
       const project = isNew ? await createPortfolioProject(websiteId, payload) : await updatePortfolioProject(websiteId, projectId as string, payload);
@@ -381,7 +404,42 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
           </div>
         </section>
 
-        <aside className="flex flex-col gap-3 rounded-[14px] border border-default-200 bg-white p-5">
+        {mobileSettingsOpen && (
+          <button
+            type="button"
+            aria-label="Tutup panel pengaturan proyek"
+            onClick={() => setMobileSettingsOpen(false)}
+            className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          />
+        )}
+        {mobileSettingsOpen === false && (
+          <button
+            type="button"
+            aria-label="Buka pengaturan proyek"
+            aria-expanded={false}
+            aria-controls="portfolio-project-settings"
+            onClick={() => setMobileSettingsOpen(true)}
+            className="fixed right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-xl border border-r-0 border-default-300 bg-white px-2 py-3 text-[10px] font-semibold leading-tight text-default-700 shadow-lg lg:hidden"
+          >
+            <Icon name="menu" size={17} strokeWidth={1.8} />
+            <span className="[writing-mode:vertical-rl]">Pengaturan</span>
+          </button>
+        )}
+        <aside
+          id="portfolio-project-settings"
+          className={`flex-col gap-3 border border-default-200 bg-white p-5 ${mobileSettingsOpen ? 'fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[min(88vw,360px)] overflow-y-auto rounded-l-2xl shadow-2xl lg:static lg:h-auto lg:w-[320px] lg:overflow-visible lg:rounded-[14px] lg:shadow-none' : 'hidden lg:flex lg:rounded-[14px]'}`}
+        >
+          <div className="flex items-center justify-between border-b border-default-100 pb-3 lg:hidden">
+            <h2 className="text-sm font-semibold">Pengaturan proyek</h2>
+            <button
+              type="button"
+              onClick={() => setMobileSettingsOpen(false)}
+              className="rounded-lg p-2 text-default-500 hover:bg-default-100"
+              aria-label="Tutup pengaturan proyek"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
           <Select
             label="Bahasa"
             labelPlacement="outside"
@@ -404,6 +462,54 @@ export function PortfolioEditor({ projectId }: { projectId: string | null }) {
             })}
           </Select>
           {languages.length < 2 && !languagesLoading && <p className="text-xs text-default-500">Belum ada bahasa aktif tambahan. Periksa Pengaturan → Bahasa.</p>}
+
+          <div className="flex flex-col gap-3 rounded-xl border border-default-200 bg-default-50/50 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-default-900">Kategori proyek</h2>
+                <p className="mt-1 text-xs text-default-500">Kelompokkan proyek untuk memudahkan pengunjung menjelajah portofolio.</p>
+              </div>
+              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700">
+                {categoryIds.length}
+              </span>
+            </div>
+            <Select
+              aria-label="Kategori proyek"
+              selectionMode="multiple"
+              selectedKeys={new Set(categoryIds)}
+              onSelectionChange={(keys) => setCategoryIds(Array.from(keys, String))}
+              isDisabled={categoriesLoading}
+              isLoading={categoriesLoading}
+              placeholder="Pilih satu atau beberapa kategori"
+              renderValue={(items) => items.length ? items.map((item) => item.textValue).join(', ') : 'Belum ada kategori dipilih'}
+              classNames={{ trigger: 'min-h-11' }}
+            >
+              {portfolioCategories.map((category) => (
+                <SelectItem key={category.id} textValue={category.name}>
+                  {category.name}{!category.is_active ? ' (nonaktif)' : ''}
+                </SelectItem>
+              ))}
+            </Select>
+            {categoryIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5" aria-label="Kategori terpilih">
+                {portfolioCategories
+                  .filter((category) => categoryIds.includes(category.id))
+                  .map((category) => (
+                    <span key={category.id} className="rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700">
+                      {category.name}
+                    </span>
+                  ))}
+              </div>
+            )}
+            {portfolioCategories.length === 0 && !categoriesLoading && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-default-500">Belum ada kategori untuk dipilih.</p>
+                <Link href="/studio/portfolio/categories" className="text-xs font-semibold text-primary hover:underline">
+                  Kelola kategori
+                </Link>
+              </div>
+            )}
+          </div>
           <Input label="Project URL eksternal" labelPlacement="outside" value={projectUrl} onValueChange={setProjectUrl} placeholder="https://..." />
         </aside>
       </div>

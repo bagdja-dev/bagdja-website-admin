@@ -90,12 +90,33 @@ export interface PortfolioPhotoDto {
   caption: string;
 }
 
+export interface PortfolioCategoryTranslationDto {
+  id?: string;
+  locale: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface PortfolioCategoryDto {
+  id: string;
+  website_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  is_active: boolean;
+  sort_order: number;
+  translations?: PortfolioCategoryTranslationDto[];
+}
+
 export interface PortfolioProjectDto {
   id: string;
   website_id: string;
   name: string;
   slug: string;
   client_id: string | null;
+  category_ids?: string[];
+  categories?: PortfolioCategoryDto[];
   tags: string[];
   cover_image: string | null;
   photos?: PortfolioPhotoDto[];
@@ -228,6 +249,22 @@ export function removePortfolioProject(websiteId: string, projectId: string) {
 
 export function upsertPortfolioTranslation(websiteId: string, projectId: string, locale: string, payload: Omit<PortfolioTranslationDto, 'locale'>) {
   return studioRequest<PortfolioTranslationDto>(websitePath(websiteId, `/portfolio-projects/${encodeURIComponent(projectId)}/translations/${encodeURIComponent(locale)}`), { method: 'PUT', ...jsonBody({ ...payload, locale }) });
+}
+
+export function fetchPortfolioCategories(websiteId: string) {
+  return studioRequest<PortfolioCategoryDto[]>(websitePath(websiteId, '/portfolio-categories'));
+}
+
+export function createPortfolioCategory(websiteId: string, payload: Partial<PortfolioCategoryDto> & { name: string }) {
+  return studioRequest<PortfolioCategoryDto>(websitePath(websiteId, '/portfolio-categories'), { method: 'POST', ...jsonBody(payload) });
+}
+
+export function updatePortfolioCategory(websiteId: string, categoryId: string, payload: Partial<PortfolioCategoryDto> & { name: string }) {
+  return studioRequest<PortfolioCategoryDto>(websitePath(websiteId, `/portfolio-categories/${encodeURIComponent(categoryId)}`), { method: 'PATCH', ...jsonBody(payload) });
+}
+
+export function upsertPortfolioCategoryTranslation(websiteId: string, categoryId: string, locale: string, payload: Omit<PortfolioCategoryTranslationDto, 'locale'>) {
+  return studioRequest<PortfolioCategoryTranslationDto>(websitePath(websiteId, `/portfolio-categories/${encodeURIComponent(categoryId)}/translations/${encodeURIComponent(locale)}`), { method: 'PUT', ...jsonBody({ ...payload, locale }) });
 }
 
 export function fetchMenu(websiteId: string, menuKey: string) {

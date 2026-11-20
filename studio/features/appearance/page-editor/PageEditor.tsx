@@ -17,6 +17,7 @@ import { createSection, updateSection, deleteSection, reorderSections } from '@/
 import { fetchSectionSchemas } from '@/studio/api/templates';
 import type { TemplateManifestField, TemplateManifestSection } from '@/studio/api/templates';
 import { buildPagePreviewUrl, type PagePreviewDevice } from '@/studio/lib/template-preview';
+import { slugify } from '@/studio/lib/slug';
 import { useWebsiteStore } from '@/studio/stores/website-store';
 import type { IconName } from '@/studio/ui/icons';
 import { Icon } from '@/studio/ui/icons';
@@ -34,6 +35,7 @@ import { ProductPickerField } from './ProductPickerField';
 import { FaqCategoryPickerField } from './FaqCategoryPickerField';
 import { FlowPickerField } from './FlowPickerField';
 import { ProductCategoryPickerField } from './ProductCategoryPickerField';
+import { PortfolioDataPickerField } from './PortfolioDataPickerField';
 import { GalleryUploadField, ImageUploadField } from './SectionImageFields';
 import { normalizeLegacyCta } from './fields/cta-legacy';
 import { EmailField } from './fields/EmailField';
@@ -55,6 +57,28 @@ interface PageEditorProps {
   pageId: string;
 }
 
+const PAGE_PLACEMENT_OPTIONS: Array<{ value: WebsitePage['placement']; label: string }> = [
+  { value: 'regular', label: 'Navigasi utama' },
+  { value: 'header', label: 'Navigasi header' },
+  { value: 'footer', label: 'Navigasi footer' },
+  { value: 'hidden', label: 'Tidak ditampilkan di navigasi' },
+];
+
+function pageSettingsSnapshot(page: WebsitePage): string {
+  return JSON.stringify([
+    page.title,
+    page.slug,
+    page.is_home,
+    page.placement,
+    page.seo_title,
+    page.seo_description,
+    page.seo_image,
+    page.seo_no_index,
+    page.link_mode,
+    page.external_url,
+  ]);
+}
+
 export function PageEditor({ pageId }: PageEditorProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -62,7 +86,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
   const { confirm, dialog: confirmDialog } = useConfirm();
 
   const [page, setPage] = useState<WebsitePage | null>(null);
-  const [savedSeo, setSavedSeo] = useState('');
+  const [savedPageSettings, setSavedPageSettings] = useState('');
   /** Draft (belum disimpan) — dikirim ke pratinjau lewat protokol preview v1. */
   const [sections, setSections] = useState<WebsiteSection[]>([]);
   /** Versi tersimpan di API — pembanding untuk dirty & simpan. */
@@ -78,6 +102,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isMediumViewport, setIsMediumViewport] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'closed' | 'list' | 'properties'>('closed');
+  const [propertiesMode, setPropertiesMode] = useState<'section' | 'page'>('section');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const sectionListRef = useRef<HTMLDivElement>(null);
   const mobileSectionListRef = useRef<HTMLDivElement>(null);
@@ -133,14 +158,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
       }
       if (pageRes.status === 'fulfilled') {
         setPage(pageRes.value.page);
-        setSavedSeo(JSON.stringify([
-          pageRes.value.page.seo_title,
-          pageRes.value.page.seo_description,
-          pageRes.value.page.seo_image,
-          pageRes.value.page.seo_no_index,
-          pageRes.value.page.link_mode,
-          pageRes.value.page.external_url,
-        ]));
+        setSavedPageSettings(pageSettingsSnapshot(pageRes.value.page));
         const sections = pageRes.value.sections.map((section) => normalizeLegacyCta(normalizeLegacyFeatures(section)));
         setSections(sections);
         setSavedSections(sections);
@@ -169,9 +187,8 @@ export function PageEditor({ pageId }: PageEditorProps) {
     const saved = new Map(savedSections.map((s) => [s.id, JSON.stringify(s.content ?? {})]));
     return new Set(sections.filter((s) => saved.get(s.id) !== JSON.stringify(s.content ?? {})).map((s) => s.id));
   }, [sections, savedSections]);
-  const pageSeo = page ? JSON.stringify([page.seo_title, page.seo_description, page.seo_image, page.seo_no_index, page.link_mode, page.external_url]) : '';
-  const seoDirty = pageSeo !== savedSeo;
-  const dirty = changedIds.size > 0 || seoDirty;
+  const pageSettingsDirty = page ? pageSettingsSnapshot(page) !== savedPageSettings : false;
+  const dirty = changedIds.size > 0 || pageSettingsDirty;
 
   const previewUrl = useMemo(
     () => (website && page ? buildPagePreviewUrl(website, page, device) : null),
@@ -296,13 +313,17 @@ export function PageEditor({ pageId }: PageEditorProps) {
   /** Simpan sekali untuk semua section yang berubah, lalu muat ulang pratinjau (versi tersimpan). */
   const handleSave = async () => {
     const changed = sections.filter((s) => changedIds.has(s.id));
-    if (changed.length === 0 && !seoDirty) return;
+    if (changed.length === 0 && !pageSettingsDirty) return;
     setSaving(true);
     try {
       const [updated, savedPage] = await Promise.all([
         Promise.all(changed.map((s) => updateSection(websiteId, pageId, s.id, { content: s.content }))),
-        seoDirty && page
+        pageSettingsDirty && page
           ? updatePage(websiteId, pageId, {
+              title: page.title.trim(),
+              slug: page.slug.trim(),
+              is_home: page.is_home,
+              placement: page.placement,
               seo_title: page.seo_title || null,
               seo_description: page.seo_description || null,
               seo_image: page.seo_image || null,
@@ -317,19 +338,12 @@ export function PageEditor({ pageId }: PageEditorProps) {
       setSavedSections((current) => current.map((s) => byId.get(s.id) ?? s));
       setPage(savedPage);
       if (savedPage) {
-        setSavedSeo(JSON.stringify([
-          savedPage.seo_title,
-          savedPage.seo_description,
-          savedPage.seo_image,
-          savedPage.seo_no_index,
-          savedPage.link_mode,
-          savedPage.external_url,
-        ]));
+        setSavedPageSettings(pageSettingsSnapshot(savedPage));
       }
       reloadPreview();
-      notify.success('Pengaturan SEO dan perubahan halaman disimpan.');
+      notify.success('Pengaturan halaman dan perubahan section disimpan.');
     } catch {
-      notify.error('Gagal menyimpan section.');
+      notify.error('Gagal menyimpan perubahan halaman.');
     } finally {
       setSaving(false);
     }
@@ -368,6 +382,18 @@ export function PageEditor({ pageId }: PageEditorProps) {
           <Button variant="light" radius="sm" size="sm" onPress={() => window.history.back()} className="shrink-0 px-2 min-[1441px]:px-3">
             Kembali ke Halaman
           </Button>
+          <Button
+            variant="bordered"
+            radius="sm"
+            size="sm"
+            onPress={() => {
+              setPropertiesMode('page');
+              if (isCompactViewport) setMobilePanel('properties');
+            }}
+            className="shrink-0 px-2 min-[1441px]:px-3"
+          >
+            Pengaturan halaman
+          </Button>
         </div>
         <div className="flex min-w-0 items-center gap-2">
           <span className="max-w-[28vw] truncate text-[12px] font-semibold uppercase tracking-wider text-default-600 min-[1441px]:max-w-none">{page.title}</span>
@@ -405,7 +431,10 @@ export function PageEditor({ pageId }: PageEditorProps) {
                       {handle}
                       <button
                         type="button"
-                        onClick={() => setSelectedId(section.id)}
+                        onClick={() => {
+                          setSelectedId(section.id);
+                          setPropertiesMode('section');
+                        }}
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left transition-colors ${
                           isActive
                             ? 'border-primary-200 bg-primary-50 text-primary'
@@ -422,6 +451,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
                         type="button"
                         onClick={() => {
                           setSelectedId(section.id);
+                          setPropertiesMode('section');
                           setMobilePanel('properties');
                         }}
                         className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-default-400 hover:bg-primary-50 hover:text-primary md:flex min-[1441px]:hidden"
@@ -477,11 +507,26 @@ export function PageEditor({ pageId }: PageEditorProps) {
         </main>
 
         <aside className="hidden min-h-0 w-[380px] flex-col border-l border-default-200 bg-white min-[1441px]:flex">
-          <div className="flex items-center justify-between border-b border-default-100 px-4 py-3">
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-default-600">
-              {selected ? 'Properti Section' : 'Pilih section'}
-            </span>
-            {selected && (
+          <div className="flex items-center justify-between gap-2 border-b border-default-100 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-1 rounded-lg bg-default-100 p-1">
+              <button
+                type="button"
+                aria-pressed={propertiesMode === 'section'}
+                onClick={() => setPropertiesMode('section')}
+                className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold ${propertiesMode === 'section' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+              >
+                Section
+              </button>
+              <button
+                type="button"
+                aria-pressed={propertiesMode === 'page'}
+                onClick={() => setPropertiesMode('page')}
+                className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold ${propertiesMode === 'page' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+              >
+                Halaman
+              </button>
+            </div>
+            {propertiesMode === 'section' && selected && (
               <button
                 type="button"
                 onClick={() => void handleDeleteSection()}
@@ -494,26 +539,17 @@ export function PageEditor({ pageId }: PageEditorProps) {
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-5">
-            <PageSeoFields
-              page={page}
-              onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
-            />
-            {!selected ? (
-              <div className="py-20 text-center text-[12px] text-default-500">
-                Pilih section di panel kiri untuk mengedit propertinya.
-              </div>
-            ) : !selectedSchema ? (
-              <div className="py-20 text-center text-[12px] text-default-500">
-                Skema untuk section &quot;{selected.type}&quot; tidak tersedia.
-              </div>
-            ) : (
-              <SectionPropertiesForm
-                key={selected.id}
-                schema={selectedSchema}
-                content={selected.content}
-                websiteId={websiteId}
-                onChange={(next) => updateDraftContent(selected.id, next)}
+            {propertiesMode === 'page' ? (
+              <PageSettingsFields
+                page={page}
+                onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
               />
+            ) : !selected ? (
+              <div className="py-20 text-center text-[12px] text-default-500">Pilih section di panel kiri untuk mengedit desainnya.</div>
+            ) : !selectedSchema ? (
+              <div className="py-20 text-center text-[12px] text-default-500">Skema untuk section &quot;{selected.type}&quot; tidak tersedia.</div>
+            ) : (
+              <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} onChange={(next) => updateDraftContent(selected.id, next)} />
             )}
           </div>
         </aside>
@@ -636,11 +672,26 @@ export function PageEditor({ pageId }: PageEditorProps) {
                       Kembali ke daftar komponen
                     </button>
                   </div>
-                  <div className="flex items-center justify-between gap-3 border-b border-default-100 px-4 py-3">
-                    <span className="min-w-0 truncate text-sm font-semibold text-foreground">
-                      {selectedSchema?.label ?? selected?.type ?? 'Properti section'}
-                    </span>
-                    {selected && (
+                  <div className="flex items-center justify-between gap-2 border-b border-default-100 px-3 py-2.5">
+                    <div className="flex min-w-0 items-center gap-1 rounded-lg bg-default-100 p-1">
+                      <button
+                        type="button"
+                        aria-pressed={propertiesMode === 'section'}
+                        onClick={() => setPropertiesMode('section')}
+                        className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${propertiesMode === 'section' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+                      >
+                        Section
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={propertiesMode === 'page'}
+                        onClick={() => setPropertiesMode('page')}
+                        className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${propertiesMode === 'page' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+                      >
+                        Halaman
+                      </button>
+                    </div>
+                    {propertiesMode === 'section' && selected && (
                       <button
                         type="button"
                         onClick={() => void handleDeleteSection()}
@@ -653,24 +704,14 @@ export function PageEditor({ pageId }: PageEditorProps) {
                     )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
-                    <PageSeoFields
-                      page={page}
-                      onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
-                    />
-                    {!selected ? (
-                      <div className="py-12 text-center text-sm text-default-500">Pilih section untuk mengedit propertinya.</div>
+                    {propertiesMode === 'page' ? (
+                      <PageSettingsFields page={page} onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)} />
+                    ) : !selected ? (
+                      <div className="py-12 text-center text-sm text-default-500">Pilih section untuk mengedit desainnya.</div>
                     ) : !selectedSchema ? (
-                      <div className="py-12 text-center text-sm text-default-500">
-                        Skema untuk section &quot;{selected.type}&quot; tidak tersedia.
-                      </div>
+                      <div className="py-12 text-center text-sm text-default-500">Skema untuk section &quot;{selected.type}&quot; tidak tersedia.</div>
                     ) : (
-                      <SectionPropertiesForm
-                        key={selected.id}
-                        schema={selectedSchema}
-                        content={selected.content}
-                        websiteId={websiteId}
-                        onChange={(next) => updateDraftContent(selected.id, next)}
-                      />
+                      <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} onChange={(next) => updateDraftContent(selected.id, next)} />
                     )}
                   </div>
                 </>
@@ -695,7 +736,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
   );
 }
 
-function PageSeoFields({
+function PageSettingsFields({
   page,
   onChange,
 }: {
@@ -703,65 +744,95 @@ function PageSeoFields({
   onChange: (patch: Partial<WebsitePage>) => void;
 }) {
   return (
-    <section className="mb-5 flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-3.5">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-[13px] font-semibold text-foreground">SEO halaman</h3>
-        <p className="mt-1 text-[11px] leading-relaxed text-default-600">
-          Kosongkan judul atau deskripsi untuk memakai judul halaman dan konten sebagai nilai otomatis.
-        </p>
+        <h2 className="text-sm font-semibold text-foreground">Pengaturan halaman</h2>
+        <p className="mt-1 text-xs leading-relaxed text-default-500">Atur identitas, navigasi, tujuan tautan, dan SEO halaman secara terpisah dari desain section.</p>
       </div>
-      <Select
-        size="sm"
-        label="Jenis halaman"
-        selectedKeys={[page.link_mode ?? 'internal']}
-        onSelectionChange={(keys) => {
-          const link_mode = Array.from(keys)[0]?.toString() as 'internal' | 'external';
-          onChange(link_mode === 'external' ? { link_mode, external_url: page.external_url ?? '' } : { link_mode, external_url: null });
-        }}
-      >
-        <SelectItem key="internal">Halaman internal</SelectItem>
-        <SelectItem key="external">Tautan eksternal</SelectItem>
-      </Select>
-      {(page.link_mode ?? 'internal') === 'external' && (
+
+      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Informasi halaman</h3>
         <Input
           size="sm"
-          label="URL eksternal"
-          value={page.external_url ?? ''}
-          maxLength={1000}
-          placeholder="https://..."
-          onValueChange={(external_url) => onChange({ external_url })}
+          label="Judul halaman"
+          value={page.title}
+          maxLength={255}
+          onValueChange={(title) => onChange({ title })}
         />
-      )}
-      <Input
-        size="sm"
-        label="Judul SEO"
-        value={page.seo_title ?? ''}
-        maxLength={255}
-        onValueChange={(seo_title) => onChange({ seo_title })}
-      />
-      <Textarea
-        size="sm"
-        label="Deskripsi SEO"
-        value={page.seo_description ?? ''}
-        maxLength={500}
-        minRows={2}
-        onValueChange={(seo_description) => onChange({ seo_description })}
-      />
-      <Input
-        size="sm"
-        label="URL gambar share (opsional)"
-        value={page.seo_image ?? ''}
-        maxLength={1000}
-        onValueChange={(seo_image) => onChange({ seo_image })}
-      />
-      <Switch
-        size="sm"
-        isSelected={Boolean(page.seo_no_index)}
-        onValueChange={(seo_no_index) => onChange({ seo_no_index })}
-      >
-        <span className="text-xs">Minta mesin pencari tidak mengindeks halaman ini</span>
-      </Switch>
-    </section>
+        <Input
+          size="sm"
+          label="Slug / alamat"
+          value={page.slug}
+          maxLength={255}
+          description="Gunakan huruf kecil, angka, dan tanda hubung."
+          onValueChange={(slug) => onChange({ slug: slugify(slug) })}
+        />
+        <Switch size="sm" isSelected={page.is_home} onValueChange={(is_home) => onChange({ is_home })}>
+          <span className="text-xs">Jadikan halaman utama website</span>
+        </Switch>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Navigasi website</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-default-500">Pilih lokasi tautan halaman. Halaman yang disembunyikan tetap dapat dibuka melalui alamatnya.</p>
+        </div>
+        <Select
+          size="sm"
+          label="Kemunculan di navigasi"
+          selectedKeys={[page.placement ?? 'regular']}
+          onSelectionChange={(keys) => {
+            const placement = Array.from(keys)[0]?.toString();
+            const option = PAGE_PLACEMENT_OPTIONS.find((item) => item.value === placement);
+            if (option) onChange({ placement: option.value });
+          }}
+        >
+          {PAGE_PLACEMENT_OPTIONS.map((option) => (
+            <SelectItem key={option.value}>{option.label}</SelectItem>
+          ))}
+        </Select>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Tujuan halaman</h3>
+        <Select
+          size="sm"
+          label="Jenis halaman"
+          selectedKeys={[page.link_mode ?? 'internal']}
+          onSelectionChange={(keys) => {
+            const linkMode = Array.from(keys)[0]?.toString();
+            if (linkMode === 'internal') onChange({ link_mode: linkMode, external_url: null });
+            if (linkMode === 'external') onChange({ link_mode: linkMode, external_url: page.external_url ?? '' });
+          }}
+        >
+          <SelectItem key="internal">Halaman internal</SelectItem>
+          <SelectItem key="external">Tautan eksternal</SelectItem>
+        </Select>
+        {(page.link_mode ?? 'internal') === 'external' && (
+          <Input
+            size="sm"
+            label="URL eksternal"
+            value={page.external_url ?? ''}
+            maxLength={1000}
+            placeholder="https://..."
+            onValueChange={(external_url) => onChange({ external_url })}
+          />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">SEO halaman</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-default-500">Kosongkan judul atau deskripsi untuk menggunakan nilai otomatis dari halaman.</p>
+        </div>
+        <Input size="sm" label="Judul SEO" value={page.seo_title ?? ''} maxLength={255} onValueChange={(seo_title) => onChange({ seo_title })} />
+        <Textarea size="sm" label="Deskripsi SEO" value={page.seo_description ?? ''} maxLength={500} minRows={2} onValueChange={(seo_description) => onChange({ seo_description })} />
+        <Input size="sm" label="URL gambar share (opsional)" value={page.seo_image ?? ''} maxLength={1000} onValueChange={(seo_image) => onChange({ seo_image })} />
+        <Switch size="sm" isSelected={Boolean(page.seo_no_index)} onValueChange={(seo_no_index) => onChange({ seo_no_index })}>
+          <span className="text-xs">Minta mesin pencari tidak mengindeks halaman ini</span>
+        </Switch>
+      </section>
+    </div>
   );
 }
 
@@ -932,6 +1003,10 @@ function SectionFieldInput({
       return <FlowPickerField value={str} websiteId={websiteId} label={field.label} onChange={onChange} />;
     case 'productCategoryPicker':
       return <ProductCategoryPickerField value={value} websiteId={websiteId} label={field.label} onChange={onChange} />;
+    case 'portfolioPicker':
+      return <PortfolioDataPickerField value={value} websiteId={websiteId} label={field.label} kind="projects" onChange={onChange} />;
+    case 'portfolioCategoryPicker':
+      return <PortfolioDataPickerField value={value} websiteId={websiteId} label={field.label} kind="categories" onChange={onChange} />;
     case 'select':
       if (field.display === 'segmented' && !field.multiple) {
         return <SegmentedField field={field} value={value} onChange={onChange} />;

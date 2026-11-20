@@ -28,5 +28,5 @@ export function PortfolioList() {
     { key: 'actions', header: '', hideHeader: true, mobile: 'actions', minRole: 'editor', render: (row) => <button type="button" onClick={() => router.push(`/studio/portfolio/${row.id}`)} className="min-h-8 rounded-[8px] border border-default-300 px-3 text-xs font-semibold text-default-700">Edit</button> },
   ], [router]);
 
-  return <DataListPage title="Portofolio" description="Kelola proyek yang ditampilkan website." list={list} columns={columns} getRowLabel={(row) => row.name} itemNoun="proyek" searchPlaceholder="Cari proyek" primaryAction={{ label: 'Tambah proyek', href: '/studio/portfolio/new', minRole: 'editor' }} bulkActions={bulkActions} emptyState={{ title: 'Belum ada proyek', description: 'Tambahkan proyek portofolio pertama.' }} />;
+  return <DataListPage title="Portofolio" description="Kelola proyek yang ditampilkan website." list={list} columns={columns} getRowLabel={(row) => row.name} itemNoun="proyek" searchPlaceholder="Cari proyek" primaryAction={{ label: 'Tambah proyek', href: '/studio/portfolio/new', minRole: 'editor' }} secondaryActions={[{ key: 'categories', label: 'Kelola kategori', minRole: 'editor', onPress: () => router.push('/studio/portfolio/categories') }]} bulkActions={bulkActions} emptyState={{ title: 'Belum ada proyek', description: 'Tambahkan proyek portofolio pertama.' }} />;
 }

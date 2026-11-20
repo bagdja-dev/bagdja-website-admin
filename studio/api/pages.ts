@@ -15,7 +15,7 @@ export interface WebsitePage {
   link_mode?: 'internal' | 'external';
   external_url?: string | null;
   is_home: boolean;
-  placement: 'regular' | 'header' | 'footer';
+  placement: 'regular' | 'header' | 'footer' | 'hidden';
   sort_order: number;
   created_at: string;
   updated_at: string;

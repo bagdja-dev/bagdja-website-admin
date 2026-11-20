@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button, Input, Select, SelectItem, Switch, Textarea } from '@heroui/react';
+import Link from 'next/link';
 
-import { fetchPages, updatePage, type WebsitePage } from '@/studio/api/pages';
+import { fetchPages, type WebsitePage } from '@/studio/api/pages';
 import { updateWebsiteFooterSettings } from '@/studio/api/websites';
 import type { WebsiteFooterBlockDto, WebsiteFooterBlockType, WebsiteFooterSettingsDto } from '@/studio/api/types';
 import { notify } from '@/studio/ui/primitives/Toast';
@@ -20,12 +21,6 @@ const BLOCK_TYPES: Array<{ type: WebsiteFooterBlockType; label: string; descript
   { type: 'text', label: 'Teks tambahan', description: 'Kolom teks dengan judul dan isi bebas' },
   { type: 'copyright', label: 'Hak cipta', description: 'Baris hak cipta di bagian bawah footer' },
 ];
-
-const PAGE_PLACEMENT_OPTIONS = [
-  { value: 'regular', label: 'Navigasi utama' },
-  { value: 'header', label: 'Navigasi header' },
-  { value: 'footer', label: 'Navigasi footer' },
-] as const;
 
 function isBlockType(value: unknown): value is WebsiteFooterBlockType {
   return BLOCK_TYPES.some((item) => item.type === value);
@@ -87,10 +82,8 @@ export function FooterEditor() {
   const [pages, setPages] = useState<WebsitePage[]>([]);
   const [pagesLoading, setPagesLoading] = useState(true);
   const [pagesError, setPagesError] = useState<string | null>(null);
-  const [updatingPageId, setUpdatingPageId] = useState<string | null>(null);
 
   const canSaveSettings = hasMinRole(role, 'admin');
-  const canEditPages = hasMinRole(role, 'editor');
   const isDirty = JSON.stringify(blocks) !== JSON.stringify(savedBlocks);
   const selectedBlock = blocks.find((block) => block.id === selectedId) ?? null;
 
@@ -170,20 +163,6 @@ export function FooterEditor() {
       notify.error('Gagal menyimpan footer. Perubahan belum disimpan.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const changePagePlacement = async (page: WebsitePage, placement: WebsitePage['placement']) => {
-    if (!websiteId || !canEditPages || page.placement === placement || updatingPageId) return;
-    setUpdatingPageId(page.id);
-    try {
-      const updated = await updatePage(websiteId, page.id, { placement });
-      setPages((current) => current.map((item) => item.id === page.id ? updated : item));
-      notify.success('Navigasi halaman diperbarui.');
-    } catch {
-      notify.error(`Gagal memperbarui navigasi "${page.title}".`);
-    } finally {
-      setUpdatingPageId(null);
     }
   };
 
@@ -397,11 +376,8 @@ export function FooterEditor() {
       <section className="rounded-[14px] border border-default-200 bg-white p-5 sm:p-6">
         <div>
           <h2 className="text-base font-bold text-foreground">Navigasi Footer</h2>
-          <p className="mt-1 text-sm text-default-600">Pilih posisi setiap halaman. Hanya halaman dengan posisi “Navigasi footer” yang tampil pada blok tautan footer.</p>
+          <p className="mt-1 text-sm text-default-600">Daftar ini mengikuti halaman yang diatur untuk tampil di footer. Ubah posisi melalui Pengaturan halaman pada editor masing-masing.</p>
         </div>
-        {!canEditPages && (
-          <p className="mt-3 rounded-[10px] bg-warning-50 px-3 py-2 text-xs text-warning-700">Peran editor atau lebih tinggi diperlukan untuk mengubah posisi halaman.</p>
-        )}
         {pagesLoading ? (
           <div className="mt-4 rounded-[10px] bg-default-50 px-4 py-6 text-center text-sm text-default-500">Memuat daftar halaman…</div>
         ) : pagesError ? (
@@ -409,35 +385,22 @@ export function FooterEditor() {
             <span>{pagesError}</span>
             <Button size="sm" variant="bordered" onPress={() => void loadPages()}>Coba lagi</Button>
           </div>
-        ) : pages.length === 0 ? (
-          <p className="mt-4 rounded-[10px] bg-default-50 px-4 py-6 text-center text-sm text-default-500">Belum ada halaman untuk ditambahkan ke navigasi.</p>
+        ) : pages.filter((page) => page.placement === 'footer').length === 0 ? (
+          <p className="mt-4 rounded-[10px] bg-default-50 px-4 py-6 text-center text-sm text-default-500">Belum ada halaman yang ditampilkan di navigasi footer.</p>
         ) : (
           <div className="mt-4 divide-y divide-default-100 rounded-[11px] border border-default-200">
-            {pages.map((page) => (
+            {pages.filter((page) => page.placement === 'footer').map((page) => (
               <div key={page.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-foreground">{page.title}{page.is_home ? ' (Utama)' : ''}</p>
                   <p className="truncate text-xs text-default-500">/{page.slug}</p>
                 </div>
-                <Select
-                  aria-label={`Posisi navigasi ${page.title}`}
-                  selectedKeys={[page.placement]}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === 'regular' || value === 'header' || value === 'footer') {
-                      void changePagePlacement(page, value);
-                    }
-                  }}
-                  isDisabled={!canEditPages || updatingPageId !== null}
-                  isLoading={updatingPageId === page.id}
-                  className="w-full sm:max-w-[220px]"
-                  size="sm"
-                  variant="bordered"
+                <Link
+                  href={`/studio/appearance/pages/${encodeURIComponent(page.id)}?websiteId=${encodeURIComponent(website.website.id)}`}
+                  className="text-xs font-semibold text-primary hover:underline"
                 >
-                  {PAGE_PLACEMENT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value}>{option.label}</SelectItem>
-                  ))}
-                </Select>
+                  Atur halaman
+                </Link>
               </div>
             ))}
           </div>
