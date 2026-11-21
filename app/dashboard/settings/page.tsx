@@ -356,7 +356,8 @@ export default function SettingsPage() {
     setDomainMessage('');
     try {
       await apiClient(`/api/websites/${websiteId}/domain/check`, { method: 'POST' });
-      setDomainMessage('Domain berhasil diverifikasi dan aktif!');
+      // Routing Traefik di-sync cron host tiap menit (bukan instan saat verifikasi).
+      setDomainMessage('Domain terverifikasi. Biasanya sudah bisa diakses dalam ±1 menit.');
       setDomainVerifyInfo(null);
       await refresh();
     } catch (err) {
