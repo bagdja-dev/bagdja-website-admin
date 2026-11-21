@@ -28,6 +28,36 @@ const SLUG_HINT: Record<SlugCheck, { text: string; cls: string } | null> = {
 
 const GOOGLE_VERIFICATION_FILENAME = /^google[a-zA-Z0-9_-]+\.html$/;
 
+function SitemapCard({ website }: { website: WebsiteDto }) {
+  const host = website.domain && website.domain_verified_at
+    ? `https://${website.domain}`
+    : buildTenantWebUrl(website.slug);
+  const sitemapUrl = `${host.replace(/\/$/, '')}/sitemap.xml`;
+
+  return (
+    <SettingsCard
+      title="Sitemap Google"
+      description="Daftarkan sitemap website ini di Google Search Console agar Google dapat menemukan halaman, produk, dan artikel yang dipublikasikan."
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <a href={sitemapUrl} target="_blank" rel="noreferrer" className="min-w-0 break-all text-primary hover:underline">
+            {sitemapUrl}
+          </a>
+          <CopyButton value={sitemapUrl} />
+        </div>
+        <ol className="list-inside list-decimal space-y-1 text-sm text-default-600">
+          <li>Buka Google Search Console dan pilih properti domain website ini.</li>
+          <li>Pilih menu <strong>Sitemaps</strong>, masukkan alamat di atas, lalu klik <strong>Kirim</strong>.</li>
+        </ol>
+        <p className="text-xs text-default-500">
+          Sitemap diperbarui otomatis. URL memakai domain sendiri jika sudah terverifikasi; jika belum, memakai alamat bawaan website.
+        </p>
+      </div>
+    </SettingsCard>
+  );
+}
+
 function SearchConsoleCard({ website }: { website: WebsiteDto }) {
   const patchWebsite = useWebsiteStore((s) => s.patchWebsite);
   const [filename, setFilename] = useState(website.search_console_verification_filename ?? '');
@@ -273,6 +303,7 @@ export function DomainTab({ website }: { website: WebsiteDto }) {
     <div className="flex flex-col gap-5">
       <DefaultAddressCard website={website} />
       <CustomDomainCard website={website} />
+      <SitemapCard website={website} />
       <SearchConsoleCard website={website} />
     </div>
   );
