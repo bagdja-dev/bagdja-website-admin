@@ -979,6 +979,24 @@ function SectionFieldInput({
           placeholder={field.placeholder}
         />
       );
+    case 'color':
+      return (
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            aria-label={field.label}
+            value={/^#[0-9a-f]{6}$/i.test(str) ? str : '#000000'}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-10 w-12 cursor-pointer rounded-md border border-default-200 bg-transparent p-1"
+          />
+          <span className="text-xs text-default-500">{str || 'Belum diatur'}</span>
+          {str ? (
+            <button type="button" className="text-xs text-default-500 underline" onClick={() => onChange(undefined)}>
+              Reset
+            </button>
+          ) : null}
+        </div>
+      );
     case 'number':
       return (
         <Input
