@@ -6,6 +6,7 @@ import { errorMessage, isApiError } from '@/studio/api/client';
 import type { WebsiteDto } from '@/studio/api/types';
 import { updateWebsiteIdentity } from '@/studio/api/websites';
 import { uploadLogo } from '@/studio/api/onboarding';
+import { uploadAsset } from '@/studio/lib/upload-asset';
 import { normalizeWhatsapp } from '@/studio/features/onboarding/use-identity-form';
 import { notify } from '@/studio/ui/primitives/Toast';
 
@@ -25,6 +26,7 @@ export interface IdentityFormValues {
   name: string;
   tagline: string;
   logoUrl: string;
+  loginBackgroundUrl: string;
   whatsapp: string;
   phone: string;
   email: string;
@@ -48,6 +50,7 @@ function fromWebsite(website: WebsiteDto | undefined): IdentityFormValues {
     name: website?.name ?? '',
     tagline: website?.tagline ?? '',
     logoUrl: website?.logo_url ?? '',
+    loginBackgroundUrl: website?.login_background_url ?? '',
     whatsapp: website?.whatsapp ?? '',
     phone: website?.phone ?? '',
     email: website?.email ?? '',
@@ -71,13 +74,15 @@ export function validateIdentity(values: IdentityFormValues): IdentityErrors {
   return errors;
 }
 
-/** State form Identitas: dirty check, unggah logo, dan simpan lewat PATCH website (owner saja). */
+/** State form Identitas: dirty check, image uploads, dan save lewat PATCH website (owner saja). */
 export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id: string, patch: Partial<WebsiteDto>) => void) {
   const [values, setValues] = useState<IdentityFormValues>(() => fromWebsite(website));
   const [saved, setSaved] = useState<IdentityFormValues>(() => fromWebsite(website));
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [loginBackgroundUploading, setLoginBackgroundUploading] = useState(false);
+  const [loginBackgroundError, setLoginBackgroundError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -86,9 +91,10 @@ export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id:
     setSaved(next);
     setShowErrors(false);
     setLogoError(null);
+    setLoginBackgroundError(null);
     // Muat ulang hanya saat website/nilai tersimpan di store berubah.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [website?.id, website?.updated_at, website?.name, website?.logo_url, website?.tagline, website?.whatsapp, website?.phone, website?.email, website?.social_links, website?.opening_hours]);
+  }, [website?.id, website?.updated_at, website?.name, website?.logo_url, website?.login_background_url, website?.tagline, website?.whatsapp, website?.phone, website?.email, website?.social_links, website?.opening_hours]);
 
   const isDirty = JSON.stringify(values) !== JSON.stringify(saved);
   const errors = validateIdentity(values);
@@ -119,8 +125,24 @@ export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id:
     }
   };
 
+  const pickLoginBackground = async (file: File): Promise<void> => {
+    if (!website) return;
+    setLoginBackgroundError(null);
+    if (!file.type.startsWith('image/')) return setLoginBackgroundError('Pilih file gambar.');
+    if (file.size > 5 * 1024 * 1024) return setLoginBackgroundError('Ukuran gambar maksimal 5 MB.');
+    setLoginBackgroundUploading(true);
+    try {
+      const uploaded = await uploadAsset(file, website.id, 'content');
+      setField('loginBackgroundUrl', uploaded.url);
+    } catch (err) {
+      setLoginBackgroundError(errorMessage(err, 'Background login gagal diunggah.'));
+    } finally {
+      setLoginBackgroundUploading(false);
+    }
+  };
+
   const save = async (): Promise<void> => {
-    if (!website || !isDirty || saving) return;
+    if (!website || !isDirty || saving || logoUploading || loginBackgroundUploading) return;
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
       return;
@@ -142,6 +164,7 @@ export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id:
         name: values.name.trim(),
         tagline: values.tagline.trim() || null,
         logo_url: values.logoUrl.trim() || null,
+        login_background_url: values.loginBackgroundUrl.trim() || null,
         whatsapp: values.whatsapp.trim() ? normalizeWhatsapp(values.whatsapp) : null,
         phone: values.phone.trim() || null,
         email: values.email.trim() || null,
@@ -152,6 +175,7 @@ export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id:
         name: result.name,
         tagline: result.tagline ?? null,
         logo_url: result.logo_url ?? null,
+        login_background_url: result.login_background_url ?? null,
         whatsapp: result.whatsapp ?? null,
         phone: result.phone ?? null,
         email: result.email ?? null,
@@ -170,5 +194,19 @@ export function useIdentityEditor(website: WebsiteDto | undefined, onSaved: (id:
     }
   };
 
-  return { values, setField, setSocial, isDirty, saving, errors: showErrors ? errors : {}, logoUploading, logoError, pickLogo, save };
+  return {
+    values,
+    setField,
+    setSocial,
+    isDirty,
+    saving,
+    errors: showErrors ? errors : {},
+    logoUploading,
+    logoError,
+    pickLogo,
+    loginBackgroundUploading,
+    loginBackgroundError,
+    pickLoginBackground,
+    save,
+  };
 }

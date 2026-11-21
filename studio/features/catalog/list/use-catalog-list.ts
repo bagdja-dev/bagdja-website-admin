@@ -173,7 +173,7 @@ export function useCatalogList() {
       const extra = row.variants.length ? ` beserta ${row.variants.length} variannya` : '';
       const ok = await confirm({
         title: 'Hapus item ini?',
-        description: `"${row.product.name}"${extra} akan dihapus dari website dan tidak bisa dikembalikan.`,
+        description: `"${row.product.identity_name || row.product.name}"${extra} akan dihapus dari website dan tidak bisa dikembalikan.`,
         confirmLabel: 'Hapus',
         tone: 'danger',
       });

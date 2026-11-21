@@ -126,7 +126,7 @@ function flowToForm(flow: FulfillmentFlow | null): FlowForm {
 }
 
 function mediaField(type: FulfillmentStepFieldType): boolean {
-  return type === 'pdf' || type === 'foto' || type === 'video';
+  return type === 'pdf' || type === 'archive' || type === 'foto' || type === 'video';
 }
 
 function parseOptionalNumber(value: string, label: string, min: number, max?: number): number | undefined {

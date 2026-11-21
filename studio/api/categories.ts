@@ -5,11 +5,20 @@ export interface EstimationRow {
   price: number | string | null;
 }
 
+export interface CategoryTranslation {
+  id?: string;
+  locale: string;
+  label: string;
+  description?: string | null;
+}
+
 export interface WebsiteCategory {
   id: string;
   website_id: string;
+  identity_name: string;
   label: string;
   description?: string | null;
+  translations?: CategoryTranslation[];
   images: string[];
   specifications?: Record<string, string> | null;
   estimation?: EstimationRow[] | null;
@@ -20,6 +29,7 @@ export interface WebsiteCategory {
 }
 
 export interface CreateCategoryRequest {
+  identity_name?: string;
   label: string;
   description?: string | null;
   images?: string[];
@@ -28,6 +38,8 @@ export interface CreateCategoryRequest {
   sort_order?: number;
   is_active?: boolean;
 }
+
+export type CategoryTranslationRequest = Omit<CategoryTranslation, 'id' | 'locale'>;
 
 export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
 
@@ -48,6 +60,18 @@ export function updateCategory(websiteId: string, categoryId: string, body: Upda
     method: 'PATCH',
     ...jsonBody(body),
   });
+}
+
+export function upsertCategoryTranslation(
+  websiteId: string,
+  categoryId: string,
+  locale: string,
+  body: CategoryTranslationRequest,
+): Promise<CategoryTranslation> {
+  return studioRequest<CategoryTranslation>(
+    categoriesPath(websiteId, `/${encodeURIComponent(categoryId)}/translations/${encodeURIComponent(locale)}`),
+    { method: 'PUT', ...jsonBody(body) },
+  );
 }
 
 export function deleteCategory(websiteId: string, categoryId: string): Promise<{ deleted: boolean }> {

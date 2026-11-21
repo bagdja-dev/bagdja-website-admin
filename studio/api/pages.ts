@@ -3,21 +3,46 @@ import type { WebsiteSection } from './sections';
 
 export type { WebsiteSection };
 
+export interface WebsitePageTranslation {
+  locale: string;
+  title: string;
+  slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
+}
+
 export interface WebsitePage {
   id: string;
   website_id: string;
+  name: string;
   title: string;
   slug: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
+  link_mode?: 'internal' | 'external';
+  external_url?: string | null;
+  translations?: WebsitePageTranslation[];
   is_home: boolean;
-  placement: 'regular' | 'header' | 'footer';
+  placement: 'regular' | 'header' | 'footer' | 'hidden';
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreatePageRequest {
+  name?: string;
   title: string;
   slug?: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image?: string | null;
+  seo_no_index?: boolean;
+  link_mode?: 'internal' | 'external';
+  external_url?: string | null;
   is_home?: boolean;
 }
 
@@ -46,6 +71,19 @@ export function updatePage(websiteId: string, pageId: string, body: UpdatePageRe
     method: 'PATCH',
     ...jsonBody(body),
   });
+}
+
+export function upsertPageTranslation(
+  websiteId: string,
+  pageId: string,
+  locale: string,
+  translation: Pick<WebsitePageTranslation, 'title' | 'slug'> &
+    Partial<Pick<WebsitePageTranslation, 'seo_title' | 'seo_description' | 'seo_image' | 'seo_no_index'>>,
+): Promise<WebsitePageTranslation> {
+  return studioRequest<WebsitePageTranslation>(
+    `${pagesPath(websiteId)}/${encodeURIComponent(pageId)}/translations/${encodeURIComponent(locale)}`,
+    { method: 'PUT', ...jsonBody(translation) },
+  );
 }
 
 export function deletePage(websiteId: string, pageId: string): Promise<{ deleted: boolean }> {

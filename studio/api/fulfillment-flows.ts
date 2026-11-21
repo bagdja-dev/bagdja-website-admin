@@ -12,6 +12,7 @@ export type FulfillmentStepFieldType =
   /** Tanggal & jam lokal bisnis, nilai `YYYY-MM-DDTHH:mm`. */
   | 'tanggal_waktu'
   | 'pdf'
+  | 'archive'
   | 'foto'
   | 'video'
   | 'lokasi';

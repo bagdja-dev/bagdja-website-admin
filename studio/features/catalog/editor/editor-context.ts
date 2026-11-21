@@ -5,6 +5,7 @@ import type {
   CatalogLocationOption,
 } from '@/studio/api/catalog-lookups';
 import type { CatalogProduct, ProductUom } from '@/studio/api/products';
+import type { WebsiteLanguageDto } from '@/studio/api/company-profile';
 import type { ModuleKey } from '@/studio/api/types';
 
 import type { ProductForm } from './form-state';
@@ -35,4 +36,6 @@ export interface SectionProps {
   hasModule: (key: ModuleKey) => boolean;
   moduleLabel: (key: ModuleKey) => string;
   addCategory: (label: string) => Promise<string | null>;
+  languages: WebsiteLanguageDto[];
+  languagesError: string | null;
 }

@@ -6,6 +6,7 @@ import type { SectionProps } from './editor-context';
 import type { SectionId } from './section-registry';
 import { AdvancedSection } from './sections/AdvancedSection';
 import { BasicSection } from './sections/BasicSection';
+import { TranslationsSection } from './sections/TranslationsSection';
 import { DigitalSection } from './sections/DigitalSection';
 import { EventSection } from './sections/EventSection';
 import { FulfilSection } from './sections/FulfilSection';
@@ -24,6 +25,7 @@ export interface SectionView {
 /** Satu komponen per bagian; daftar bagian per tipe ada di section-registry.ts. */
 export const SECTION_VIEWS: Readonly<Record<SectionId, SectionView>> = {
   info: { Body: BasicSection },
+  translations: { Body: TranslationsSection, description: 'Nama, alamat, deskripsi, dan SEO tiap bahasa.' },
   media: { Body: MediaSection },
   price: { Body: PriceSection },
   variants: { Body: VariantsSection, Aside: VariantsAside, description: 'Ukuran, warna, atau pilihan lain dengan harga/stok berbeda.' },

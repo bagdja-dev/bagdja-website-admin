@@ -82,7 +82,7 @@ export function catalogColumns(opts: CatalogColumnOptions): DataColumn<CatalogRo
       mobile: 'title',
       render: (row, ctx) => {
         const isVariant = row.kind === 'variant';
-        const name = isVariant ? variantLabelOf(row.product, row.parentName ?? undefined) : row.product.name;
+        const name = isVariant ? variantLabelOf(row.product, row.parentName ?? undefined) : row.product.identity_name || row.product.name;
         const expandable = row.kind === 'item' && row.variants.length > 0;
         const open = opts.isExpanded(row.id);
         const indent = isVariant ? (ctx.variant === 'card' ? 'pl-4' : 'pl-[52px]') : expandable || ctx.variant === 'card' ? '' : 'pl-[38px]';
@@ -93,7 +93,7 @@ export function catalogColumns(opts: CatalogColumnOptions): DataColumn<CatalogRo
                 type="button"
                 onClick={() => opts.toggleExpanded(row.id)}
                 aria-expanded={open}
-                aria-label={`${open ? 'Sembunyikan' : 'Tampilkan'} varian ${row.product.name}`}
+                aria-label={`${open ? 'Sembunyikan' : 'Tampilkan'} varian ${row.product.identity_name || row.product.name}`}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-default-600 hover:bg-default-100"
               >
                 <Icon name="chevronDown" size={16} className={open ? '' : '-rotate-90'} />
@@ -104,7 +104,9 @@ export function catalogColumns(opts: CatalogColumnOptions): DataColumn<CatalogRo
               <span className={`block truncate text-foreground ${isVariant ? 'text-[13px] font-semibold' : 'font-bold'} ${row.product.is_active ? '' : 'text-default-500'} md:max-w-[22rem]`}>
                 {name}
               </span>
-              <span className="block truncate text-xs text-default-600 md:max-w-[22rem]">{subtitle(row, opts.categoryLabel)}</span>
+              <span className="block truncate text-xs text-default-600 md:max-w-[22rem]">
+                {name !== row.product.name ? `${row.product.name} · ${subtitle(row, opts.categoryLabel)}` : subtitle(row, opts.categoryLabel)}
+              </span>
             </Link>
           </span>
         );
@@ -136,7 +138,7 @@ export function catalogColumns(opts: CatalogColumnOptions): DataColumn<CatalogRo
           size={ctx.variant === 'card' ? 'md' : 'sm'}
           isSelected={row.product.is_active}
           onChange={(next) => opts.onToggleVisible(row, next)}
-          ariaLabel={`Tampilkan di website: ${row.product.name}`}
+          ariaLabel={`Tampilkan di website: ${row.product.identity_name || row.product.name}`}
           isDisabled={!ctx.canAct('editor')}
           isPending={ctx.isPending(row.id) || (row.parentId !== null && ctx.isPending(row.parentId))}
         />
@@ -152,7 +154,7 @@ export function catalogColumns(opts: CatalogColumnOptions): DataColumn<CatalogRo
         <RowActions
           row={row}
           ctx={ctx}
-          rowLabel={row.product.name}
+          rowLabel={row.product.identity_name || row.product.name}
           actions={[
             { key: 'edit', label: ctx.canAct('editor') ? 'Edit' : 'Lihat', onAction: opts.onEdit },
             { key: 'delete', label: 'Hapus', icon: 'trash', danger: true, minRole: 'admin', onAction: opts.onDelete },

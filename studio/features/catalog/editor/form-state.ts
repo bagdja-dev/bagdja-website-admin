@@ -2,6 +2,7 @@ import type { CatalogProduct, GatheringProductOption } from '@/studio/api/produc
 
 import { moneyFromApi } from '../money';
 import { metaInt, metaOf, metaString, skuOf, stockOf, variantAttributesOf, variantLabelOf } from '../product-utils';
+import { slugifyProduct } from './build-payload';
 
 export interface GalleryImage {
   url: string;
@@ -48,17 +49,36 @@ export interface EstimationRow {
   price: string;
 }
 
+export interface ProductTranslationDraft {
+  locale: string;
+  slugTouched: boolean;
+  name: string;
+  slug: string;
+  description: string;
+  detail: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoImage: string;
+  seoNoIndex: boolean;
+  isPublished: boolean;
+}
+
 export type PenaltyType = 'NONE' | 'FIXED' | 'PERCENTAGE';
 export type DurationUnit = 'minutes' | 'hours' | 'days';
 
 export interface ProductForm {
   type: string;
+  identityName: string;
   name: string;
   slug: string;
   /** Slug diubah manual → tidak lagi mengikuti nama. */
   slugTouched: boolean;
   categoryId: string;
   uomId: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoImage: string;
+  seoNoIndex: boolean;
   description: string;
   detail: string;
   images: GalleryImage[];
@@ -98,6 +118,7 @@ export interface ProductForm {
   locationIds: string[];
   specs: KeyValueRow[];
   estimation: EstimationRow[];
+  translations: ProductTranslationDraft[];
 }
 
 let keySeq = 0;
@@ -130,11 +151,16 @@ export function emptyOption(): GatheringOptionDraft {
 export function emptyForm(type: string): ProductForm {
   return {
     type,
+    identityName: '',
     name: '',
     slug: '',
     slugTouched: false,
     categoryId: '',
     uomId: '',
+    seoTitle: '',
+    seoDescription: '',
+    seoImage: '',
+    seoNoIndex: false,
     description: '',
     detail: '',
     images: [],
@@ -173,6 +199,7 @@ export function emptyForm(type: string): ProductForm {
     locationIds: [],
     specs: [],
     estimation: [],
+    translations: [],
   };
 }
 
@@ -243,11 +270,16 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
   const penalty = typeof policy.penalty_type === 'string' ? policy.penalty_type : 'NONE';
   return {
     ...emptyForm(product.type),
+    identityName: product.identity_name || product.name,
     name: product.name,
     slug: product.slug,
     slugTouched: true,
     categoryId: product.category_id ?? '',
     uomId: product.uom_id ?? '',
+    seoTitle: product.seo_title ?? '',
+    seoDescription: product.seo_description ?? '',
+    seoImage: product.seo_image ?? '',
+    seoNoIndex: product.seo_no_index ?? false,
     description: product.description ?? '',
     detail: product.detail ?? '',
     images: galleryOf(product),
@@ -285,5 +317,18 @@ export function formFromProduct({ product, children, gatheringOptions, assetIds 
     locationIds: product.location_ids ?? [],
     specs: Object.entries(product.specifications ?? {}).map(([key, value]) => ({ key, value: String(value) })),
     estimation: (product.estimation ?? []).map((e) => ({ label: e.label, price: moneyFromApi(e.price) })),
+    translations: (product.translations ?? []).map((translation) => ({
+      locale: translation.locale,
+      slugTouched: translation.slug !== slugifyProduct(translation.name),
+      name: translation.name,
+      slug: translation.slug,
+      description: translation.description ?? '',
+      detail: translation.detail ?? '',
+      seoTitle: translation.seo_title ?? '',
+      seoDescription: translation.seo_description ?? '',
+      seoImage: translation.seo_image ?? '',
+      seoNoIndex: translation.seo_no_index,
+      isPublished: translation.is_published,
+    })),
   };
 }

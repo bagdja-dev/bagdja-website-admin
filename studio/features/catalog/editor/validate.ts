@@ -10,14 +10,15 @@ const isInt = (v: string): boolean => /^\d+$/.test(v.trim());
 
 /** Bagian tempat sebuah galat tampil (untuk menandai navigasi kiri & lompat ke bagian pertama). */
 export function sectionOfError(key: string): SectionId {
-  if (key === 'name') return 'info';
+  if (key === 'identityName') return 'info';
+  if (key === 'name' || key === 'slug' || key.startsWith('translation.')) return 'translations';
   if (key === 'price') return 'price';
   if (key.startsWith('variant') || key === 'stock') return 'variants';
   if (['weightGrams', 'lengthCm', 'widthCm', 'heightCm'].includes(key)) return 'shipping';
   if (key === 'durationValue') return 'duration';
   if (key === 'downloadTtl' || key === 'assets') return 'digital';
   if (key === 'guarantyDays') return 'fulfil';
-  if (key === 'slug' || key === 'estimation') return 'advanced';
+  if (key === 'estimation') return 'advanced';
   return 'event';
 }
 
@@ -30,10 +31,26 @@ export interface ValidationContext extends SectionContext {
 export function validateForm(form: ProductForm, ctx: ValidationContext): FormErrors {
   const e: FormErrors = {};
   const sections = sectionsFor(form.type, ctx);
-  if (!form.name.trim()) e.name = 'Nama wajib diisi.';
+  if (!form.identityName.trim()) e.identityName = 'Nama identitas wajib diisi.';
+  if (!form.name.trim()) e.name = 'Nama produk / jasa wajib diisi.';
   const slug = form.slug.trim() || slugifyProduct(form.name);
   if (!slug) e.slug = 'Alamat URL wajib diisi.';
   else if (!SLUG.test(slug)) e.slug = 'Hanya huruf kecil, angka, dan tanda hubung.';
+  for (const translation of form.translations) {
+    const hasContent = Boolean(
+      translation.name.trim()
+      || translation.slug.trim()
+      || translation.description.trim()
+      || translation.detail.trim()
+      || translation.seoTitle.trim()
+      || translation.seoDescription.trim()
+      || translation.seoImage.trim(),
+    );
+    if (!hasContent) continue;
+    if (translation.slug.trim() && !SLUG.test(translation.slug.trim())) {
+      e[`translation.${translation.locale}`] = `Alamat URL bahasa ${translation.locale} hanya boleh berisi huruf kecil, angka, dan tanda hubung.`;
+    }
+  }
 
   const byVariant = usesVariantPricing(form, ctx);
   if (!byVariant) {

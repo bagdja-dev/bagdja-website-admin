@@ -96,7 +96,7 @@ function ShortDescriptionDialog({
   );
 }
 
-function ShortDescriptionField({
+export function ShortDescriptionField({
   value,
   onSave,
   canEdit,
@@ -222,7 +222,7 @@ function DetailEditorDialog({
   );
 }
 
-function FullDetailField({
+export function FullDetailField({
   value,
   onSave,
   websiteId,
@@ -361,30 +361,30 @@ function UomField({ form, set, lookups }: SectionProps) {
   );
 }
 
-/** Bagian "Informasi dasar": name, category_id, uom_id, description, detail. */
+/** Bagian "Informasi dasar": identitas tetap, kategori, dan satuan. */
 export function BasicSection(props: SectionProps) {
-  const { form, set, errors, parent, product, websiteId } = props;
+  const { form, set, parent, product, errors } = props;
   const inherits = parent !== null && product !== null && metaOf(product).inherit_description === true;
   return (
     <>
       {parent && (
         <Notice>
-          Item ini adalah varian dari <Link href={editorHref(parent)} className="font-bold">{parent.name}</Link>. Harga & stok varian juga bisa diatur dari item induknya.
+          Item ini adalah varian dari <Link href={editorHref(parent)} className="font-bold">{parent.identity_name || parent.name}</Link>. Harga & stok varian juga bisa diatur dari item induknya.
         </Notice>
       )}
-      <TextField label="Nama" value={form.name} onChange={(name) => set({ name })} error={errors.name} maxLength={255} />
+      <TextField
+        label="Nama identitas (tetap)"
+        value={form.identityName}
+        onChange={(identityName) => set({ identityName })}
+        error={errors.identityName}
+        hint="Nama ini melekat pada ID dan dipakai untuk mengenali item di grid Studio; tidak berubah saat terjemahan diedit."
+        maxLength={255}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <CategoryField {...props} />
         <UomField {...props} />
       </div>
-      {inherits ? (
-        <Notice>Deskripsi & detail mengikuti item induk.</Notice>
-      ) : (
-        <>
-          <ShortDescriptionField value={form.description} onSave={(description) => set({ description })} canEdit={props.canEdit} />
-          <FullDetailField value={form.detail} onSave={(detail) => set({ detail })} websiteId={websiteId} canEdit={props.canEdit} />
-        </>
-      )}
+      {inherits && <Notice>Deskripsi & detail mengikuti item induk.</Notice>}
     </>
   );
 }

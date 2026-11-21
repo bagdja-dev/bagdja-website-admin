@@ -5,6 +5,7 @@ import {
   fetchProductAssetLinks,
   linkProductAsset,
   replaceGatheringOptions,
+  upsertProductTranslation,
   unlinkProductAsset,
   updateProduct,
   type CatalogProduct,
@@ -14,9 +15,10 @@ import {
 
 import { buildGatheringOptions } from './build-payload';
 import type { ProductForm } from './form-state';
+import type { WebsiteLanguageDto } from '@/studio/api/company-profile';
 import { planVariantOps } from './variant-plan';
 
-export type StepKey = 'product' | 'variants' | 'options' | 'assets';
+export type StepKey = 'product' | 'translations' | 'variants' | 'options' | 'assets';
 export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
 
 export interface StepResult {
@@ -28,6 +30,7 @@ export interface StepResult {
 
 export const STEP_LABELS: Readonly<Record<StepKey, string>> = {
   product: 'Data item',
+  translations: 'Terjemahan',
   variants: 'Varian',
   options: 'Pilihan acara',
   assets: 'File digital',
@@ -41,6 +44,7 @@ export interface SaveInput {
   existing: CatalogProduct | null;
   loadedChildren: CatalogProduct[];
   allSlugs: string[];
+  languages: WebsiteLanguageDto[];
   steps: StepKey[];
 }
 
@@ -55,7 +59,7 @@ export interface SaveCallbacks {
 }
 
 /**
- * Simpan bertahap & berurutan: item → varian → opsi acara (PUT replace) → tautan file (diff).
+ * Simpan bertahap & berurutan: item → terjemahan → varian → opsi acara (PUT replace) → tautan file (diff).
  * Langkah 1 gagal = berhenti. Langkah lain gagal = item sudah tersimpan; form TIDAK direset,
  * jadi menekan Simpan lagi mengulang dengan aman (PATCH, PUT replace, dan diff idempoten).
  */
@@ -76,6 +80,48 @@ export async function runStagedSave(input: SaveInput, cb: SaveCallbacks): Promis
   }
 
   let ok = true;
+  if (input.steps.includes('translations')) {
+    mark('translations', 'running');
+    const activeLocales = new Set(
+      input.languages.filter((language) => language.is_active && !language.is_default).map((language) => language.locale),
+    );
+    const drafts = form.translations.filter((translation) => {
+      if (!activeLocales.has(translation.locale)) return false;
+      return Boolean(
+        translation.name.trim()
+        || translation.slug.trim()
+        || translation.description.trim()
+        || translation.detail.trim()
+        || translation.seoTitle.trim()
+        || translation.seoDescription.trim()
+        || translation.seoImage.trim()
+        || translation.seoNoIndex !== form.seoNoIndex
+        || translation.isPublished !== form.isActive,
+      );
+    });
+    let failed = 0;
+    for (const translation of drafts) {
+      try {
+        await upsertProductTranslation(websiteId, product.id, translation.locale, {
+          slug: translation.slug.trim(),
+          name: translation.name.trim() || form.name.trim(),
+          description: translation.description.trim() || null,
+          detail: translation.detail.trim() || null,
+          seo_title: translation.seoTitle.trim() || null,
+          seo_description: translation.seoDescription.trim() || null,
+          seo_image: translation.seoImage.trim() || null,
+          seo_no_index: translation.seoNoIndex,
+          is_published: translation.isPublished,
+        });
+      } catch (err) {
+        failed += 1;
+        mark('translations', 'failed', errorMessage(err, `Terjemahan ${translation.locale} gagal disimpan.`));
+      }
+    }
+    if (failed) ok = false;
+    else mark('translations', 'done', drafts.length ? `${drafts.length} terjemahan tersimpan.` : 'Tidak ada perubahan terjemahan.');
+  }
+
   if (input.steps.includes('variants')) {
     mark('variants', 'running');
     const ops = planVariantOps(form, product, input.body, input.loadedChildren, input.allSlugs);

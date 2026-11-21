@@ -10,6 +10,7 @@ import { isProductTypeKey } from '../catalog-types';
  */
 export type SectionId =
   | 'info'
+  | 'translations'
   | 'media'
   | 'price'
   | 'variants'
@@ -23,6 +24,7 @@ export type SectionId =
 
 export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
   info: 'Informasi dasar',
+  translations: 'Terjemahan',
   media: 'Foto & video',
   price: 'Harga',
   variants: 'Varian & stok',
@@ -36,22 +38,22 @@ export const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
 };
 
 export const SECTIONS_BY_TYPE: Readonly<Record<ProductTypeKey, readonly SectionId[]>> = {
-  product: ['info', 'media', 'price', 'variants', 'shipping', 'fulfil', 'advanced'],
-  service: ['info', 'media', 'price', 'duration', 'fulfil', 'advanced'],
-  package: ['info', 'media', 'price', 'package', 'fulfil', 'advanced'],
-  digital: ['info', 'media', 'price', 'digital', 'advanced'],
-  gathering: ['info', 'media', 'price', 'event', 'advanced'],
+  product: ['info', 'translations', 'media', 'price', 'variants', 'shipping', 'fulfil', 'advanced'],
+  service: ['info', 'translations', 'media', 'price', 'duration', 'fulfil', 'advanced'],
+  package: ['info', 'translations', 'media', 'price', 'package', 'fulfil', 'advanced'],
+  digital: ['info', 'translations', 'media', 'price', 'digital', 'advanced'],
+  gathering: ['info', 'translations', 'media', 'price', 'event'],
 };
 
-export type AdvancedField = 'slug' | 'specifications' | 'estimation' | 'model3d';
+export type AdvancedField = 'specifications' | 'estimation' | 'model3d';
 
 /** Isi bagian "Lanjutan" per tipe. Spesifikasi/estimasi hanya untuk tipe yang memakainya. */
 export const ADVANCED_FIELDS: Readonly<Record<ProductTypeKey, readonly AdvancedField[]>> = {
-  product: ['slug', 'specifications', 'estimation', 'model3d'],
-  service: ['slug', 'specifications', 'estimation', 'model3d'],
-  package: ['slug', 'specifications', 'estimation', 'model3d'],
-  digital: ['slug', 'specifications', 'model3d'],
-  gathering: ['slug'],
+  product: ['specifications', 'estimation', 'model3d'],
+  service: ['specifications', 'estimation', 'model3d'],
+  package: ['specifications', 'estimation', 'model3d'],
+  digital: ['model3d'],
+  gathering: [],
 };
 
 export interface SectionContext {

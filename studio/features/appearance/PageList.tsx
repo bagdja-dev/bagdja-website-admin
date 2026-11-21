@@ -4,23 +4,17 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
 
 import { useDataList, DataListPage, type BulkAction, type DataColumn, type PrimaryAction } from '@/studio/ui/data-list';
 import { useActiveWebsiteId } from '@/studio/stores/website-store';
-import { fetchPages, createPage, updatePage, deletePage, reorderPages, type WebsitePage } from '@/studio/api/pages';
+import { fetchPages, createPage, deletePage, reorderPages, type WebsitePage } from '@/studio/api/pages';
 import { slugify } from '@/studio/lib/slug';
 import { Icon } from '@/studio/ui/icons';
 import { notify } from '@/studio/ui/primitives/Toast';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 
 export interface PageRow extends WebsitePage {}
-
-const PAGE_PLACEMENT_OPTIONS: Array<{ value: WebsitePage['placement']; label: string }> = [
-  { value: 'regular', label: 'Navigasi utama' },
-  { value: 'header', label: 'Navigasi header' },
-  { value: 'footer', label: 'Navigasi footer' },
-];
 
 export function usePageList() {
   const websiteId = useActiveWebsiteId();
@@ -30,11 +24,10 @@ export function usePageList() {
   const [newPageTitle, setNewPageTitle] = useState('');
   const [creatingPage, setCreatingPage] = useState(false);
   const [addPageError, setAddPageError] = useState<string | null>(null);
-  const [updatingPageId, setUpdatingPageId] = useState<string | null>(null);
 
   const list = useDataList<PageRow>({
     mode: 'client',
-    searchKeys: ['title', 'slug'],
+    searchKeys: ['name', 'title', 'slug'],
     filters: [],
     load: async () => {
       if (!websiteId) return [];
@@ -115,7 +108,7 @@ export function usePageList() {
     setCreatingPage(true);
     setAddPageError(null);
     try {
-      const created = await createPage(websiteId, { title, slug });
+      const created = await createPage(websiteId, { name: title, title, slug });
       list.replaceRows([created, ...list.rows]);
       setAddPageOpen(false);
       notify.success('Halaman dibuat.');
@@ -127,28 +120,14 @@ export function usePageList() {
     }
   }, [list, newPageTitle, websiteId]);
 
-  const changePagePlacement = useCallback(async (page: PageRow, placement: WebsitePage['placement']) => {
-    if (!websiteId || page.placement === placement || updatingPageId) return;
-    setUpdatingPageId(page.id);
-    try {
-      const updated = await updatePage(websiteId, page.id, { placement });
-      list.replaceRows(list.rows.map((row) => row.id === page.id ? { ...row, placement: updated.placement } : row));
-      notify.success('Posisi halaman di navigasi diperbarui.');
-    } catch {
-      notify.error(`Gagal memperbarui navigasi "${page.title}".`);
-    } finally {
-      setUpdatingPageId(null);
-    }
-  }, [list, updatingPageId, websiteId]);
-
   const columns: DataColumn<PageRow>[] = useMemo(() => [
     {
-      key: 'title',
-      header: 'Judul',
+      key: 'name',
+      header: 'Nama / judul',
       render: (row) => (
         <div className="text-foreground">
-          <div className="font-medium truncate md:max-w-[260px]">{row.title}</div>
-          <div className="text-[12px] text-default-600 truncate md:max-w-[320px]">{row.slug}</div>
+          <div className="font-medium truncate md:max-w-[260px]">{row.name}</div>
+          <div className="text-[12px] text-default-600 truncate md:max-w-[320px]">{row.title} · /{row.slug}</div>
         </div>
       ),
       mobile: 'title',
@@ -164,30 +143,6 @@ export function usePageList() {
         </span>
       ),
       mobile: 'meta',
-    },
-    {
-      key: 'placement',
-      header: 'Posisi navigasi',
-      mobile: 'trailing',
-      render: (row, ctx) => (
-        <Select
-          aria-label={`Posisi navigasi ${row.title}`}
-          selectedKeys={[row.placement]}
-          onChange={(event) => {
-            const option = PAGE_PLACEMENT_OPTIONS.find((item) => item.value === event.target.value);
-            if (option) void changePagePlacement(row, option.value);
-          }}
-          isDisabled={!ctx.canAct('editor') || updatingPageId !== null}
-          isLoading={updatingPageId === row.id}
-          className="w-full sm:max-w-[200px]"
-          size="sm"
-          variant="bordered"
-        >
-          {PAGE_PLACEMENT_OPTIONS.map((option) => (
-            <SelectItem key={option.value}>{option.label}</SelectItem>
-          ))}
-        </Select>
-      ),
     },
     {
       key: 'sortOrder',
@@ -238,7 +193,7 @@ export function usePageList() {
         </div>
       ),
     },
-  ], [router, handleDeleteRow, websiteId, changePagePlacement, updatingPageId]);
+  ], [router, handleDeleteRow, websiteId]);
 
   const handleReorderSave = useCallback(
     async (ordered: PageRow[]) => {
@@ -326,7 +281,7 @@ export function PageList() {
     <div className="flex flex-col gap-6">
       <DataListPage
         title="Halaman Website"
-        description="Atur halaman, posisi di navigasi website, dan susunan section. Hero selalu tampil paling atas."
+        description="Atur halaman dan susunan section. Pengaturan navigasi dan SEO tersedia di editor halaman."
         list={list}
         columns={columns}
         getRowLabel={(row) => row.title}

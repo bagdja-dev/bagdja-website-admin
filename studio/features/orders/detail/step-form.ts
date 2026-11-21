@@ -1,4 +1,5 @@
 import type { StepFormField } from '@/studio/api/order-detail';
+import { ARCHIVE_UPLOAD_ACCEPT, ARCHIVE_UPLOAD_MAX_BYTES } from '@/studio/lib/upload-archive';
 
 export interface MediaValue {
   url: string;
@@ -9,6 +10,7 @@ export const MEDIA_CONFIG = {
   foto: { accept: 'image/jpeg,image/png,image/webp', maxBytes: 10 * 1024 * 1024, label: 'foto', hint: 'JPG/PNG/WebP ≤ 10 MB' },
   video: { accept: 'video/mp4,video/webm,video/quicktime', maxBytes: 100 * 1024 * 1024, label: 'video', hint: 'MP4/WebM/MOV ≤ 100 MB' },
   pdf: { accept: 'application/pdf', maxBytes: 20 * 1024 * 1024, label: 'PDF', hint: 'PDF ≤ 20 MB' },
+  archive: { accept: ARCHIVE_UPLOAD_ACCEPT, maxBytes: ARCHIVE_UPLOAD_MAX_BYTES, label: 'arsip ZIP', hint: 'ZIP ≤ 50 MB' },
 } as const;
 
 export function normalizeMedia(value: unknown): MediaValue[] {

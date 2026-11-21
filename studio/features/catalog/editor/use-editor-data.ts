@@ -12,12 +12,14 @@ import {
 } from '@/studio/api/catalog-lookups';
 import {
   fetchCatalogProducts,
+  fetchCatalogProduct,
   fetchGatheringOptions,
   fetchProductAssetLinks,
   fetchProductUoms,
   type CatalogProduct,
   type GatheringProductOption,
 } from '@/studio/api/products';
+import { fetchLanguages, type WebsiteLanguageDto } from '@/studio/api/company-profile';
 import { notify } from '@/studio/ui/primitives/Toast';
 
 import type { EditorLookups } from './editor-context';
@@ -38,6 +40,8 @@ export interface EditorData {
   status: 'loading' | 'ready' | 'not-found' | 'error';
   error: string | null;
   lookups: EditorLookups;
+  languages: WebsiteLanguageDto[];
+  languagesError: string | null;
   item: LoadedItem | null;
   /** Semua slug produk website (cek bentrok slug varian baru). */
   allSlugs: string[];
@@ -52,6 +56,8 @@ export function useEditorData(websiteId: string | null, productId: string | null
   const [status, setStatus] = useState<EditorData['status']>('loading');
   const [error, setError] = useState<string | null>(null);
   const [lookups, setLookups] = useState<EditorLookups>(EMPTY_LOOKUPS);
+  const [languages, setLanguages] = useState<WebsiteLanguageDto[]>([]);
+  const [languagesError, setLanguagesError] = useState<string | null>(null);
   const [item, setItem] = useState<LoadedItem | null>(null);
   const [allSlugs, setAllSlugs] = useState<string[]>([]);
   const [gatheringOptionsBlocked, setGatheringBlocked] = useState(false);
@@ -60,10 +66,11 @@ export function useEditorData(websiteId: string | null, productId: string | null
   const loadItem = useCallback(
     async (id: string): Promise<LoadedItem | null> => {
       if (!websiteId) return null;
-      const all = await fetchCatalogProducts(websiteId);
+      const [all, product] = await Promise.all([
+        fetchCatalogProducts(websiteId),
+        fetchCatalogProduct(websiteId, id),
+      ]);
       setAllSlugs(all.map((p) => p.slug));
-      const product = all.find((p) => p.id === id);
-      if (!product) return null;
       const children = all.filter((p) => p.parent_product_id === id);
       const parent = product.parent_product_id ? all.find((p) => p.id === product.parent_product_id) ?? null : null;
       let gatheringOptions: GatheringProductOption[] = [];
@@ -122,6 +129,18 @@ export function useEditorData(websiteId: string | null, productId: string | null
     ]).then(([categories, uoms, flows, locations]) => setLookups((prev) => ({ ...prev, categories, uoms, flows, locations })));
   }, [websiteId]);
 
+  useEffect(() => {
+    if (!websiteId) return;
+    setLanguagesError(null);
+    void fetchLanguages(websiteId)
+      .then(setLanguages)
+      .catch((err) => {
+        const message = errorMessage(err, 'Bahasa website gagal dimuat.');
+        setLanguagesError(message);
+        notify.error('Bahasa website gagal dimuat', message);
+      });
+  }, [websiteId]);
+
   // Aset privat hanya dibutuhkan item digital (tipe efektif diketahui setelah item dimuat).
   useEffect(() => {
     if (!websiteId || type !== 'digital') return;
@@ -149,5 +168,5 @@ export function useEditorData(websiteId: string | null, productId: string | null
     [websiteId],
   );
 
-  return { status, error, lookups, item, allSlugs, gatheringOptionsBlocked, assetLinksBlocked, reload, addCategory };
+  return { status, error, lookups, languages, languagesError, item, allSlugs, gatheringOptionsBlocked, assetLinksBlocked, reload, addCategory };
 }

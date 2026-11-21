@@ -39,7 +39,7 @@ export const FALLBACK_MODULE_LABELS: Readonly<Record<ModuleKey, string>> = {
   events: 'Gathering',
   digital_delivery: 'Digital Asset',
   locations: 'Lokasi',
-  vendors: 'Vendor',
+  vendors: 'Partner',
   customer_chat: 'Inbox Chat',
   faq: 'FAQ',
   blog: 'Blog',

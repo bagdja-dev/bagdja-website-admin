@@ -20,8 +20,10 @@ import {
   fetchCategories,
   fetchCategoryProductCounts,
   reorderCategories,
+  upsertCategoryTranslation,
   updateCategory,
   type CreateCategoryRequest,
+  type UpdateCategoryRequest,
   type WebsiteCategory,
 } from '@/studio/api/categories';
 import { errorMessage } from '@/studio/api/client';
@@ -29,7 +31,7 @@ import { useActiveWebsiteId } from '@/studio/stores/website-store';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { notify } from '@/studio/ui/primitives/Toast';
 
-import { EditCategoryDrawer } from './EditCategoryDrawer';
+import { EditCategoryDrawer, type CategoryDraft } from './EditCategoryDrawer';
 
 /** `product_count` null = jumlah produk gagal dimuat (tampil "—"). */
 export interface CategoryRow extends WebsiteCategory {
@@ -53,7 +55,7 @@ export function CategoryListContent() {
 
   const list = useDataList<CategoryRow>({
     mode: 'client',
-    searchKeys: ['label', 'description'],
+    searchKeys: ['identity_name', 'label', 'description'],
     filters: [
       { key: 'status', label: 'Status', allLabel: 'Semua status', kind: 'chip', options: STATUS_OPTIONS, getValue: (r) => (r.is_active ? '1' : '0') },
     ],
@@ -78,7 +80,7 @@ export function CategoryListContent() {
       if (!websiteId) return;
       const used = row.product_count ?? 0;
       const ok = await confirm({
-        title: `Hapus kategori "${row.label}"?`,
+        title: `Hapus kategori "${row.identity_name}"?`,
         description:
           used > 0
             ? `${used} produk memakai kategori ini. Produk tidak ikut terhapus, tetapi menjadi tanpa kategori.`
@@ -104,8 +106,8 @@ export function CategoryListContent() {
       { key: 'delete', label: 'Hapus', icon: 'trash', danger: true, minRole: 'admin', onAction: (r) => void handleDelete(r) },
     ];
     return [
-      imageColumn<CategoryRow>({ key: 'image', header: 'Foto', getSrc: (r) => r.images[0], getAlt: (r) => `Foto ${r.label}` }),
-      titleColumn<CategoryRow>({ header: 'Nama', getTitle: (r) => r.label, getSubtitle: (r) => r.description, onOpen: handleEdit }),
+      imageColumn<CategoryRow>({ key: 'image', header: 'Foto', getSrc: (r) => r.images[0], getAlt: (r) => `Foto ${r.identity_name}` }),
+      titleColumn<CategoryRow>({ header: 'Nama identitas', getTitle: (r) => r.identity_name, getSubtitle: (r) => r.label, onOpen: handleEdit }),
       {
         key: 'products',
         header: 'Produk',
@@ -116,14 +118,14 @@ export function CategoryListContent() {
         key: 'active',
         header: 'Aktif',
         getValue: (r) => r.is_active,
-        ariaLabel: (r) => `Tampilkan di website: ${r.label}`,
+        ariaLabel: (r) => `Tampilkan di website: ${r.identity_name}`,
         minRole: 'editor',
         onToggle: (r, next) => {
           if (!websiteId) return;
           void list.optimisticUpdate(r.id, { is_active: next }, () => updateCategory(websiteId, r.id, { is_active: next }), 'Gagal mengubah status kategori');
         },
       }),
-      actionsColumn<CategoryRow>({ actions, getRowLabel: (r) => r.label }),
+      actionsColumn<CategoryRow>({ actions, getRowLabel: (r) => r.identity_name }),
     ];
   }, [handleEdit, handleDelete, list, websiteId]);
 
@@ -136,17 +138,49 @@ export function CategoryListContent() {
   );
 
   const handleSave = useCallback(
-    async (draft: CreateCategoryRequest) => {
+    async (draft: CategoryDraft) => {
       if (!websiteId) return;
+      const { locale, is_default_locale, ...categoryDraft } = draft;
+      const { label, description, ...metadata } = categoryDraft;
+
+      let saved: WebsiteCategory;
       if (editing) {
-        const saved = await updateCategory(websiteId, editing.id, draft);
-        list.patchRow(saved.id, saved);
-        notify.success('Kategori disimpan.');
+        const payload: UpdateCategoryRequest = {
+          ...metadata,
+          ...(is_default_locale ? { label, description } : {}),
+        };
+        saved = await updateCategory(websiteId, editing.id, payload);
       } else {
         const sortOrder = list.allRows.reduce((max, r) => Math.max(max, r.sort_order), -1) + 1;
-        const saved = await createCategory(websiteId, { ...draft, sort_order: sortOrder });
-        sortRef.current.set(saved.id, saved.sort_order);
-        list.replaceRows([...list.allRows, { ...saved, product_count: 0 }]);
+        const payload: CreateCategoryRequest = {
+          ...metadata,
+          label: is_default_locale ? label : draft.identity_name ?? label,
+          description: is_default_locale ? description : null,
+          sort_order: sortOrder,
+        };
+        saved = await createCategory(websiteId, payload);
+      }
+      const translation = !editing && is_default_locale
+        ? null
+        : await upsertCategoryTranslation(websiteId, saved.id, locale, {
+          label: draft.label,
+          description: draft.description,
+        });
+      const updated = {
+        ...saved,
+        translations: translation
+          ? [
+            ...(saved.translations ?? []).filter((item) => item.locale !== locale),
+            translation,
+          ]
+          : saved.translations,
+      };
+      if (editing) {
+        list.patchRow(updated.id, updated);
+        notify.success('Kategori disimpan.');
+      } else {
+        sortRef.current.set(updated.id, updated.sort_order);
+        list.replaceRows([...list.allRows, { ...updated, product_count: 0 }]);
         notify.success('Kategori dibuat.');
       }
       setDrawerOpen(false);
@@ -173,7 +207,7 @@ export function CategoryListContent() {
         description="Kelompokkan produk dan jasa agar mudah ditemukan pembeli."
         list={list}
         columns={columns}
-        getRowLabel={(r) => r.label}
+        getRowLabel={(r) => r.identity_name}
         itemNoun="kategori"
         primaryAction={primaryAction}
         reorder={{ minRole: 'editor', onSave: handleReorderSave }}

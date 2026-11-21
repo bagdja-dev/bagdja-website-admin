@@ -13,6 +13,7 @@ export type StepFieldType =
   | 'tanggal'
   | 'tanggal_waktu'
   | 'pdf'
+  | 'archive'
   | 'foto'
   | 'video'
   | 'lokasi';

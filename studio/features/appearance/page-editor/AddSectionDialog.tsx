@@ -11,6 +11,8 @@ import { Icon } from '@/studio/ui/icons';
 import { SectionThumb, sectionThumbKind } from './SectionThumb';
 
 /** Kategori skema section API → label tab (artboard "Tambah bagian"). */
+const UNIVERSAL_SECTION_TYPES = new Set(['text_block', 'rich_text']);
+
 const CATEGORIES: ReadonlyArray<readonly [string, string]> = [
   ['all', 'Semua'],
   ['opening', 'Pembuka'],
@@ -37,7 +39,7 @@ function loadSupportedTypes(templateId: string): Promise<Set<string>> {
       if (!slug) throw new Error('Template aktif tidak ditemukan.');
       return fetchTemplateManifest(slug);
     })
-    .then((manifest) => new Set(manifest.sections))
+    .then((manifest) => new Set([...manifest.sections, ...UNIVERSAL_SECTION_TYPES]))
     .catch((error: unknown) => {
       supportedCache.delete(templateId);
       throw error;

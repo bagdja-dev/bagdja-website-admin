@@ -5,7 +5,7 @@ export const FEATURE_SECTIONS: ReadonlyArray<{ label: string; keys: readonly Mod
   { label: 'Jualan', keys: ['catalog', 'orders', 'events', 'quotes', 'billing'] },
   {
     label: 'Operasional',
-    keys: ['appointments', 'rental', 'asset_tracking', 'ticketing', 'fulfillment', 'digital_delivery', 'locations', 'vendors'],
+    keys: ['appointments', 'rental', 'asset_tracking', 'ticketing', 'fulfillment', 'digital_delivery', 'locations'],
   },
-  { label: 'Konten & komunikasi', keys: ['customer_chat', 'blog', 'faq', 'android_app'] },
+  { label: 'Konten & komunikasi', keys: ['customer_chat', 'blog', 'faq', 'android_app', 'vendors'] },
 ];

@@ -91,9 +91,14 @@ export function buildProductPayload(form: ProductForm, ctx: PayloadContext): Pro
 
   const variantPrices = form.variants.map((v) => moneyValue(v.price) ?? 0);
   const body: ProductWriteRequest = {
+    identity_name: form.identityName.trim() || form.name.trim(),
     category_id: form.categoryId || null,
     name: form.name.trim(),
     slug: form.slug.trim(),
+    seo_title: form.seoTitle.trim() || null,
+    seo_description: form.seoDescription.trim() || null,
+    seo_image: form.seoImage.trim() || null,
+    seo_no_index: form.seoNoIndex,
     price: byVariant ? Math.min(...variantPrices) : moneyValue(form.price) ?? 0,
     images: form.images.map((i) => i.url).filter(Boolean),
     video_urls: form.videoUrls.map((url) => url.trim()).filter(Boolean),

@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 
 import type { StepFormField } from '@/studio/api/order-detail';
 import { uploadAsset } from '@/studio/lib/upload-asset';
+import { uploadArchive } from '@/studio/lib/upload-archive';
 
 import { MEDIA_CONFIG, normalizeMedia, type MediaValue } from './step-form';
 
@@ -34,7 +35,7 @@ export function StepFieldInput({ field, value, onChange, websiteId, disabled }: 
   const text = typeof value === 'string' ? value : '';
   const id = `step-field-${field.key}`;
 
-  if (field.type === 'foto' || field.type === 'video' || field.type === 'pdf') {
+  if (field.type === 'foto' || field.type === 'video' || field.type === 'pdf' || field.type === 'archive') {
     return <MediaField field={field} value={value} onChange={onChange} websiteId={websiteId} disabled={disabled} />;
   }
   if (field.type === 'lokasi') {
@@ -128,7 +129,9 @@ function MediaField({ field, value, onChange, websiteId, disabled }: StepFieldIn
       const uploaded: MediaValue[] = [];
       for (const file of picked) {
         if (file.size > media.maxBytes) throw new Error(`Ukuran ${media.label} maksimal ${media.maxBytes / 1024 / 1024} MB.`);
-        const result = await uploadAsset(file, websiteId, 'fulfillment');
+        const result = field.type === 'archive'
+          ? await uploadArchive(file, websiteId)
+          : await uploadAsset(file, websiteId, 'fulfillment');
         uploaded.push({ url: result.url, description: '' });
       }
       onChange([...items, ...uploaded]);

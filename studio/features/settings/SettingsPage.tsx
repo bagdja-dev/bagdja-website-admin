@@ -12,11 +12,13 @@ import { NavIcon } from '@/studio/ui/shell/nav-icons';
 import { AndroidTab } from './android/AndroidTab';
 import { DomainTab } from './DomainTab';
 import { GeneralTab } from './GeneralTab';
+import { LanguageTab } from './LanguageTab';
 
-type SettingsTab = 'domain' | 'android' | 'umum';
+type SettingsTab = 'domain' | 'language' | 'android' | 'umum';
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'domain', label: 'Domain' },
+  { key: 'language', label: 'Bahasa' },
   { key: 'android', label: 'Android' },
   { key: 'umum', label: 'Umum' },
 ];
@@ -76,6 +78,7 @@ export function SettingsPage() {
       </div>
       <div className="mt-2 max-w-[1100px]">
         {tab === 'domain' && <DomainTab website={website} />}
+        {tab === 'language' && <LanguageTab website={website} />}
         {tab === 'android' && <AndroidTab website={website} enabled={androidEnabled} />}
         {tab === 'umum' && <GeneralTab website={website} role={role} />}
       </div>

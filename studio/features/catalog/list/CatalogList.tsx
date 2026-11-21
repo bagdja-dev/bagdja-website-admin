@@ -68,7 +68,7 @@ export function CatalogList() {
     ctx,
     selectable,
     selection: list.selection,
-    getRowLabel: (row: CatalogRow) => row.product.name,
+    getRowLabel: (row: CatalogRow) => row.product.identity_name || row.product.name,
     isRowMuted: (row: CatalogRow) => row.kind === 'variant' || !row.product.is_active,
     isRowSelectable: (row: CatalogRow) => row.kind === 'item',
   };

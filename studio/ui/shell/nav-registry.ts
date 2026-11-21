@@ -48,6 +48,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: 'appearance', label: 'Tampilan Website', icon: 'appearance', module: 'site_content', href: '/studio/appearance' },
       { id: 'faq', label: 'FAQ', icon: 'faq', module: 'faq', href: '/studio/faq' },
       { id: 'blog', label: 'Blog', icon: 'blog', module: 'blog', href: '/studio/blog' },
+      { id: 'portfolio', label: 'Portofolio', icon: 'portfolio', module: 'site_content', href: '/studio/portfolio' },
+      { id: 'partners', label: 'Partner', icon: 'vendors', module: 'vendors', href: '/studio/partners' },
     ],
   },
   {
@@ -77,7 +79,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: 'tickets', label: 'Tiket & Venue', icon: 'ticketing', module: 'ticketing', href: '/studio/tickets' },
       { id: 'flows', label: 'Master Flow', icon: 'fulfillment', module: 'fulfillment', href: '/studio/flows' },
       { id: 'locations', label: 'Lokasi', icon: 'locations', module: 'locations', href: '/studio/locations' },
-      { id: 'vendors', label: 'Vendor', icon: 'vendors', module: 'vendors', href: '/studio/vendors' },
       { id: 'assets', label: 'Digital Asset', icon: 'digital_delivery', module: 'digital_delivery', href: '/studio/assets' },
     ],
   },
