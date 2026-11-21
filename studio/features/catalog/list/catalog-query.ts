@@ -17,7 +17,10 @@ export interface CatalogRow extends DataRow {
 
 function matchesSearch(product: CatalogProduct, children: CatalogProduct[], q: string): boolean {
   if (!q) return true;
-  const hit = (p: CatalogProduct) => p.name.toLowerCase().includes(q) || skuOf(p).toLowerCase().includes(q);
+  const hit = (p: CatalogProduct) =>
+    (p.identity_name || p.name).toLowerCase().includes(q)
+    || p.name.toLowerCase().includes(q)
+    || skuOf(p).toLowerCase().includes(q);
   return hit(product) || children.some(hit);
 }
 

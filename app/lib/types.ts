@@ -58,6 +58,7 @@ export type PagePlacement = 'regular' | 'header' | 'footer';
 export interface WebsitePage {
   id: string;
   website_id: string;
+  name?: string;
   title: string;
   slug: string;
   content: Record<string, unknown>;
@@ -77,6 +78,16 @@ export interface WebsiteSection {
   order: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface WebsiteLanguage {
+  id: string;
+  website_id: string;
+  locale: string;
+  label: string;
+  is_default: boolean;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export type ProductType = 'product' | 'service' | 'package' | 'digital' | 'gathering';
@@ -480,7 +491,7 @@ export type FulfillmentStepFormFieldFilledBy = 'seller' | 'buyer';
 export interface FulfillmentStepFormField {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'textarea' | 'select' | 'tanggal' | 'tanggal_waktu' | 'pdf' | 'foto' | 'video' | 'lokasi';
+  type: 'text' | 'number' | 'textarea' | 'select' | 'tanggal' | 'tanggal_waktu' | 'pdf' | 'archive' | 'foto' | 'video' | 'lokasi';
   required?: boolean;
   filled_by?: FulfillmentStepFormFieldFilledBy;
   options?: string[];

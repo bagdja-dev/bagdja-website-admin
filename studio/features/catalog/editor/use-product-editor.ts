@@ -62,6 +62,7 @@ export function useProductEditor({ productId, initialType }: UseProductEditorOpt
     setForm((prev) => {
       const next = { ...prev, ...patch };
       if (patch.name !== undefined && !prev.slugTouched) next.slug = slugifyProduct(patch.name);
+      if (patch.name !== undefined && !prev.identityName.trim()) next.identityName = patch.name;
       return next;
     });
   }, []);
@@ -98,6 +99,7 @@ export function useProductEditor({ productId, initialType }: UseProductEditorOpt
     if (filled !== form) setForm(filled);
 
     const steps: StepKey[] = ['product'];
+    if (data.languages.some((language) => language.is_active && !language.is_default)) steps.push('translations');
     if (sections.includes('variants')) steps.push('variants');
     if (effectiveType === 'gathering') steps.push('options');
     if (effectiveType === 'digital') steps.push('assets');
@@ -107,7 +109,7 @@ export function useProductEditor({ productId, initialType }: UseProductEditorOpt
     let current = filled;
     const body = buildProductPayload(filled, { base: saved, ...sectionCtx, attendeeUomId });
     const outcome = await runStagedSave(
-      { websiteId, form: filled, body, existing: saved, loadedChildren: knownChildren, allSlugs: data.allSlugs, steps },
+      { websiteId, form: filled, body, existing: saved, loadedChildren: knownChildren, allSlugs: data.allSlugs, languages: data.languages, steps },
       {
         onStep: (r) => setResults((prev) => (prev ?? []).map((x) => (x.key === r.key ? r : x))),
         onProductSaved: (p) => {
@@ -160,7 +162,7 @@ export function useProductEditor({ productId, initialType }: UseProductEditorOpt
   }, [applyLoaded, attendeeUomId, canEdit, data, effectiveType, form, knownChildren, saved, saving, sectionCtx, sections, websiteId]);
 
   const sectionProps: SectionProps | null = websiteId
-    ? { form, set, errors, lookups: data.lookups, websiteId, product: saved, parent, canEdit, canDelete, hasModule, moduleLabel, addCategory: data.addCategory }
+    ? { form, set, errors, lookups: data.lookups, websiteId, product: saved, parent, canEdit, canDelete, hasModule, moduleLabel, addCategory: data.addCategory, languages: data.languages, languagesError: data.languagesError }
     : null;
 
   return {

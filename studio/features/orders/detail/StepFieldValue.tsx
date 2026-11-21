@@ -57,6 +57,17 @@ function StepFieldValue({ field, value }: { field: StepFormField; value: unknown
       </div>
     );
   }
+  if (field.type === 'archive') {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, i) => (
+          <a key={`${item.url}-${i}`} href={item.url} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center rounded-lg border border-default-200 px-2.5 text-xs font-semibold">
+            ZIP {i + 1}{item.description ? ` · ${item.description}` : ''}
+          </a>
+        ))}
+      </div>
+    );
+  }
   if (field.type === 'tanggal' || field.type === 'tanggal_waktu') {
     return <span className="text-foreground">{formatFlowDateValue(field.type, value) ?? String(value ?? '')}</span>;
   }

@@ -27,7 +27,7 @@ export function usePageList() {
 
   const list = useDataList<PageRow>({
     mode: 'client',
-    searchKeys: ['title', 'slug'],
+    searchKeys: ['name', 'title', 'slug'],
     filters: [],
     load: async () => {
       if (!websiteId) return [];
@@ -108,7 +108,7 @@ export function usePageList() {
     setCreatingPage(true);
     setAddPageError(null);
     try {
-      const created = await createPage(websiteId, { title, slug });
+      const created = await createPage(websiteId, { name: title, title, slug });
       list.replaceRows([created, ...list.rows]);
       setAddPageOpen(false);
       notify.success('Halaman dibuat.');
@@ -122,12 +122,12 @@ export function usePageList() {
 
   const columns: DataColumn<PageRow>[] = useMemo(() => [
     {
-      key: 'title',
-      header: 'Judul',
+      key: 'name',
+      header: 'Nama / judul',
       render: (row) => (
         <div className="text-foreground">
-          <div className="font-medium truncate md:max-w-[260px]">{row.title}</div>
-          <div className="text-[12px] text-default-600 truncate md:max-w-[320px]">{row.slug}</div>
+          <div className="font-medium truncate md:max-w-[260px]">{row.name}</div>
+          <div className="text-[12px] text-default-600 truncate md:max-w-[320px]">{row.title} · /{row.slug}</div>
         </div>
       ),
       mobile: 'title',

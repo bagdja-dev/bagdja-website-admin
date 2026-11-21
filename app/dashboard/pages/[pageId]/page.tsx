@@ -23,6 +23,7 @@ import {
   formValuesToContent,
   getDefaultFormValues,
   getSectionPreview,
+  getSectionTranslationFields,
   getSectionTypeConfig,
   SECTION_TYPE_CONFIGS,
   type GalleryImage,
@@ -30,9 +31,136 @@ import {
   type SectionFormValue,
   type SectionTypeConfig,
 } from '../../../lib/section-types';
-import { hasMinRole, type WebsitePage, type WebsiteSection } from '../../../lib/types';
+import { hasMinRole, type WebsiteLanguage, type WebsitePage, type WebsiteSection } from '../../../lib/types';
 import { buildTenantWebUrl } from '../../../lib/preview-url';
 import { useWebsiteContext } from '../../../context/website-context';
+
+type SectionTranslations = Record<string, Record<string, string>>;
+
+function parseSectionTranslations(raw: unknown): SectionTranslations {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>)
+      .filter((entry): entry is [string, Record<string, unknown>] => (
+        Boolean(entry[1]) && typeof entry[1] === 'object' && !Array.isArray(entry[1])
+      ))
+      .map(([locale, values]) => [
+        locale,
+        Object.fromEntries(
+          Object.entries(values)
+            .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
+        ),
+      ])
+      .filter(([, values]) => Object.keys(values as Record<string, string>).length > 0),
+  ) as SectionTranslations;
+}
+
+function SectionTranslationsEditor({
+  fields,
+  languages,
+  websiteId,
+  loading,
+  error,
+  translations,
+  selectedLocale,
+  onLocaleChange,
+  onTranslationChange,
+}: {
+  fields: ReturnType<typeof getSectionTranslationFields>;
+  languages: WebsiteLanguage[];
+  websiteId?: string;
+  loading: boolean;
+  error: string;
+  translations: SectionTranslations;
+  selectedLocale: string;
+  onLocaleChange: (locale: string) => void;
+  onTranslationChange: (locale: string, key: string, value: string) => void;
+}) {
+  const activeLanguages = languages.filter((language) => language.is_active);
+  const sourceLanguage = activeLanguages.find((language) => language.is_default);
+  const targetLanguages = activeLanguages.filter((language) => !language.is_default);
+
+  return (
+    <section className="space-y-4 rounded-xl border border-default-200 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Terjemahan</h3>
+        <p className="mt-1 text-xs leading-relaxed text-default-500">
+          Teks utama tetap menjadi sumber. Isi override untuk mengganti teks pada bahasa lain.
+        </p>
+      </div>
+
+      {loading ? <p className="text-sm text-default-500">Memuat bahasa website...</p> : null}
+      {!loading && error ? (
+        <p role="alert" className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger">
+          Gagal memuat bahasa website: {error}
+        </p>
+      ) : null}
+      {!loading && !error && !targetLanguages.length ? (
+        <p className="rounded-lg bg-default-50 px-3 py-2 text-sm text-default-500">
+          Aktifkan setidaknya satu bahasa tambahan pada pengaturan bahasa website untuk menambahkan terjemahan.
+        </p>
+      ) : null}
+      {!loading && !error && targetLanguages.length ? (
+        <>
+          <FormSelect
+            label="Bahasa terjemahan"
+            value={selectedLocale}
+            onChange={onLocaleChange}
+            options={targetLanguages.map((language) => ({
+              value: language.locale,
+              label: `${language.label} (${language.locale})`,
+            }))}
+          />
+
+          {fields.length ? (
+            <div className="space-y-4">
+              {fields.map((field) => (
+                <div key={field.key} className="grid gap-3 md:grid-cols-2">
+                  <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-default-600">
+                    <span>{field.label} · {sourceLanguage?.label ?? 'Teks utama'}</span>
+                    <textarea
+                      readOnly
+                      rows={field.multiline ? 4 : 2}
+                      value={field.value}
+                      className="w-full resize-y rounded-xl border border-default-200 bg-default-50 px-3 py-2 text-sm text-default-600"
+                    />
+                  </label>
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <span className="text-xs font-medium text-default-600">
+                      {field.label} · {targetLanguages.find((language) => language.locale === selectedLocale)?.label}
+                    </span>
+                    {field.richText ? (
+                      <RichTextEditor
+                        label=""
+                        value={translations[selectedLocale]?.[field.key] ?? ''}
+                        onChange={(value) => onTranslationChange(selectedLocale, field.key, value)}
+                        websiteId={websiteId}
+                        uploadFolder="sections"
+                      />
+                    ) : (
+                      <textarea
+                        rows={field.multiline ? 4 : 2}
+                        value={translations[selectedLocale]?.[field.key] ?? ''}
+                        onChange={(event) => onTranslationChange(selectedLocale, field.key, event.target.value)}
+                        placeholder="Tulis terjemahan..."
+                        className="w-full resize-y rounded-xl border border-default-300 bg-white px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-default-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg bg-default-50 px-3 py-2 text-sm text-default-500">
+              Isi teks yang bisa diterjemahkan pada pengaturan section terlebih dahulu.
+            </p>
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
 
 function SectionFormFields({
   config,
@@ -395,6 +523,11 @@ export default function PageSectionsEditor() {
   const [editSection, setEditSection] = useState<WebsiteSection | null>(null);
   const [sectionType, setSectionType] = useState('hero');
   const [formValues, setFormValues] = useState<Record<string, SectionFormValue>>({});
+  const [sectionTranslations, setSectionTranslations] = useState<SectionTranslations>({});
+  const [translationLocale, setTranslationLocale] = useState('');
+  const [languages, setLanguages] = useState<WebsiteLanguage[]>([]);
+  const [languagesLoading, setLanguagesLoading] = useState(false);
+  const [languagesError, setLanguagesError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [contentJson, setContentJson] = useState('{}');
   const [saving, setSaving] = useState(false);
@@ -403,6 +536,7 @@ export default function PageSectionsEditor() {
 
   const canEdit = role ? hasMinRole(role, 'editor') : false;
   const typeConfig = getSectionTypeConfig(sectionType);
+  const translatableFields = getSectionTranslationFields(typeConfig, formValues);
 
   const webPreviewUrl = useMemo(() => {
     const siteSlug = activeWebsite?.website.slug;
@@ -431,8 +565,42 @@ export default function PageSectionsEditor() {
     void load();
   }, [load]);
 
-  const syncJsonFromForm = (type: string, values: Record<string, SectionFormValue>) => {
+  useEffect(() => {
+    if (!websiteId) return;
+    let cancelled = false;
+    setLanguagesLoading(true);
+    setLanguagesError('');
+    void apiClient<WebsiteLanguage[]>(`/api/websites/${websiteId}/languages`)
+      .then((result) => {
+        if (cancelled) return;
+        const active = result.filter((language) => language.is_active);
+        setLanguages(active);
+        setTranslationLocale((current) => (
+          active.some((language) => language.locale === current && !language.is_default)
+            ? current
+            : active.find((language) => !language.is_default)?.locale ?? ''
+        ));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setLanguages([]);
+        setLanguagesError(err instanceof Error ? err.message : 'Tidak dapat memuat daftar bahasa.');
+      })
+      .finally(() => {
+        if (!cancelled) setLanguagesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [websiteId]);
+
+  const syncJsonFromForm = (
+    type: string,
+    values: Record<string, SectionFormValue>,
+    translations = sectionTranslations,
+  ) => {
     const content = formValuesToContent(type, values);
+    if (Object.keys(translations).length) content.translations = translations;
     setContentJson(JSON.stringify(content, null, 2));
   };
 
@@ -445,7 +613,8 @@ export default function PageSectionsEditor() {
     setSectionType(type);
     const values = getDefaultFormValues(type);
     setFormValues(values);
-    syncJsonFromForm(type, values);
+    setSectionTranslations({});
+    syncJsonFromForm(type, values, {});
     setShowAdvanced(false);
     setError('');
     setPickerOpen(false);
@@ -457,6 +626,7 @@ export default function PageSectionsEditor() {
     setSectionType(section.type);
     const values = contentToFormValues(section.type, section.content);
     setFormValues(values);
+    setSectionTranslations(parseSectionTranslations(section.content.translations));
     setContentJson(JSON.stringify(section.content, null, 2));
     setShowAdvanced(false);
     setError('');
@@ -478,6 +648,18 @@ export default function PageSectionsEditor() {
     if (!showAdvanced) syncJsonFromForm(sectionType, next);
   };
 
+  const handleTranslationChange = (locale: string, key: string, value: string) => {
+    setSectionTranslations((current) => {
+      const localeValues = { ...(current[locale] ?? {}) };
+      if (value.trim()) localeValues[key] = value;
+      else delete localeValues[key];
+      const next = { ...current };
+      if (Object.keys(localeValues).length) next[locale] = localeValues;
+      else delete next[locale];
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     if (!websiteId) return;
 
@@ -491,6 +673,7 @@ export default function PageSectionsEditor() {
       }
     } else {
       content = formValuesToContent(sectionType, formValues);
+      if (Object.keys(sectionTranslations).length) content.translations = sectionTranslations;
     }
 
     setSaving(true);
@@ -756,12 +939,25 @@ export default function PageSectionsEditor() {
           </div>
 
           {!showAdvanced ? (
-            <SectionFormFields
-              config={typeConfig}
-              values={formValues}
-              websiteId={websiteId ?? undefined}
-              onChange={handleFormChange}
-            />
+            <>
+              <SectionFormFields
+                config={typeConfig}
+                values={formValues}
+                websiteId={websiteId ?? undefined}
+                onChange={handleFormChange}
+              />
+              <SectionTranslationsEditor
+                fields={translatableFields}
+                languages={languages}
+                websiteId={websiteId ?? undefined}
+                loading={languagesLoading}
+                error={languagesError}
+                translations={sectionTranslations}
+                selectedLocale={translationLocale}
+                onLocaleChange={setTranslationLocale}
+                onTranslationChange={handleTranslationChange}
+              />
+            </>
           ) : (
             <FormTextarea
               label="Content (JSON)"

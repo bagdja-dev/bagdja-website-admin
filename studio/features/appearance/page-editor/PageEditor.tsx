@@ -9,11 +9,13 @@ import { Button, Input, Select, SelectItem, Switch, Textarea } from '@heroui/rea
 import {
   fetchPageAndSections,
   updatePage,
+  upsertPageTranslation,
   type WebsitePage,
   type WebsiteSection,
 } from '@/studio/api/pages';
 import { isNotFound } from '@/studio/api/client';
 import { createSection, updateSection, deleteSection, reorderSections } from '@/studio/api/sections';
+import { fetchLanguages, type WebsiteLanguageDto } from '@/studio/api/company-profile';
 import { fetchSectionSchemas } from '@/studio/api/templates';
 import type { TemplateManifestField, TemplateManifestSection } from '@/studio/api/templates';
 import { buildPagePreviewUrl, type PagePreviewDevice } from '@/studio/lib/template-preview';
@@ -66,6 +68,7 @@ const PAGE_PLACEMENT_OPTIONS: Array<{ value: WebsitePage['placement']; label: st
 
 function pageSettingsSnapshot(page: WebsitePage): string {
   return JSON.stringify([
+    page.name,
     page.title,
     page.slug,
     page.is_home,
@@ -76,6 +79,17 @@ function pageSettingsSnapshot(page: WebsitePage): string {
     page.seo_no_index,
     page.link_mode,
     page.external_url,
+    [...(page.translations ?? [])]
+      .map(({ locale, title, slug, seo_title, seo_description, seo_image, seo_no_index }) => [
+        locale,
+        title,
+        slug,
+        seo_title,
+        seo_description,
+        seo_image,
+        seo_no_index,
+      ])
+      .sort(([localeA], [localeB]) => String(localeA).localeCompare(String(localeB))),
   ]);
 }
 
@@ -92,6 +106,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
   /** Versi tersimpan di API — pembanding untuk dirty & simpan. */
   const [savedSections, setSavedSections] = useState<WebsiteSection[]>([]);
   const [schemas, setSchemas] = useState<TemplateManifestSection[]>([]);
+  const [languages, setLanguages] = useState<WebsiteLanguageDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   /** `not_found` = API 404 untuk halaman ini; `error` = galat lain (jaringan/server) → bisa dicoba lagi. */
@@ -170,6 +185,19 @@ export function PageEditor({ pageId }: PageEditorProps) {
     })();
     return () => { cancelled = true; };
   }, [websiteId, pageId, reloadKey]);
+
+  useEffect(() => {
+    if (!websiteId) return;
+    let cancelled = false;
+    fetchLanguages(websiteId)
+      .then((items) => {
+        if (!cancelled) setLanguages(items.filter((item) => item.is_active));
+      })
+      .catch(() => {
+        if (!cancelled) notify.error('Daftar bahasa website gagal dimuat.', 'Pengaturan terjemahan section tidak tersedia.');
+      });
+    return () => { cancelled = true; };
+  }, [websiteId]);
 
   const schemaMap = useMemo(() => {
     const map = new Map<string, TemplateManifestSection>();
@@ -319,18 +347,50 @@ export function PageEditor({ pageId }: PageEditorProps) {
       const [updated, savedPage] = await Promise.all([
         Promise.all(changed.map((s) => updateSection(websiteId, pageId, s.id, { content: s.content }))),
         pageSettingsDirty && page
-          ? updatePage(websiteId, pageId, {
-              title: page.title.trim(),
-              slug: page.slug.trim(),
-              is_home: page.is_home,
-              placement: page.placement,
-              seo_title: page.seo_title || null,
-              seo_description: page.seo_description || null,
-              seo_image: page.seo_image || null,
-              seo_no_index: page.seo_no_index,
-              link_mode: page.link_mode ?? 'internal',
-              external_url: page.link_mode === 'external' ? page.external_url?.trim() || null : null,
-            })
+          ? (async () => {
+              const savedPage = await updatePage(websiteId, pageId, {
+                name: page.name.trim(),
+                title: page.title.trim(),
+                slug: page.slug.trim(),
+                is_home: page.is_home,
+                placement: page.placement,
+                seo_title: page.seo_title || null,
+                seo_description: page.seo_description || null,
+                seo_image: page.seo_image || null,
+                seo_no_index: page.seo_no_index,
+                link_mode: page.link_mode ?? 'internal',
+                external_url: page.link_mode === 'external' ? page.external_url?.trim() || null : null,
+              });
+              const translations = await Promise.all(
+                languages
+                  .filter((language) => language.is_active)
+                  .map((language) =>
+                    upsertPageTranslation(
+                      websiteId,
+                      pageId,
+                      language.locale,
+                      language.is_default
+                        ? {
+                            title: page.title.trim(),
+                            slug: page.slug.trim(),
+                            seo_title: page.seo_title?.trim() || null,
+                            seo_description: page.seo_description?.trim() || null,
+                            seo_image: page.seo_image?.trim() || null,
+                            seo_no_index: page.seo_no_index,
+                          }
+                        : {
+                            title: page.translations?.find((translation) => translation.locale === language.locale)?.title?.trim() || page.title.trim(),
+                            slug: page.translations?.find((translation) => translation.locale === language.locale)?.slug?.trim() || page.slug.trim(),
+                            seo_title: page.translations?.find((translation) => translation.locale === language.locale)?.seo_title?.trim() || null,
+                            seo_description: page.translations?.find((translation) => translation.locale === language.locale)?.seo_description?.trim() || null,
+                            seo_image: page.seo_image?.trim() || null,
+                            seo_no_index: page.seo_no_index,
+                          },
+                    ),
+                  ),
+              );
+              return { ...savedPage, translations };
+            })()
           : Promise.resolve(page),
       ]);
       const byId = new Map(updated.map((s) => [s.id, s]));
@@ -542,6 +602,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
             {propertiesMode === 'page' ? (
               <PageSettingsFields
                 page={page}
+                languages={languages}
                 onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
               />
             ) : !selected ? (
@@ -549,7 +610,7 @@ export function PageEditor({ pageId }: PageEditorProps) {
             ) : !selectedSchema ? (
               <div className="py-20 text-center text-[12px] text-default-500">Skema untuk section &quot;{selected.type}&quot; tidak tersedia.</div>
             ) : (
-              <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} onChange={(next) => updateDraftContent(selected.id, next)} />
+              <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} languages={languages} onChange={(next) => updateDraftContent(selected.id, next)} />
             )}
           </div>
         </aside>
@@ -705,13 +766,17 @@ export function PageEditor({ pageId }: PageEditorProps) {
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
                     {propertiesMode === 'page' ? (
-                      <PageSettingsFields page={page} onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)} />
+                      <PageSettingsFields
+                        page={page}
+                        languages={languages}
+                        onChange={(patch) => setPage((current) => current ? { ...current, ...patch } : current)}
+                      />
                     ) : !selected ? (
                       <div className="py-12 text-center text-sm text-default-500">Pilih section untuk mengedit desainnya.</div>
                     ) : !selectedSchema ? (
                       <div className="py-12 text-center text-sm text-default-500">Skema untuk section &quot;{selected.type}&quot; tidak tersedia.</div>
                     ) : (
-                      <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} onChange={(next) => updateDraftContent(selected.id, next)} />
+                      <SectionPropertiesForm key={selected.id} schema={selectedSchema} content={selected.content} websiteId={websiteId} languages={languages} onChange={(next) => updateDraftContent(selected.id, next)} />
                     )}
                   </div>
                 </>
@@ -738,41 +803,141 @@ export function PageEditor({ pageId }: PageEditorProps) {
 
 function PageSettingsFields({
   page,
+  languages,
   onChange,
 }: {
   page: WebsitePage;
+  languages: WebsiteLanguageDto[];
   onChange: (patch: Partial<WebsitePage>) => void;
 }) {
+  const [selectedLocale, setSelectedLocale] = useState('');
+  const activeLanguages = languages.filter((language) => language.is_active);
+  const translations = page.translations ?? [];
+  const selectedLanguage = activeLanguages.find((language) => language.locale === selectedLocale)
+    ?? activeLanguages.find((language) => language.is_default)
+    ?? activeLanguages[0];
+  const selectedTranslation = selectedLanguage && !selectedLanguage.is_default
+    ? translations.find((translation) => translation.locale === selectedLanguage.locale)
+    : undefined;
+  const defaultTitle = page.title;
+  const defaultSlug = page.slug;
+  const defaultSeoTitle = page.seo_title ?? '';
+  const defaultSeoDescription = page.seo_description ?? '';
+  const patchTranslation = (
+    patch: Partial<NonNullable<WebsitePage['translations']>[number]>,
+  ) => {
+    if (!selectedLanguage || selectedLanguage.is_default) return;
+    const current = translations.find((translation) => translation.locale === selectedLanguage.locale);
+    onChange({
+      translations: [
+        ...translations.filter((translation) => translation.locale !== selectedLanguage.locale),
+        {
+          ...current,
+          locale: selectedLanguage.locale,
+          title: current?.title ?? defaultTitle,
+          slug: current?.slug ?? defaultSlug,
+          ...patch,
+        },
+      ],
+    });
+  };
+  const localizedValue = (
+    field: 'title' | 'slug' | 'seo_title' | 'seo_description',
+    fallback: string,
+  ) => {
+    if (!selectedLanguage || selectedLanguage.is_default) return fallback;
+    if (!selectedTranslation || selectedTranslation[field] === undefined) return fallback;
+    return selectedTranslation[field] ?? '';
+  };
+  const updateLocalizedValue = (
+    field: 'title' | 'slug' | 'seo_title' | 'seo_description',
+    value: string,
+  ) => {
+    const normalized = field === 'slug' ? slugify(value) : value;
+    if (!selectedLanguage || selectedLanguage.is_default) {
+      if (field === 'title') onChange({ title: normalized });
+      if (field === 'slug') onChange({ slug: normalized });
+      if (field === 'seo_title') onChange({ seo_title: normalized });
+      if (field === 'seo_description') onChange({ seo_description: normalized });
+      return;
+    }
+    patchTranslation({ [field]: normalized });
+  };
+
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Pengaturan halaman</h2>
-        <p className="mt-1 text-xs leading-relaxed text-default-500">Atur identitas, navigasi, tujuan tautan, dan SEO halaman secara terpisah dari desain section.</p>
+        <p className="mt-1 text-xs leading-relaxed text-default-500">Atur identitas dan tujuan halaman, lalu pilih bahasa untuk mengubah alamat, judul, dan SEO.</p>
       </div>
 
       <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Informasi halaman</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Identitas halaman</h3>
         <Input
           size="sm"
-          label="Judul halaman"
-          value={page.title}
+          label="Nama halaman (identitas tetap)"
+          value={page.name}
           maxLength={255}
-          onValueChange={(title) => onChange({ title })}
+          description="Tetap sama untuk semua bahasa dan melekat pada ID halaman."
+          onValueChange={(name) => onChange({ name })}
         />
+
+      <div className="flex flex-col gap-3 border-t border-default-200 pt-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Konten per bahasa</h3>
+        <Select
+          size="sm"
+          label="Bahasa"
+          selectedKeys={selectedLanguage ? [selectedLanguage.locale] : []}
+          onSelectionChange={(keys) => {
+            const locale = Array.from(keys)[0]?.toString();
+            if (locale) setSelectedLocale(locale);
+          }}
+        >
+          {activeLanguages.map((language) => (
+            <SelectItem key={language.locale}>{`${language.label} (${language.locale})${language.is_default ? ' · utama' : ''}`}</SelectItem>
+          ))}
+        </Select>
         <Input
           size="sm"
           label="Slug / alamat"
-          value={page.slug}
+          value={localizedValue('slug', defaultSlug)}
           maxLength={255}
-          description="Gunakan huruf kecil, angka, dan tanda hubung."
-          onValueChange={(slug) => onChange({ slug: slugify(slug) })}
+          description="Alamat halaman dapat berbeda untuk setiap bahasa."
+          onValueChange={(slug) => updateLocalizedValue('slug', slug)}
         />
+        <Input
+          size="sm"
+          label="Title halaman"
+          value={localizedValue('title', defaultTitle)}
+          maxLength={255}
+          onValueChange={(title) => updateLocalizedValue('title', title)}
+        />
+        <Input
+          size="sm"
+          label="Judul SEO"
+          value={localizedValue('seo_title', defaultSeoTitle)}
+          maxLength={255}
+          description="Kosongkan untuk mengikuti judul halaman."
+          onValueChange={(seo_title) => updateLocalizedValue('seo_title', seo_title)}
+        />
+        <Textarea
+          size="sm"
+          label="Deskripsi SEO"
+          value={localizedValue('seo_description', defaultSeoDescription)}
+          maxLength={500}
+          minRows={2}
+          description="Kosongkan untuk menggunakan deskripsi SEO bahasa utama."
+          onValueChange={(seo_description) => updateLocalizedValue('seo_description', seo_description)}
+        />
+      </div>
+
+      <div className="border-t border-default-200 pt-3">
         <Switch size="sm" isSelected={page.is_home} onValueChange={(is_home) => onChange({ is_home })}>
           <span className="text-xs">Jadikan halaman utama website</span>
         </Switch>
-      </section>
+      </div>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+      <div className="flex flex-col gap-3 border-t border-default-200 pt-3">
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Navigasi website</h3>
           <p className="mt-1 text-[11px] leading-relaxed text-default-500">Pilih lokasi tautan halaman. Halaman yang disembunyikan tetap dapat dibuka melalui alamatnya.</p>
@@ -791,9 +956,9 @@ function PageSettingsFields({
             <SelectItem key={option.value}>{option.label}</SelectItem>
           ))}
         </Select>
-      </section>
+      </div>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+      <div className="flex flex-col gap-3 border-t border-default-200 pt-3">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">Tujuan halaman</h3>
         <Select
           size="sm"
@@ -818,19 +983,18 @@ function PageSettingsFields({
             onValueChange={(external_url) => onChange({ external_url })}
           />
         )}
-      </section>
+      </div>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-default-200 p-3.5">
+      <div className="flex flex-col gap-3 border-t border-default-200 pt-3">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">SEO halaman</h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-default-500">Kosongkan judul atau deskripsi untuk menggunakan nilai otomatis dari halaman.</p>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-default-600">SEO lanjutan</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-default-500">Gambar berbagi dan pengindeksan berlaku untuk semua bahasa.</p>
         </div>
-        <Input size="sm" label="Judul SEO" value={page.seo_title ?? ''} maxLength={255} onValueChange={(seo_title) => onChange({ seo_title })} />
-        <Textarea size="sm" label="Deskripsi SEO" value={page.seo_description ?? ''} maxLength={500} minRows={2} onValueChange={(seo_description) => onChange({ seo_description })} />
         <Input size="sm" label="URL gambar share (opsional)" value={page.seo_image ?? ''} maxLength={1000} onValueChange={(seo_image) => onChange({ seo_image })} />
         <Switch size="sm" isSelected={Boolean(page.seo_no_index)} onValueChange={(seo_no_index) => onChange({ seo_no_index })}>
-          <span className="text-xs">Minta mesin pencari tidak mengindeks halaman ini</span>
+          <span className="text-xs">Jangan indeks halaman</span>
         </Switch>
+      </div>
       </section>
     </div>
   );
@@ -840,14 +1004,28 @@ function SectionPropertiesForm({
   schema,
   content,
   websiteId,
+  languages,
   onChange,
 }: {
   schema: TemplateManifestSection;
   content: Record<string, unknown>;
   websiteId: string;
+  languages: WebsiteLanguageDto[];
   onChange: (next: Record<string, unknown>) => void;
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...content }));
+  const [activeTab, setActiveTab] = useState<'content' | 'translations'>('content');
+  const translationLocales = useMemo(
+    () => languages.filter((language) => language.is_active && !language.is_default),
+    [languages],
+  );
+  const [translationLocale, setTranslationLocale] = useState(() => translationLocales[0]?.locale ?? '');
+
+  useEffect(() => {
+    if (!translationLocales.some((language) => language.locale === translationLocale)) {
+      setTranslationLocale(translationLocales[0]?.locale ?? '');
+    }
+  }, [translationLocale, translationLocales]);
 
   const handleFieldChange = useCallback(
     (key: string, value: unknown) => {
@@ -858,28 +1036,149 @@ function SectionPropertiesForm({
     [values, onChange],
   );
 
+  const translations = values.translations && typeof values.translations === 'object' && !Array.isArray(values.translations)
+    ? values.translations as Record<string, unknown>
+    : {};
+  const localeTranslations = translations[translationLocale] && typeof translations[translationLocale] === 'object' && !Array.isArray(translations[translationLocale])
+    ? translations[translationLocale] as Record<string, unknown>
+    : {};
+  const translatableFields = schema.fields.filter((field) => (
+    field.translatable && isFieldVisible(field, schema.fields, values) &&
+    typeof values[field.key] === 'string' && String(values[field.key]).trim().length > 0
+  ));
+
+  const handleTranslationChange = (key: string, value: string) => {
+    const nextLocaleTranslations = { ...localeTranslations };
+    if (value.trim()) nextLocaleTranslations[key] = value;
+    else delete nextLocaleTranslations[key];
+
+    const nextTranslations = { ...translations };
+    if (Object.keys(nextLocaleTranslations).length) nextTranslations[translationLocale] = nextLocaleTranslations;
+    else delete nextTranslations[translationLocale];
+
+    const next = { ...values };
+    if (Object.keys(nextTranslations).length) next.translations = nextTranslations;
+    else delete next.translations;
+    setValues(next);
+    onChange(next);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <span className="text-[12px] font-semibold text-default-600 uppercase tracking-wider">Field</span>
-        {schema.fields.filter((field) => isFieldVisible(field, schema.fields, values)).map((field) => (
-          <div key={field.key} className="flex flex-col gap-1.5">
-            {field.type !== 'richtext' && (
-              <label className="text-[12px] font-medium text-foreground">
-                {field.label}{field.required ? ' *' : ''}
-              </label>
-            )}
-            <SectionFieldInput
-              field={field}
-              value={values[field.key]}
-              alt={typeof values[`${field.key}_alt`] === 'string' ? values[`${field.key}_alt`] as string : ''}
-              websiteId={websiteId}
-              onChange={(v) => handleFieldChange(field.key, v)}
-            />
-            {!['richtext', 'phone', 'email', 'url'].includes(field.type) && field.description && <p className="text-[11px] text-default-500">{field.description}</p>}
-          </div>
-        ))}
+      <div className="flex w-fit items-center gap-1 rounded-lg bg-default-100 p-1">
+        <button
+          type="button"
+          aria-pressed={activeTab === 'content'}
+          onClick={() => setActiveTab('content')}
+          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${activeTab === 'content' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+        >
+          Field
+        </button>
+        <button
+          type="button"
+          aria-pressed={activeTab === 'translations'}
+          onClick={() => setActiveTab('translations')}
+          className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${activeTab === 'translations' ? 'bg-white text-foreground shadow-sm' : 'text-default-500'}`}
+        >
+          Terjemahan
+        </button>
       </div>
+
+      {activeTab === 'content' ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-[12px] font-semibold text-default-600 uppercase tracking-wider">Field</span>
+          {schema.fields.filter((field) => isFieldVisible(field, schema.fields, values)).map((field) => (
+            <div key={field.key} className="flex flex-col gap-1.5">
+              {field.type !== 'richtext' && (
+                <label className="text-[12px] font-medium text-foreground">
+                  {field.label}{field.required ? ' *' : ''}
+                </label>
+              )}
+              <SectionFieldInput
+                field={field}
+                value={values[field.key]}
+                alt={typeof values[`${field.key}_alt`] === 'string' ? values[`${field.key}_alt`] as string : ''}
+                websiteId={websiteId}
+                onChange={(v) => handleFieldChange(field.key, v)}
+              />
+              {!['richtext', 'phone', 'email', 'url'].includes(field.type) && field.description && <p className="text-[11px] text-default-500">{field.description}</p>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <section className="space-y-4">
+          {translationLocales.length ? (
+            <>
+              <Select
+                label="Bahasa"
+                size="sm"
+                selectedKeys={translationLocale ? [translationLocale] : []}
+                onSelectionChange={(keys) => {
+                  const [locale] = Array.from(keys);
+                  setTranslationLocale(String(locale ?? ''));
+                }}
+              >
+                {translationLocales.map((language) => (
+                  <SelectItem key={language.locale} textValue={`${language.label} (${language.locale})`}>
+                    {language.label} ({language.locale})
+                  </SelectItem>
+                ))}
+              </Select>
+
+              {translatableFields.length ? (
+                <div className="space-y-4">
+                  {translatableFields.map((field) => (
+                    <div key={field.key} className="space-y-2 rounded-lg border border-default-200 p-3">
+                      <p className="text-xs font-semibold text-default-700">{field.label}</p>
+                      <div className="grid gap-2">
+                        <div>
+                          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
+                            {languages.find((language) => language.is_default)?.label ?? 'Teks utama'}
+                          </span>
+                          {field.type === 'textarea' ? (
+                            <Textarea size="sm" isReadOnly value={String(values[field.key] ?? '')} minRows={2} />
+                          ) : (
+                            <Input size="sm" isReadOnly value={String(values[field.key] ?? '')} />
+                          )}
+                        </div>
+                        <div>
+                          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
+                            {translationLocales.find((language) => language.locale === translationLocale)?.label ?? translationLocale}
+                          </span>
+                          {field.type === 'textarea' ? (
+                            <Textarea
+                              size="sm"
+                              value={typeof localeTranslations[field.key] === 'string' ? localeTranslations[field.key] as string : ''}
+                              onValueChange={(value) => handleTranslationChange(field.key, value)}
+                              placeholder="Isi terjemahan..."
+                              minRows={2}
+                            />
+                          ) : (
+                            <Input
+                              size="sm"
+                              value={typeof localeTranslations[field.key] === 'string' ? localeTranslations[field.key] as string : ''}
+                              onValueChange={(value) => handleTranslationChange(field.key, value)}
+                              placeholder="Isi terjemahan..."
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed border-default-300 px-3 py-4 text-center text-xs text-default-500">
+                  Section ini belum memiliki field teks yang dapat diterjemahkan.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="rounded-lg border border-dashed border-default-300 px-3 py-4 text-center text-xs text-default-500">
+              Tambahkan dan aktifkan bahasa lain di Pengaturan Website → Bahasa untuk membuat terjemahan.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -1051,6 +1350,8 @@ function SectionFieldInput({
       return <PortfolioDataPickerField value={value} websiteId={websiteId} label={field.label} kind="projects" onChange={onChange} />;
     case 'portfolioCategoryPicker':
       return <PortfolioDataPickerField value={value} websiteId={websiteId} label={field.label} kind="categories" onChange={onChange} />;
+    case 'partnerCategoryPicker':
+      return <PortfolioDataPickerField value={value} websiteId={websiteId} label={field.label} kind="partnerCategories" onChange={onChange} />;
     case 'select':
       if (field.display === 'segmented' && !field.multiple) {
         return <SegmentedField field={field} value={value} onChange={onChange} />;

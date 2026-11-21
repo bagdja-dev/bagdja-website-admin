@@ -25,6 +25,7 @@ const FIELD_TYPES: { value: FulfillmentStepFieldType; label: string }[] = [
   { value: 'tanggal', label: 'Tanggal' },
   { value: 'tanggal_waktu', label: 'Tanggal & waktu' },
   { value: 'pdf', label: 'Dokumen PDF' },
+  { value: 'archive', label: 'Arsip ZIP' },
   { value: 'foto', label: 'Foto' },
   { value: 'video', label: 'Video' },
   { value: 'lokasi', label: 'Lokasi' },
@@ -49,7 +50,7 @@ export function dateField(type: FulfillmentStepFieldType): boolean {
 }
 
 function mediaField(type: FulfillmentStepFieldType): boolean {
-  return type === 'pdf' || type === 'foto' || type === 'video';
+  return type === 'pdf' || type === 'archive' || type === 'foto' || type === 'video';
 }
 
 export function FlowStepFieldsEditor({

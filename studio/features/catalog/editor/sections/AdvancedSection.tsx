@@ -8,7 +8,6 @@ import { ModelViewerElement } from '@/lib/model-viewer-element';
 import { Icon } from '@/studio/ui/icons';
 import { notify } from '@/studio/ui/primitives/Toast';
 
-import { slugifyProduct } from '../build-payload';
 import type { SectionProps } from '../editor-context';
 import { ADD_BTN, HINT, ICON_BTN, INPUT, MoneyInput, Notice, TextAreaField, TextField } from '../fields';
 import { advancedFieldsFor } from '../section-registry';
@@ -132,9 +131,9 @@ function SpecificationDialog({
   );
 }
 
-/** Bagian "Lanjutan" (tertutup): slug, SEO, specifications, estimation, model3d_url — isi per tipe dari registry. */
-export function AdvancedSection({ form, set, errors, product, websiteId, canEdit }: SectionProps) {
-  const [open, setOpen] = useState(Boolean(errors.slug || errors.estimation) || !canEdit);
+/** Bagian "Lanjutan" (tertutup): specifications, estimation, model3d_url — isi per tipe dari registry. */
+export function AdvancedSection({ form, set, errors, websiteId, canEdit }: SectionProps) {
+  const [open, setOpen] = useState(Boolean(errors.estimation) || !canEdit);
   const [specDialog, setSpecDialog] = useState<{ index: number; isNew: boolean } | null>(null);
   const [uploading, setUploading] = useState(false);
   const modelInput = useRef<HTMLInputElement>(null);
@@ -157,54 +156,13 @@ export function AdvancedSection({ form, set, errors, product, websiteId, canEdit
   return (
     <>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center justify-between gap-3 text-left">
-        <span className="text-[13px] text-default-600">Alamat URL, SEO{fields.includes('specifications') ? ', spesifikasi' : ''}{fields.includes('estimation') ? ', estimasi biaya tambahan' : ''}{fields.includes('model3d') ? ', model 3D' : ''}</span>
+        <span className="text-[13px] text-default-600">
+          {fields.map((field) => ({ specifications: 'Spesifikasi', estimation: 'Estimasi biaya tambahan', model3d: 'Model 3D' })[field]).join(', ')}
+        </span>
         <Icon name="chevronDown" size={18} className={open ? 'rotate-180' : ''} />
       </button>
       {open && (
         <div className="flex flex-col gap-4">
-          <TextField
-            label="Alamat URL (slug)"
-            value={form.slug}
-            onChange={(v) => set({ slug: slugifyProduct(v, true), slugTouched: true })}
-            error={errors.slug}
-            hint={product ? 'Mengubah alamat membuat tautan lama ke item ini tidak berlaku.' : 'Dibuat otomatis dari nama.'}
-            maxLength={255}
-          />
-          <div className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50/40 p-3.5">
-            <div>
-              <span className="text-[13px] font-bold">SEO produk</span>
-              <p className={HINT}>Kosongkan judul/deskripsi untuk menggunakan nama dan deskripsi produk.</p>
-            </div>
-            <TextField
-              label="Judul SEO"
-              value={form.seoTitle}
-              onChange={(seoTitle) => set({ seoTitle })}
-              maxLength={255}
-              hint={`${form.seoTitle.length}/255`}
-            />
-            <TextAreaField
-              label="Deskripsi SEO"
-              value={form.seoDescription}
-              onChange={(seoDescription) => set({ seoDescription })}
-              maxLength={500}
-            />
-            <TextField
-              label="URL gambar share"
-              value={form.seoImage}
-              onChange={(seoImage) => set({ seoImage })}
-              maxLength={1000}
-              hint="Kosongkan untuk menggunakan foto utama produk."
-            />
-            <label className="flex items-center gap-2 text-[13px] text-default-700">
-              <input
-                type="checkbox"
-                checked={form.seoNoIndex}
-                onChange={(event) => set({ seoNoIndex: event.target.checked })}
-                className="h-4 w-4 accent-primary"
-              />
-              Jangan indeks halaman produk ini
-            </label>
-          </div>
           {fields.includes('specifications') && (
             <div className="flex flex-col gap-2">
               <div>

@@ -6,14 +6,16 @@ import { Select, SelectItem } from '@heroui/react';
 
 import {
   fetchLanguages,
+  fetchPartnerCategories,
   fetchPortfolioCategories,
   fetchPortfolioProjects,
+  type PartnerCategoryDto,
   type PortfolioCategoryDto,
   type PortfolioProjectDto,
   type WebsiteLanguageDto,
 } from '@/studio/api/company-profile';
 
-type PickerKind = 'projects' | 'categories';
+type PickerKind = 'projects' | 'categories' | 'partnerCategories';
 
 function toIds(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
@@ -35,6 +37,7 @@ export function PortfolioDataPickerField({
 }) {
   const [projects, setProjects] = useState<PortfolioProjectDto[]>([]);
   const [categories, setCategories] = useState<PortfolioCategoryDto[]>([]);
+  const [partnerCategories, setPartnerCategories] = useState<PartnerCategoryDto[]>([]);
   const [languages, setLanguages] = useState<WebsiteLanguageDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -51,11 +54,15 @@ export function PortfolioDataPickerField({
           setLanguages(languageItems);
           setProjects(items);
         })
-      : Promise.all([fetchLanguages(websiteId), fetchPortfolioCategories(websiteId)]).then(([languageItems, items]) => {
-          if (cancelled) return;
-          setLanguages(languageItems);
-          setCategories(items);
-        });
+      : kind === 'categories'
+        ? Promise.all([fetchLanguages(websiteId), fetchPortfolioCategories(websiteId)]).then(([languageItems, items]) => {
+            if (cancelled) return;
+            setLanguages(languageItems);
+            setCategories(items);
+          })
+        : fetchPartnerCategories(websiteId).then((items) => {
+            if (!cancelled) setPartnerCategories(items);
+          });
     request.catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -73,13 +80,21 @@ export function PortfolioDataPickerField({
               || project.name,
             active: true,
           }))
-      : categories
+      : kind === 'categories'
+        ? categories
           .filter((category) => category.is_public && category.is_active)
           .map((category) => ({
             id: category.id,
             label: category.name,
             active: true,
-          }));
+          }))
+        : partnerCategories
+            .filter((category) => category.is_public && category.is_active)
+            .map((category) => ({
+              id: category.slug,
+              label: category.name,
+              active: true,
+            }));
     const known = new Set(items.map((item) => item.id));
     return [
       ...items.map((item) => ({ ...item, label: item.active ? item.label : `${item.label} (nonaktif/draft)` })),
@@ -89,7 +104,7 @@ export function PortfolioDataPickerField({
         active: false,
       })),
     ];
-  }, [categories, kind, languages, projects, selected]);
+  }, [categories, kind, languages, partnerCategories, projects, selected]);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -104,7 +119,9 @@ export function PortfolioDataPickerField({
         isDisabled={loading || error}
         isLoading={loading}
         placeholder={kind === 'projects' ? 'Pilih proyek' : 'Semua kategori'}
-        renderValue={(items) => items.length ? items.map((item) => item.textValue).join(', ') : 'Belum ada pilihan'}
+        renderValue={(items) => items.length
+          ? items.map((item) => item.textValue).join(', ')
+          : kind === 'projects' ? 'Belum ada pilihan' : 'Semua kategori'}
       >
         {options.map((option) => <SelectItem key={option.id} textValue={option.label}>{option.label}</SelectItem>)}
       </Select>
@@ -115,6 +132,10 @@ export function PortfolioDataPickerField({
             Coba lagi
           </button>
         </div>
+      ) : kind === 'partnerCategories' && !loading && options.length === 0 ? (
+        <p className="text-[11px] leading-relaxed text-default-500">
+          Belum ada kategori klien publik dan aktif. Semua klien publik akan ditampilkan.
+        </p>
       ) : selected.length ? (
         <button type="button" className="self-start text-[11px] font-medium text-primary hover:underline" onClick={() => onChange([])}>
           Hapus semua pilihan

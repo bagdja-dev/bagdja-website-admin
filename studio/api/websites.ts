@@ -38,6 +38,7 @@ export interface WebsiteIdentityPayload {
   name: string;
   tagline: string | null;
   logo_url: string | null;
+  login_background_url: string | null;
   whatsapp: string | null;
   phone: string | null;
   email: string | null;

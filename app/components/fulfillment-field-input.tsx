@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { FulfillmentStepFormField } from '../lib/types';
 import { FormInput, FormTextarea } from './form-field';
 import { uploadAsset } from '../lib/upload-asset';
+import { ARCHIVE_UPLOAD_ACCEPT, ARCHIVE_UPLOAD_MAX_BYTES, uploadArchive } from '../lib/upload-archive';
 
 interface FulfillmentFieldInputProps {
   field: FulfillmentStepFormField;
@@ -45,6 +46,7 @@ export function FulfillmentFieldInput({ field, value, onChange, websiteId }: Ful
     pdf: { accept: 'application/pdf', maxBytes: 20 * 1024 * 1024, label: 'PDF', folder: 'fulfillment' },
     foto: { accept: 'image/jpeg,image/png,image/webp', maxBytes: 10 * 1024 * 1024, label: 'foto', folder: 'fulfillment' },
     video: { accept: 'video/mp4,video/webm,video/quicktime', maxBytes: 100 * 1024 * 1024, label: 'video', folder: 'fulfillment' },
+    archive: { accept: ARCHIVE_UPLOAD_ACCEPT, maxBytes: ARCHIVE_UPLOAD_MAX_BYTES, label: 'arsip ZIP', folder: 'fulfillment' },
   } as const;
 
   const captureLocation = () => {
@@ -67,7 +69,7 @@ export function FulfillmentFieldInput({ field, value, onChange, websiteId }: Ful
     );
   };
 
-  const media = field.type === 'pdf' || field.type === 'foto' || field.type === 'video'
+  const media = field.type === 'pdf' || field.type === 'foto' || field.type === 'video' || field.type === 'archive'
     ? mediaConfig[field.type]
     : null;
 
@@ -81,7 +83,9 @@ export function FulfillmentFieldInput({ field, value, onChange, websiteId }: Ful
       const uploaded: string[] = [];
       for (const file of selectedFiles) {
         if (file.size > media.maxBytes) throw new Error(`Ukuran ${media.label} terlalu besar.`);
-        const result = await uploadAsset(file, websiteId, media.folder);
+        const result = field.type === 'archive'
+          ? await uploadArchive(file, websiteId)
+          : await uploadAsset(file, websiteId, media.folder);
         uploaded.push(result.url);
       }
       onChange([...mediaValues, ...uploaded.map((url) => ({ url, description: '' }))]);
@@ -126,7 +130,7 @@ export function FulfillmentFieldInput({ field, value, onChange, websiteId }: Ful
     );
   }
 
-  if (field.type === 'pdf' || field.type === 'foto' || field.type === 'video') {
+  if (field.type === 'pdf' || field.type === 'foto' || field.type === 'video' || field.type === 'archive') {
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-foreground">{field.label}{field.required && <span className="ml-0.5 text-danger">*</span>}</span>

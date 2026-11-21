@@ -25,6 +25,7 @@ export interface SectionFieldDef {
   key: string;
   label: string;
   type: SectionFieldType;
+  translatable?: boolean;
   description?: string;
   placeholder?: string;
   options?: { value: string; label: string }[];
@@ -43,6 +44,35 @@ export interface SectionTypeConfig {
   fields: SectionFieldDef[];
   defaults: Record<string, unknown>;
   manageHint?: string;
+}
+
+export interface SectionTranslationField {
+  key: string;
+  label: string;
+  value: string;
+  multiline: boolean;
+  richText: boolean;
+}
+
+export function getSectionTranslationFields(
+  config: SectionTypeConfig,
+  values: Record<string, SectionFormValue>,
+): SectionTranslationField[] {
+  const fields: SectionTranslationField[] = [];
+
+  for (const field of config.fields) {
+    const value = values[field.key];
+    if (field.type === 'list' || !field.translatable || typeof value !== 'string' || !value.trim()) continue;
+    fields.push({
+      key: field.key,
+      label: field.label,
+      value,
+      multiline: field.type === 'textarea' || field.type === 'richtext',
+      richText: field.type === 'richtext',
+    });
+  }
+
+  return fields;
 }
 
 function formatJsonField(value: unknown): string {
@@ -69,7 +99,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '🎯',
     defaults: { subtitle: '', show_whatsapp_cta: true, image_url: '' },
     fields: [
-      { key: 'subtitle', label: 'Subjudul', type: 'text', placeholder: 'Premium Barbershop' },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', translatable: true, placeholder: 'Premium Barbershop' },
       {
         key: 'image_url',
         label: 'Gambar Hero',
@@ -82,8 +112,8 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
         type: 'switch',
         description: 'Tombol hubungi via nomor WhatsApp profil brand.',
       },
-      { key: 'headline', label: 'Headline', type: 'text', placeholder: 'Dibangun untuk bertahan.' },
-      { key: 'lede', label: 'Deskripsi Hero', type: 'textarea' },
+      { key: 'headline', label: 'Headline', type: 'text', translatable: true, placeholder: 'Dibangun untuk bertahan.' },
+      { key: 'lede', label: 'Deskripsi Hero', type: 'textarea', translatable: true },
       { key: 'stats', label: 'Statistik (JSON)', type: 'json', description: 'Format: [{ "value": "10+", "label": "Tahun pengalaman" }]' },
     ],
   },
@@ -97,11 +127,12 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '📝',
     defaults: { title: '', body: '', align: 'left' },
     fields: [
-      { key: 'title', label: 'Judul', type: 'text', placeholder: 'Judul section (opsional)' },
+      { key: 'title', label: 'Judul', type: 'text', translatable: true, placeholder: 'Judul section (opsional)' },
       {
         key: 'body',
         label: 'Isi Teks',
         type: 'textarea',
+        translatable: true,
         placeholder: 'Tulis paragraf di sini...',
         description: 'Plain text — di website akan mengikuti font & warna template.',
       },
@@ -126,11 +157,12 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '✍️',
     defaults: { title: '', html: '', standalone: true },
     fields: [
-      { key: 'title', label: 'Judul', type: 'text', placeholder: 'Judul section (opsional)' },
+      { key: 'title', label: 'Judul', type: 'text', translatable: true, placeholder: 'Judul section (opsional)' },
       {
         key: 'html',
         label: 'Konten',
         type: 'richtext',
+        translatable: true,
         description: 'Format teks bebas — tampil dengan gaya standar (background putih).',
       },
     ],
@@ -145,11 +177,12 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '📖',
     defaults: { title: 'Tentang Kami', body: '', image_url: '' },
     fields: [
-      { key: 'title', label: 'Judul', type: 'text', placeholder: 'Tentang Kami' },
+      { key: 'title', label: 'Judul', type: 'text', translatable: true, placeholder: 'Tentang Kami' },
       {
         key: 'body',
         label: 'Cerita / Profil',
         type: 'textarea',
+        translatable: true,
         placeholder: 'Ceritakan bisnis Anda...',
       },
       {
@@ -170,7 +203,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '🖼️',
     defaults: { title: 'Galeri Kami', layout: 'grid', images: [] as GalleryImage[] },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text', placeholder: 'Galeri Kami' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true, placeholder: 'Galeri Kami' },
       {
         key: 'layout',
         label: 'Layout',
@@ -202,7 +235,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
       features: [],
     },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
       {
         key: 'visual_mode',
         label: 'Tampilan ilustrasi',
@@ -237,7 +270,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '🏷️',
     defaults: { title: 'Dipercaya Oleh', layout: 'grid', logos: [] as GalleryImage[] },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text', placeholder: 'Dipercaya Oleh' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true, placeholder: 'Dipercaya Oleh' },
       {
         key: 'layout',
         label: 'Layout',
@@ -260,9 +293,9 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '📣',
     defaults: { title: '', subtitle: '', button_text: 'Hubungi Kami', button_url: '' },
     fields: [
-      { key: 'title', label: 'Judul', type: 'text' },
-      { key: 'subtitle', label: 'Subjudul', type: 'text' },
-      { key: 'button_text', label: 'Teks Tombol', type: 'text' },
+      { key: 'title', label: 'Judul', type: 'text', translatable: true },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', translatable: true },
+      { key: 'button_text', label: 'Teks Tombol', type: 'text', translatable: true },
       { key: 'button_url', label: 'Link Tombol', type: 'text', placeholder: 'https://...' },
     ],
   },
@@ -276,8 +309,8 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '⚙️',
     defaults: { title: 'Alur Pengerjaan', subtitle: '', flow_id: '' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
-      { key: 'subtitle', label: 'Subjudul', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', translatable: true },
       { key: 'flow_id', label: 'Master Flow', type: 'flowPicker' },
     ],
   },
@@ -291,7 +324,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '💬',
     defaults: { title: 'Apa Kata Mereka' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
       { key: 'items', label: 'Testimonial (JSON)', type: 'json', description: 'Format: [{ "quote": "...", "context": "...", "location": "..." }]' },
     ],
   },
@@ -305,8 +338,8 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '📞',
     defaults: { title: 'Hubungi Kami' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
-      { key: 'subtitle', label: 'Subjudul', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', translatable: true },
       { key: 'show_form', label: 'Tampilkan formulir', type: 'switch' },
       { key: 'service_options', label: 'Pilihan jasa (JSON)', type: 'json', description: 'Array string, contoh: ["Kanopi", "Pagar"]' },
     ],
@@ -321,7 +354,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '✂️',
     manageHint: 'Kelola jasa di menu Produk dan Jasa → filter Jasa.',
     defaults: { title: 'Jasa Kami', source: 'products', filter_type: 'service' },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [{ key: 'title', label: 'Judul Section', type: 'text', translatable: true }],
   },
   {
     type: 'products_grid',
@@ -334,7 +367,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     manageHint: 'Kelola produk di menu Produk dan Jasa → filter Produk.',
     defaults: { title: 'Produk Kami', source: 'products', filter_type: 'product' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
       {
         key: 'filter_type',
         label: 'Tipe Produk',
@@ -357,7 +390,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '🗃️',
     manageHint: 'Kategori diambil dari field "Kategori" di menu Produk dan Jasa.',
     defaults: { title: 'Kategori Pilihan', source: 'products' },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [{ key: 'title', label: 'Judul Section', type: 'text', translatable: true }],
   },
   {
     type: 'featured_product',
@@ -370,15 +403,15 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     manageHint: 'Kelola produk di menu Produk dan Jasa.',
     defaults: { title: '', subtitle: '', product_ids: [] as string[], button_text: 'Lihat Detail' },
     fields: [
-      { key: 'title', label: 'Judul', type: 'text', placeholder: 'Opsional' },
-      { key: 'subtitle', label: 'Subjudul', type: 'text', placeholder: 'Opsional' },
+      { key: 'title', label: 'Judul', type: 'text', translatable: true, placeholder: 'Opsional' },
+      { key: 'subtitle', label: 'Subjudul', type: 'text', translatable: true, placeholder: 'Opsional' },
       {
         key: 'product_ids',
         label: 'Pilih Produk',
         type: 'productPicker',
         description: 'Pilih 1 produk atau jasa yang ingin ditonjolkan.',
       },
-      { key: 'button_text', label: 'Teks Tombol', type: 'text', placeholder: 'Lihat Detail' },
+      { key: 'button_text', label: 'Teks Tombol', type: 'text', translatable: true, placeholder: 'Lihat Detail' },
     ],
   },
   {
@@ -391,7 +424,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '📍',
     manageHint: 'Kelola cabang di menu Lokasi & Cabang.',
     defaults: { title: 'Kunjungi Kami', source: 'locations', filter_types: ['branch'] },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [{ key: 'title', label: 'Judul Section', type: 'text', translatable: true }],
   },
   {
     type: 'faq_list',
@@ -403,7 +436,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '❓',
     manageHint: 'Kelola FAQ di menu FAQ.',
     defaults: { title: 'Pertanyaan Umum', source: 'faqs' },
-    fields: [{ key: 'title', label: 'Judul Section', type: 'text' }],
+    fields: [{ key: 'title', label: 'Judul Section', type: 'text', translatable: true }],
   },
   {
     type: 'blog_list',
@@ -416,7 +449,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     manageHint: 'Kelola artikel di menu Blog.',
     defaults: { title: 'Artikel Terbaru', source: 'blog_posts', limit: '' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
       {
         key: 'limit',
         label: 'Jumlah Ditampilkan',
@@ -442,8 +475,8 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     manageHint: 'Kelola artikel di menu Blog.',
     defaults: { title: '', placeholder: 'Cari artikel...', source: 'blog_posts' },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text', placeholder: 'Opsional' },
-      { key: 'placeholder', label: 'Placeholder Pencarian', type: 'text', placeholder: 'Cari artikel...' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true, placeholder: 'Opsional' },
+      { key: 'placeholder', label: 'Placeholder Pencarian', type: 'text', translatable: true, placeholder: 'Cari artikel...' },
     ],
   },
   {
@@ -457,7 +490,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     manageHint: 'Kelola artikel di menu Blog.',
     defaults: { title: 'Artikel Pilihan', source: 'blog_posts', post_ids: [] as string[] },
     fields: [
-      { key: 'title', label: 'Judul Section', type: 'text' },
+      { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
       {
         key: 'post_ids',
         label: 'Pilih Artikel',

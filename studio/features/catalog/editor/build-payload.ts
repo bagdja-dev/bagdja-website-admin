@@ -91,6 +91,7 @@ export function buildProductPayload(form: ProductForm, ctx: PayloadContext): Pro
 
   const variantPrices = form.variants.map((v) => moneyValue(v.price) ?? 0);
   const body: ProductWriteRequest = {
+    identity_name: form.identityName.trim() || form.name.trim(),
     category_id: form.categoryId || null,
     name: form.name.trim(),
     slug: form.slug.trim(),

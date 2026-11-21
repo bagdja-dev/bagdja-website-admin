@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Input, Textarea } from '@heroui/react';
+import { useRef } from 'react';
 
 import { LogoField } from '@/studio/features/onboarding/LogoField';
 import { hasMinRole } from '@/studio/lib/roles';
@@ -18,6 +19,7 @@ export function IdentityEditor() {
   const website = websiteEntry?.website;
   const canEdit = hasMinRole(role, 'owner');
   const form = useIdentityEditor(website, patchWebsite);
+  const backgroundInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!website) {
     return <div className="rounded-[14px] border border-default-200 bg-white p-6 text-sm text-default-600">Pilih website untuk mengatur identitas.</div>;
@@ -34,7 +36,7 @@ export function IdentityEditor() {
             <h2 className="text-lg font-bold text-foreground">Identitas</h2>
             <p className="mt-1 text-sm text-default-600">Nama, logo, dan kontak bisnis yang tampil di website dan footer.</p>
           </div>
-          <Button color="primary" isDisabled={readOnly || !form.isDirty || form.saving || form.logoUploading} isLoading={form.saving} onPress={() => void form.save()}>
+          <Button color="primary" isDisabled={readOnly || !form.isDirty || form.saving || form.logoUploading || form.loginBackgroundUploading} isLoading={form.saving} onPress={() => void form.save()}>
             Simpan perubahan
           </Button>
         </div>
@@ -80,6 +82,60 @@ export function IdentityEditor() {
             isReadOnly={readOnly}
             onValueChange={(value) => form.setField('tagline', value)}
           />
+        </div>
+      </section>
+
+      <section className="rounded-[14px] border border-default-200 bg-white p-5 sm:p-6">
+        <h3 className="text-base font-bold text-foreground">Branding halaman login</h3>
+        <p className="mt-1 text-sm text-default-600">
+          Ditampilkan di halaman login Bagdja saat pengunjung masuk melalui website ini. Kosongkan untuk menggunakan tampilan default.
+        </p>
+        <div className="mt-4 flex flex-col gap-3">
+          {values.loginBackgroundUrl && (
+            <div className="relative max-w-xl overflow-hidden rounded-xl border border-default-200 bg-default-50">
+              {/* eslint-disable-next-line @next/next/no-img-element -- URL gambar dari storage service */}
+              <img src={values.loginBackgroundUrl} alt="Pratinjau background halaman login" className="max-h-64 w-full object-cover" />
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => form.setField('loginBackgroundUrl', '')}
+                  disabled={form.loginBackgroundUploading}
+                  className="absolute right-2 top-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-default-700 shadow hover:text-danger disabled:opacity-50"
+                >
+                  Hapus gambar
+                </button>
+              )}
+            </div>
+          )}
+          {!readOnly && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="bordered"
+                radius="sm"
+                isDisabled={form.loginBackgroundUploading}
+                onPress={() => backgroundInputRef.current?.click()}
+              >
+                {form.loginBackgroundUploading ? 'Mengunggah…' : values.loginBackgroundUrl ? 'Ganti gambar' : 'Unggah gambar'}
+              </Button>
+              <span className="text-xs text-default-500">JPG, PNG, WebP, atau GIF · maks. 5 MB · disarankan landscape</span>
+              <input
+                ref={backgroundInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+                disabled={form.loginBackgroundUploading}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void form.pickLoginBackground(file);
+                  event.currentTarget.value = '';
+                }}
+              />
+            </div>
+          )}
+          {form.loginBackgroundError && <p role="alert" className="text-xs font-medium text-[#B91C1C]">{form.loginBackgroundError}</p>}
         </div>
       </section>
 
