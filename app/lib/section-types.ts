@@ -168,6 +168,25 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     ],
   },
   {
+    type: 'custom_html',
+    label: 'HTML Kustom',
+    description: 'HTML, CSS, dan JS bebas untuk desain sendiri. Dijalankan terisolasi: JS hanya untuk UI, tanpa akses jaringan.',
+    category: 'narrative',
+    categoryLabel: 'Konten',
+    gradient: 'from-slate-700 to-slate-500',
+    icon: '</>',
+    defaults: { html: '' },
+    fields: [
+      {
+        key: 'html',
+        label: 'Kode HTML',
+        type: 'textarea',
+        description: 'Tempel HTML lengkap (CSS & JS inline). Untuk editor kode + preview, gunakan Studio.',
+        placeholder: '<div><h2>Judul</h2><p>Konten khusus</p></div>',
+      },
+    ],
+  },
+  {
     type: 'about',
     label: 'Tentang Kami',
     description: 'Section profil bisnis dengan teks dan foto — berbeda dari teks bebas.',

@@ -27,6 +27,7 @@ import { StatusScreen } from '@/studio/ui/primitives/StatusScreen';
 import { notify } from '@/studio/ui/primitives/Toast';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { RichTextEditor } from '@/studio/ui/rich-text-editor';
+import { CustomHtmlEditor } from '@/studio/ui/custom-html-editor';
 import { IconPickerField } from './IconPickerField';
 
 import { AddSectionDialog } from './AddSectionDialog';
@@ -49,7 +50,7 @@ import { usePreviewChannel } from './use-preview-channel';
 
 /** Nama `icon` di skema section API → ikon Studio terdekat (nama tak dikenal jatuh ke `more` di komponen Icon). */
 const SECTION_ICON: Record<string, IconName> = {
-  hero: 'appearance', about: 'team', text: 'edit', richtext: 'edit', gallery: 'image', testimonial: 'inbox',
+  hero: 'appearance', about: 'team', text: 'edit', richtext: 'edit', code: 'edit', gallery: 'image', testimonial: 'inbox',
   features: 'features', logos: 'image', services: 'catalog', products: 'catalog', categories: 'folder',
   spotlight: 'catalog', cta: 'external', contact: 'inbox', locations: 'location', faq: 'faq', blog: 'blog',
   search: 'search', collection: 'blog', flow: 'flow',
@@ -1318,6 +1319,17 @@ function SectionFieldInput({
           onChange={onChange}
           websiteId={websiteId}
           uploadFolder="content"
+        />
+      );
+    case 'customHtml':
+      return (
+        <CustomHtmlEditor
+          label={`${field.label}${field.required ? ' *' : ''}`}
+          description={field.description}
+          value={str}
+          onChange={onChange}
+          websiteId={websiteId}
+          uploadFolder="sections"
         />
       );
     case 'postPicker':

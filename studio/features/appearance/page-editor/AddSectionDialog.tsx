@@ -11,7 +11,7 @@ import { Icon } from '@/studio/ui/icons';
 import { SectionThumb, sectionThumbKind } from './SectionThumb';
 
 /** Kategori skema section API → label tab (artboard "Tambah bagian"). */
-const UNIVERSAL_SECTION_TYPES = new Set(['text_block', 'rich_text']);
+const UNIVERSAL_SECTION_TYPES = new Set(['text_block', 'rich_text', 'custom_html']);
 
 const CATEGORIES: ReadonlyArray<readonly [string, string]> = [
   ['all', 'Semua'],
