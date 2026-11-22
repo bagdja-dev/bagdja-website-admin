@@ -168,6 +168,25 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     ],
   },
   {
+    type: 'custom_html',
+    label: 'HTML Kustom',
+    description: 'HTML, CSS, dan JS bebas untuk desain sendiri. Dijalankan terisolasi: JS hanya untuk UI, tanpa akses jaringan.',
+    category: 'narrative',
+    categoryLabel: 'Konten',
+    gradient: 'from-slate-700 to-slate-500',
+    icon: '</>',
+    defaults: { html: '' },
+    fields: [
+      {
+        key: 'html',
+        label: 'Kode HTML',
+        type: 'textarea',
+        description: 'Tempel HTML lengkap (CSS & JS inline). Untuk editor kode + preview, gunakan Studio.',
+        placeholder: '<div><h2>Judul</h2><p>Konten khusus</p></div>',
+      },
+    ],
+  },
+  {
     type: 'about',
     label: 'Tentang Kami',
     description: 'Section profil bisnis dengan teks dan foto — berbeda dari teks bebas.',
@@ -231,11 +250,13 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '⭐',
     defaults: {
       title: 'Kenapa Pilih Kami',
+      subtitle: '',
       visual_mode: 'icon',
       features: [],
     },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
+      { key: 'subtitle', label: 'Subtitle', type: 'text', translatable: true, placeholder: 'Alasan memilih layanan kami' },
       {
         key: 'visual_mode',
         label: 'Tampilan ilustrasi',
@@ -256,6 +277,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
           { key: 'image_alt', label: 'Teks alternatif gambar', type: 'text', placeholder: 'Deskripsi singkat gambar' },
           { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
           { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+          { key: 'link', label: 'Link saat diklik', type: 'text', placeholder: 'https://contoh.com/halaman' },
         ],
       },
     ],

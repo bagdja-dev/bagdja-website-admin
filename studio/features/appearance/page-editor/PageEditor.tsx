@@ -27,6 +27,7 @@ import { StatusScreen } from '@/studio/ui/primitives/StatusScreen';
 import { notify } from '@/studio/ui/primitives/Toast';
 import { useConfirm } from '@/studio/ui/primitives/ConfirmDialog';
 import { RichTextEditor } from '@/studio/ui/rich-text-editor';
+import { CustomHtmlEditor } from '@/studio/ui/custom-html-editor';
 import { IconPickerField } from './IconPickerField';
 
 import { AddSectionDialog } from './AddSectionDialog';
@@ -49,7 +50,7 @@ import { usePreviewChannel } from './use-preview-channel';
 
 /** Nama `icon` di skema section API → ikon Studio terdekat (nama tak dikenal jatuh ke `more` di komponen Icon). */
 const SECTION_ICON: Record<string, IconName> = {
-  hero: 'appearance', about: 'team', text: 'edit', richtext: 'edit', gallery: 'image', testimonial: 'inbox',
+  hero: 'appearance', about: 'team', text: 'edit', richtext: 'edit', code: 'edit', gallery: 'image', testimonial: 'inbox',
   features: 'features', logos: 'image', services: 'catalog', products: 'catalog', categories: 'folder',
   spotlight: 'catalog', cta: 'external', contact: 'inbox', locations: 'location', faq: 'faq', blog: 'blog',
   search: 'search', collection: 'blog', flow: 'flow',
@@ -1199,11 +1200,27 @@ function normalizeSectionSchema(schema: TemplateManifestSection): TemplateManife
     itemFieldByKey.get('image_alt') ?? { key: 'image_alt', label: 'Teks alternatif gambar', type: 'text', placeholder: 'Deskripsi singkat gambar' },
     itemFieldByKey.get('title') ?? { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
     itemFieldByKey.get('desc') ?? { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+    itemFieldByKey.get('link') ?? {
+      key: 'link',
+      label: 'Link saat diklik',
+      type: 'url',
+      description: 'Opsional — klik kartu akan membuka alamat ini.',
+      placeholder: 'https://contoh.com/halaman',
+    },
   ];
   const defaults = Object.fromEntries(
-    Object.entries(schema.defaults).filter(([key]) => !/^feature_[1-4]_(icon|title|desc)$/.test(key)),
+    Object.entries(schema.defaults).filter(([key]) => !/^feature_[1-4]_(icon|title|desc|link)$/.test(key)),
   );
-  const fields = schema.fields.filter((field) => field.key !== 'features' && !/^feature_[1-4]_(icon|title|desc)$/.test(field.key));
+  const fields = schema.fields.filter((field) => field.key !== 'features' && !/^feature_[1-4]_(icon|title|desc|link)$/.test(field.key));
+  if (!fields.some((field) => field.key === 'subtitle')) {
+    fields.push({
+      key: 'subtitle',
+      label: 'Subtitle',
+      type: 'text',
+      translatable: true,
+      placeholder: 'Alasan memilih layanan kami',
+    });
+  }
   if (!fields.some((field) => field.key === 'visual_mode')) {
     fields.push({
       key: 'visual_mode',
@@ -1220,7 +1237,7 @@ function normalizeSectionSchema(schema: TemplateManifestSection): TemplateManife
   return {
     ...schema,
     description: 'Tambahkan alasan pelanggan memilih kamu, mis. Gratis Ongkir atau Garansi.',
-    defaults: { ...defaults, title: 'Kenapa Pilih Kami', visual_mode: 'icon', features: [] },
+    defaults: { ...defaults, title: 'Kenapa Pilih Kami', subtitle: '', visual_mode: 'icon', features: [] },
     fields: [
       ...fields,
       {
@@ -1241,6 +1258,7 @@ function normalizeLegacyFeatures(section: WebsiteSection): WebsiteSection {
       icon: section.content[`feature_${index}_icon`],
       title: section.content[`feature_${index}_title`],
       desc: section.content[`feature_${index}_desc`],
+      link: section.content[`feature_${index}_link`],
     }))
     .filter((item) =>
       [item.title, item.desc].some((value) => typeof value === 'string' && value.trim()),
@@ -1318,6 +1336,17 @@ function SectionFieldInput({
           onChange={onChange}
           websiteId={websiteId}
           uploadFolder="content"
+        />
+      );
+    case 'customHtml':
+      return (
+        <CustomHtmlEditor
+          label={`${field.label}${field.required ? ' *' : ''}`}
+          description={field.description}
+          value={str}
+          onChange={onChange}
+          websiteId={websiteId}
+          uploadFolder="sections"
         />
       );
     case 'postPicker':

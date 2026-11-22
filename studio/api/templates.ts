@@ -4,7 +4,7 @@ import type { WebsiteTemplateDto } from './types';
 export interface TemplateManifestField {
   key: string;
   label: string;
-  /** text | color | textarea | richtext | number | url | phone | email | select | iconPicker | switch | image | gallery | list | productCategoryPicker | partnerCategoryPicker | portfolioPicker | …Picker */
+  /** text | color | textarea | richtext | customHtml | number | url | phone | email | select | iconPicker | switch | image | gallery | list | productCategoryPicker | partnerCategoryPicker | portfolioPicker | …Picker */
   type: string;
   translatable?: boolean;
   description?: string;
