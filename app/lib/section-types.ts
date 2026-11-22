@@ -250,11 +250,13 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
     icon: '⭐',
     defaults: {
       title: 'Kenapa Pilih Kami',
+      subtitle: '',
       visual_mode: 'icon',
       features: [],
     },
     fields: [
       { key: 'title', label: 'Judul Section', type: 'text', translatable: true },
+      { key: 'subtitle', label: 'Subtitle', type: 'text', translatable: true, placeholder: 'Alasan memilih layanan kami' },
       {
         key: 'visual_mode',
         label: 'Tampilan ilustrasi',
@@ -275,6 +277,7 @@ export const SECTION_TYPE_CONFIGS: SectionTypeConfig[] = [
           { key: 'image_alt', label: 'Teks alternatif gambar', type: 'text', placeholder: 'Deskripsi singkat gambar' },
           { key: 'title', label: 'Judul keunggulan', type: 'text', placeholder: 'Gratis Ongkir' },
           { key: 'desc', label: 'Penjelasan keunggulan', type: 'textarea' },
+          { key: 'link', label: 'Link saat diklik', type: 'text', placeholder: 'https://contoh.com/halaman' },
         ],
       },
     ],
