@@ -206,6 +206,13 @@ export function fetchCatalogProducts(websiteId: string): Promise<CatalogProduct[
   return studioRequest<CatalogProduct[]>(productsPath(websiteId));
 }
 
+export function reorderCatalogProducts(websiteId: string, productIds: string[]): Promise<CatalogProduct[]> {
+  return studioRequest<CatalogProduct[]>(productsPath(websiteId, '/reorder'), {
+    method: 'POST',
+    ...jsonBody({ product_ids: productIds }),
+  });
+}
+
 export function fetchCatalogProduct(websiteId: string, productId: string): Promise<CatalogProduct> {
   return studioRequest<CatalogProduct>(productsPath(websiteId, `/${encodeURIComponent(productId)}`));
 }
