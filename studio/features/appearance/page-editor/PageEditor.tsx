@@ -1045,13 +1045,69 @@ function SectionPropertiesForm({
     : {};
   const translatableFields = schema.fields.filter((field) => (
     field.translatable && isFieldVisible(field, schema.fields, values) &&
-    typeof values[field.key] === 'string' && String(values[field.key]).trim().length > 0
+    typeof values[field.key] === 'string' &&
+    (String(values[field.key]).trim().length > 0 || field.type === 'customHtml')
   ));
+  const translatableListFields = schema.fields.flatMap((listField) => {
+    const itemFields = listField.itemFields ?? [];
+    if (!['list', 'gallery'].includes(listField.type) || !itemFields.some((field) => field.translatable)) return [];
+    const items = Array.isArray(values[listField.key]) ? values[listField.key] as unknown[] : [];
+    return items.flatMap((rawItem, index) => {
+      if (!rawItem || typeof rawItem !== 'object' || Array.isArray(rawItem)) return [];
+      const item = rawItem as Record<string, unknown>;
+      return itemFields
+        .filter((field) => field.translatable && typeof item[field.key] === 'string' && String(item[field.key]).trim())
+        .map((field) => ({
+          listKey: listField.key,
+          listLabel: listField.label,
+          itemIndex: index,
+          itemKey: field.key,
+          itemLabel: field.label,
+          value: String(item[field.key]),
+          type: field.type,
+        }));
+    });
+  });
 
   const handleTranslationChange = (key: string, value: string) => {
     const nextLocaleTranslations = { ...localeTranslations };
     if (value.trim()) nextLocaleTranslations[key] = value;
     else delete nextLocaleTranslations[key];
+
+    const nextTranslations = { ...translations };
+    if (Object.keys(nextLocaleTranslations).length) nextTranslations[translationLocale] = nextLocaleTranslations;
+    else delete nextTranslations[translationLocale];
+
+    const next = { ...values };
+    if (Object.keys(nextTranslations).length) next.translations = nextTranslations;
+    else delete next.translations;
+    setValues(next);
+    onChange(next);
+  };
+
+  const handleListItemTranslationChange = (
+    listKey: string,
+    itemIndex: number,
+    itemKey: string,
+    value: string,
+  ) => {
+    const translatedItems = Array.isArray(localeTranslations[listKey])
+      ? [...localeTranslations[listKey] as unknown[]]
+      : [];
+    const currentItem = translatedItems[itemIndex] && typeof translatedItems[itemIndex] === 'object' &&
+      !Array.isArray(translatedItems[itemIndex])
+      ? { ...translatedItems[itemIndex] as Record<string, unknown> }
+      : {};
+    if (value.trim()) currentItem[itemKey] = value;
+    else delete currentItem[itemKey];
+    translatedItems[itemIndex] = currentItem;
+
+    const nextLocaleTranslations = { ...localeTranslations };
+    if (translatedItems.some((item) => item && typeof item === 'object' && Object.keys(item).length > 0)) {
+      nextLocaleTranslations[listKey] = translatedItems;
+    } else {
+      delete nextLocaleTranslations[listKey];
+    }
 
     const nextTranslations = { ...translations };
     if (Object.keys(nextLocaleTranslations).length) nextTranslations[translationLocale] = nextLocaleTranslations;
@@ -1126,7 +1182,7 @@ function SectionPropertiesForm({
                 ))}
               </Select>
 
-              {translatableFields.length ? (
+              {translatableFields.length || translatableListFields.length ? (
                 <div className="space-y-4">
                   {translatableFields.map((field) => (
                     <div key={field.key} className="space-y-2 rounded-lg border border-default-200 p-3">
@@ -1136,7 +1192,19 @@ function SectionPropertiesForm({
                           <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
                             {languages.find((language) => language.is_default)?.label ?? 'Teks utama'}
                           </span>
-                          {field.type === 'textarea' ? (
+                          {field.type === 'richtext' ? (
+                            <RichTextEditor
+                              label={field.label}
+                              value={String(values[field.key] ?? '')}
+                              onChange={() => undefined}
+                              websiteId={websiteId}
+                              uploadFolder="content"
+                              disabled
+                              hideToolbar
+                            />
+                          ) : field.type === 'customHtml' ? (
+                            <Textarea size="sm" isReadOnly value={String(values[field.key] ?? '')} minRows={4} />
+                          ) : field.type === 'textarea' ? (
                             <Textarea size="sm" isReadOnly value={String(values[field.key] ?? '')} minRows={2} />
                           ) : (
                             <Input size="sm" isReadOnly value={String(values[field.key] ?? '')} />
@@ -1146,7 +1214,24 @@ function SectionPropertiesForm({
                           <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
                             {translationLocales.find((language) => language.locale === translationLocale)?.label ?? translationLocale}
                           </span>
-                          {field.type === 'textarea' ? (
+                          {field.type === 'richtext' ? (
+                            <RichTextEditor
+                              label={field.label}
+                              value={typeof localeTranslations[field.key] === 'string' ? localeTranslations[field.key] as string : ''}
+                              onChange={(value) => handleTranslationChange(field.key, value)}
+                              websiteId={websiteId}
+                              uploadFolder="content"
+                            />
+                          ) : field.type === 'customHtml' ? (
+                            <CustomHtmlEditor
+                              label={field.label}
+                              description={field.description}
+                              value={typeof localeTranslations[field.key] === 'string' ? localeTranslations[field.key] as string : ''}
+                              onChange={(value) => handleTranslationChange(field.key, value)}
+                              websiteId={websiteId}
+                              uploadFolder="sections"
+                            />
+                          ) : field.type === 'textarea' ? (
                             <Textarea
                               size="sm"
                               value={typeof localeTranslations[field.key] === 'string' ? localeTranslations[field.key] as string : ''}
@@ -1166,6 +1251,92 @@ function SectionPropertiesForm({
                       </div>
                     </div>
                   ))}
+                  {translatableListFields.map((field) => {
+                    const translatedItems = Array.isArray(localeTranslations[field.listKey])
+                      ? localeTranslations[field.listKey] as unknown[]
+                      : [];
+                    const translatedItem = translatedItems[field.itemIndex] &&
+                      typeof translatedItems[field.itemIndex] === 'object' &&
+                      !Array.isArray(translatedItems[field.itemIndex])
+                      ? translatedItems[field.itemIndex] as Record<string, unknown>
+                      : {};
+                    return (
+                      <div
+                        key={`${field.listKey}-${field.itemIndex}-${field.itemKey}`}
+                        className="space-y-2 rounded-lg border border-default-200 p-3"
+                      >
+                        <p className="text-xs font-semibold text-default-700">
+                          {field.listLabel} · Item {field.itemIndex + 1} · {field.itemLabel}
+                        </p>
+                        <div className="grid gap-2">
+                          <div>
+                            <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
+                              {languages.find((language) => language.is_default)?.label ?? 'Teks utama'}
+                            </span>
+                            {field.type === 'richtext' ? (
+                              <RichTextEditor
+                                label={field.itemLabel}
+                                value={field.value}
+                                onChange={() => undefined}
+                                websiteId={websiteId}
+                                uploadFolder="content"
+                                disabled
+                                hideToolbar
+                              />
+                            ) : field.type === 'textarea' ? (
+                              <Textarea size="sm" isReadOnly value={field.value} minRows={2} />
+                            ) : (
+                              <Input size="sm" isReadOnly value={field.value} />
+                            )}
+                          </div>
+                          <div>
+                            <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-default-400">
+                              {translationLocales.find((language) => language.locale === translationLocale)?.label ?? translationLocale}
+                            </span>
+                            {field.type === 'richtext' ? (
+                              <RichTextEditor
+                                label={field.itemLabel}
+                                value={typeof translatedItem[field.itemKey] === 'string' ? translatedItem[field.itemKey] as string : ''}
+                                onChange={(value) => handleListItemTranslationChange(
+                                  field.listKey,
+                                  field.itemIndex,
+                                  field.itemKey,
+                                  value,
+                                )}
+                                websiteId={websiteId}
+                                uploadFolder="content"
+                              />
+                            ) : field.type === 'textarea' ? (
+                              <Textarea
+                                size="sm"
+                                value={typeof translatedItem[field.itemKey] === 'string' ? translatedItem[field.itemKey] as string : ''}
+                                onValueChange={(value) => handleListItemTranslationChange(
+                                  field.listKey,
+                                  field.itemIndex,
+                                  field.itemKey,
+                                  value,
+                                )}
+                                placeholder="Isi terjemahan..."
+                                minRows={2}
+                              />
+                            ) : (
+                              <Input
+                                size="sm"
+                                value={typeof translatedItem[field.itemKey] === 'string' ? translatedItem[field.itemKey] as string : ''}
+                                onValueChange={(value) => handleListItemTranslationChange(
+                                  field.listKey,
+                                  field.itemIndex,
+                                  field.itemKey,
+                                  value,
+                                )}
+                                placeholder="Isi terjemahan..."
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="rounded-lg border border-dashed border-default-300 px-3 py-4 text-center text-xs text-default-500">
