@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 
+import { errorMessage } from '@/studio/api/client';
+import { fetchCatalogProducts, reorderCatalogProducts, type CatalogProduct } from '@/studio/api/products';
 import { hasMinRole } from '@/studio/lib/roles';
-import { useActiveRole } from '@/studio/stores/website-store';
+import { useActiveRole, useActiveWebsiteId } from '@/studio/stores/website-store';
 import {
   BulkActionBar,
   DataCardList,
@@ -12,12 +14,14 @@ import {
   DataToolbar,
   ListPager,
   ListSkeleton,
+  ReorderList,
   type ColumnContext,
   type DataListState,
 } from '@/studio/ui/data-list';
 import { Icon } from '@/studio/ui/icons';
 import { EmptyState } from '@/studio/ui/primitives/EmptyState';
 import { PageHeader } from '@/studio/ui/primitives/PageHeader';
+import { notify } from '@/studio/ui/primitives/Toast';
 
 import { CATEGORIES_PATH } from '../catalog-types';
 import { catalogColumns } from './catalog-columns';
@@ -39,9 +43,44 @@ const SMALL_BTN = 'min-h-10 rounded-[10px] border border-default-300 bg-white px
 export function CatalogList() {
   const c = useCatalogList();
   const role = useActiveRole();
+  const websiteId = useActiveWebsiteId();
   const canEdit = hasMinRole(role, 'editor');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [reorderDraft, setReorderDraft] = useState<CatalogProduct[] | null>(null);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const [reorderSaving, setReorderSaving] = useState(false);
   const { list } = c;
+
+  const startReorder = async () => {
+    if (!websiteId) return;
+    setReorderLoading(true);
+    try {
+      const products = await fetchCatalogProducts(websiteId);
+      setReorderDraft(products.filter((product) => !product.parent_product_id));
+      list.resetQuery();
+    } catch (error) {
+      notify.error('Gagal memuat urutan produk', errorMessage(error));
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  const saveReorder = async () => {
+    if (!websiteId || !reorderDraft) return;
+    setReorderSaving(true);
+    try {
+      await reorderCatalogProducts(websiteId, reorderDraft.map((product) => product.id));
+      setReorderDraft(null);
+      notify.success('Urutan produk disimpan.');
+      void c.reload().catch((error) => {
+        notify.error('Urutan tersimpan, tetapi daftar gagal dimuat ulang.', errorMessage(error));
+      });
+    } catch (error) {
+      notify.error('Urutan gagal disimpan', errorMessage(error));
+    } finally {
+      setReorderSaving(false);
+    }
+  };
 
   const columns = useMemo(
     () =>
@@ -108,30 +147,62 @@ export function CatalogList() {
         description="Semua yang kamu jual. Tampil di website dan bisa dipesan pelanggan."
         count={list.status === 'ready' ? list.totalCount : undefined}
         actions={
-          <>
-            <Link href={CATEGORIES_PATH} className={OUTLINE_BTN}>
-              <Icon name="folder" size={16} />
-              Kategori
-            </Link>
-            {canEdit && addButton(`hidden md:inline-flex ${PRIMARY_BTN}`)}
-          </>
+          reorderDraft ? (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setReorderDraft(null)} disabled={reorderSaving} className={OUTLINE_BTN}>
+                Batal
+              </button>
+              <button type="button" onClick={() => void saveReorder()} disabled={reorderSaving} className={PRIMARY_BTN}>
+                {reorderSaving ? 'Menyimpan…' : 'Simpan urutan'}
+              </button>
+            </div>
+          ) : (
+            <>
+              {canEdit && list.totalCount > 1 && (
+                <button type="button" onClick={() => void startReorder()} disabled={reorderLoading} className={OUTLINE_BTN}>
+                  <Icon name="reorder" size={16} />
+                  {reorderLoading ? 'Memuat…' : 'Atur urutan'}
+                </button>
+              )}
+              <Link href={CATEGORIES_PATH} className={OUTLINE_BTN}>
+                <Icon name="folder" size={16} />
+                Kategori
+              </Link>
+              {canEdit && addButton(`hidden md:inline-flex ${PRIMARY_BTN}`)}
+            </>
+          )
         }
       />
       <div className="flex flex-col gap-3.5 pb-20 md:pb-0">
-        <SampleDataBanner onRemoved={() => void c.reload()} />
-        {(list.totalCount > 0 || list.hasActiveQuery) && (
-          <DataToolbar
-            search={list.search}
-            onSearchChange={list.setSearch}
-            searchPlaceholder="Cari nama atau SKU"
-            filters={list.filters}
-            filterValues={list.filterValues}
-            filterCounts={list.filterCounts}
-            onFilterChange={list.setFilter}
-          />
+        {!reorderDraft && (
+          <>
+            <SampleDataBanner onRemoved={() => void c.reload()} />
+            {(list.totalCount > 0 || list.hasActiveQuery) && (
+              <DataToolbar
+                search={list.search}
+                onSearchChange={list.setSearch}
+                searchPlaceholder="Cari nama atau SKU"
+                filters={list.filters}
+                filterValues={list.filterValues}
+                filterCounts={list.filterCounts}
+                onFilterChange={list.setFilter}
+              />
+            )}
+            {selectable && <BulkActionBar selectedRows={list.selectedRows} actions={visibleBulk} onClear={list.selection.clear} />}
+          </>
         )}
-        {selectable && <BulkActionBar selectedRows={list.selectedRows} actions={visibleBulk} onClear={list.selection.clear} />}
-        {body ? (
+        {reorderDraft ? (
+          <section className="overflow-hidden rounded-[14px] border border-default-200 bg-white">
+            <p className="border-b border-default-100 px-4 py-3 text-sm text-default-600">
+              Seret produk untuk mengatur urutannya. Perubahan ini akan digunakan pada daftar produk di website.
+            </p>
+            <ReorderList
+              rows={reorderDraft}
+              onChange={setReorderDraft}
+              getRowLabel={(product) => product.identity_name || product.name}
+            />
+          </section>
+        ) : body ? (
           <div className="rounded-[14px] border border-default-200 bg-white">{body}</div>
         ) : (
           <>
@@ -146,7 +217,7 @@ export function CatalogList() {
           </>
         )}
       </div>
-      {canEdit && addButton(FAB)}
+      {!reorderDraft && canEdit && addButton(FAB)}
       <TypePickerDialog isOpen={pickerOpen} onClose={() => setPickerOpen(false)} />
       <ChangeCategoryDialog
         count={c.categoryDialogRows ? c.categoryDialogRows.length : null}
