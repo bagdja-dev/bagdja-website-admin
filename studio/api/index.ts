@@ -10,6 +10,7 @@ export * from './templates';
 export * from './products';
 export * from './notifications';
 export * from './badges';
+export * from './analytics';
 export * from './realtime';
 export * from './onboarding';
 export * from './subscription';

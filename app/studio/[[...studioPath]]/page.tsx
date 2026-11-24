@@ -5,7 +5,7 @@ import { UnderConstructionState } from '@/studio/features/placeholders/UnderCons
 import { navItemForPath } from '@/studio/ui/shell/nav-registry';
 
 /** Area yang rutenya sudah dibangun: path lain di bawahnya = 404, bukan "sedang disiapkan". */
-const BUILT_PREFIXES: readonly string[] = ['/studio/catalog', '/studio/events/items', '/studio/portfolio', '/studio/clients', '/studio/partners'];
+const BUILT_PREFIXES: readonly string[] = ['/studio/analytics', '/studio/catalog', '/studio/events/items', '/studio/portfolio', '/studio/clients', '/studio/partners'];
 
 interface StudioCatchAllPageProps {
   params: { studioPath?: string[] };
