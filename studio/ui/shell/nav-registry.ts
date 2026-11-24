@@ -45,6 +45,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: 'website',
     label: 'Website',
     items: [
+      { id: 'analytics', label: 'Statistik', icon: 'analytics', href: '/studio/analytics' },
       { id: 'appearance', label: 'Tampilan Website', icon: 'appearance', module: 'site_content', href: '/studio/appearance' },
       { id: 'faq', label: 'FAQ', icon: 'faq', module: 'faq', href: '/studio/faq' },
       { id: 'blog', label: 'Blog', icon: 'blog', module: 'blog', href: '/studio/blog' },
